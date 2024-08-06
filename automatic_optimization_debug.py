@@ -33,10 +33,12 @@ class TrainerConfig:
 class GPTTranner(pl.LightningModule):
     def __init__(self, model: torch.nn.Module, config: TrainerConfig):
         super(GPTTranner, self).__init__()
-        self.automatic_optimization = True
         self.model = model
         self.config = config
         self.start_time = time.time()
+        
+        # TODO: True/False gives differente results. Why?
+        self.automatic_optimization = True 
 
 
     def training_step(self, batch, batch_idx):
