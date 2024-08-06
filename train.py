@@ -26,7 +26,6 @@ torch.set_float32_matmul_precision("high")
 class TrainerConfig:
     n_gpu: int = torch.cuda.device_count() # Use all available gpus
     B: int = 16
-    T: int = 1024
     lr_base: float = 3e-4
     lr_overshoot: Optional[None] =  None
     epochs: int = 4
@@ -36,13 +35,15 @@ class TrainerConfig:
     gradient_clip_val: float = 0.5
 
 
-class GPTTranner(pl.LightningModule):
-    def __init__(self, model: torch.nn.Module, config: TrainerConfig):
-        super(GPTTranner, self).__init__()
+class OvershootTrainer(pl.LightningModule):
+    def __init__(self, model: torch.nn.Module, dataset, config: TrainerConfig):
+        super(OvershootTrainer, self).__init__()
         self.automatic_optimization = args.baseline
         self.base_model = model
         if not args.baseline:
             self.overshoot_model = copy.deepcopy(model)
+        self.dataset = dataset
+        self.steps = int(round(config.B + config.epochs * len(dataset) // config.B // config.n_gpu))
         self.config = config
         self.start_time = time.time()
         self.training_stats = []
@@ -96,7 +97,6 @@ class GPTTranner(pl.LightningModule):
         now = time.time()
         dt = now - self.start_time  # time difference in seconds
         self.start_time = now
-        tokens_per_sec = self.config.B * self.config.T / dt
         lr_base = self.base_scheduler.get_last_lr()[-1]
         if hasattr(self, 'overshoot_scheduler'):
             lr_overshoot = self.overshoot_scheduler.get_last_lr()[-1]
@@ -110,7 +110,7 @@ class GPTTranner(pl.LightningModule):
                 utilization = torch.cuda.utilization(gpu_index)
                 gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
             print(
-                f"step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f}  | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}{gpu_info}"
+                f"step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f}  | dt: {dt*1000:.2f}ms{gpu_info}"
             )
             
         stats = {"step": len(self.training_stats), "base_lr": lr_base, "overshoot_lr": lr_overshoot, "base_loss": loss_base.item(), "overshoot_loss": loss_overshoot.item()}
@@ -119,9 +119,6 @@ class GPTTranner(pl.LightningModule):
         return loss_overshoot
 
     def configure_optimizers(self):
-        self._train_dataset = NextTokenDataloader(T=self.config.T)
-        self.steps = int(round(self.config.B + self.config.epochs * len(self._train_dataset) // self.config.B // self.config.n_gpu))
-
         optimizers = []
         model_names = ['base'] if self.automatic_optimization else ['base', 'overshoot']
         for model_name in model_names:
@@ -151,12 +148,13 @@ class GPTTranner(pl.LightningModule):
 
     def train_dataloader(self):
         print("Total Steps: ", self.steps)
-        return DataLoader(self._train_dataset, batch_size=self.config.B)
+        return DataLoader(self.dataset, batch_size=self.config.B)
 
 
 # -----------------------------------------------------------------------------
 def main():
     model = GPT(GPTConfig(vocab_size=50304))
+    dataset = NextTokenDataloader(T=model.config.T)
 
     # Doesn't work inside devana slurn job
     # model = torch.compile(model)
@@ -167,8 +165,8 @@ def main():
         # trainer_config.lr_overshoot = trainer_config.lr_base * args.overshoot_factor
         trainer_config.lr_overshoot = trainer_config.lr_base
         
-    gpt_trainer = GPTTranner(model, trainer_config)
-    trainer = pl.Trainer(
+    trainer = OvershootTrainer(model, dataset, trainer_config)
+    pl_trainer = pl.Trainer(
         max_epochs=trainer_config.epochs,
         # accumulate_grad_batches=trainer_config.accumulate_grad_batches,
         # gradient_clip_val=trainer_config.gradient_clip_val,
@@ -179,9 +177,9 @@ def main():
         devices=trainer_config.n_gpu,
         strategy='deepspeed_stage_2' if trainer_config.n_gpu > 1 else 'auto',
     )
-    # trainer.strategy.config["zero_force_ds_cpu_optimizer"] = False
-    trainer.fit(gpt_trainer)
-    pd.DataFrame(gpt_trainer.training_stats).to_csv(os.path.join("lightning_logs", args.job_name, f"{sub_name}.csv"), index=False)
+    # pl_trainer.strategy.config["zero_force_ds_cpu_optimizer"] = False
+    pl_trainer.fit(trainer)
+    pd.DataFrame(trainer.training_stats).to_csv(os.path.join("lightning_logs", args.job_name, f"{sub_name}.csv"), index=False)
 
 
 if __name__ == "__main__":

@@ -11,7 +11,6 @@ class NextTokenDataloader:
         os.environ["TIKTOKEN_CACHE_DIR"] = cache_dir
         self.T = T
 
-            
         file_path = os.path.join(cache_dir, source_file)
         # Download source file if needed
         if not os.path.exists(file_path):
