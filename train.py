@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import copy
 import os
 
-from datasets import DataLoaderLite
+from datasets import NextTokenDataloader
 from gpt import GPT, GPTConfig
 
 # ------------------------------------------------------------------------------
@@ -105,7 +105,7 @@ class GPTTranner(pl.LightningModule):
 
     def configure_optimizers(self):
         if not hasattr(self, '_train_dataset'):
-            self._train_dataset = DataLoaderLite(T=self.config.T)
+            self._train_dataset = NextTokenDataloader(T=self.config.T)
             self.steps = int(round(self.config.B + self.config.epochs * len(self._train_dataset) // self.config.B // self.config.n_gpu))
 
         for model_name in ['base', 'overshoot']:
@@ -135,7 +135,7 @@ class GPTTranner(pl.LightningModule):
 
     def train_dataloader(self):
         if not hasattr(self, '_train_dataset'):
-            self._train_dataset = DataLoaderLite(T=self.config.T)
+            self._train_dataset = NextTokenDataloader(T=self.config.T)
             self.steps = int(round(self.config.B + self.config.epochs * len(self._train_dataset) // self.config.B // self.config.n_gpu))
         print("Total Steps: ", self.steps)
         return DataLoader(self._train_dataset, batch_size=self.config.B, num_workers=15)

@@ -1,0 +1,4 @@
+
+lightning_logs/
+.next-token-dataloader
+__pycache__
