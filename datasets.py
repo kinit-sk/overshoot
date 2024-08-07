@@ -1,6 +1,7 @@
 import os
 import tiktoken
 import torch
+from torchvision import datasets, transforms
 
 
 class NextTokenDataloader:
@@ -39,3 +40,15 @@ class NextTokenDataloader:
 
     def __len__(self):
         return len(self.tokens) // (self.T + 1)
+        
+        
+        
+        
+# Define transformations for the dataset
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))  # Normalize with mean and std deviation for MNIST
+])
+
+mnist_dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
+        
