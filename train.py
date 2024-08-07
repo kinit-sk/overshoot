@@ -192,8 +192,8 @@ def main():
 
 if __name__ == "__main__":
     # We should always observe the same results from:
-    #   1) python --job_name test --baseline
-    #   2) python --job_name test --overshoot_factor 1
+    #   1) python train.py --job_name test --baseline
+    #   2) python train.py --job_name test --overshoot_factor 1
     # Sadly not true `automatic_optization` gives differente results (see: `automatic_optimization_debug.py`)
 
     parser = argparse.ArgumentParser()
