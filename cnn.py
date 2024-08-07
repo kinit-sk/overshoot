@@ -8,12 +8,12 @@ from typing import Optional, Tuple
 @dataclass
 class CNNTrainerConfig:
     n_gpu: int = torch.cuda.device_count()  # Use all available gpus
-    B: int = 8
-    lr_base: float = 3e-3
+    B: int = 32
+    lr_base: float = 3e-4
     lr_overshoot: Optional[None] = None
-    epochs: int = 1
+    epochs: int = 10
     adam_betas: Tuple[float, float] = 0.9, 0.95
-    weight_decay: float = 0.1
+    weight_decay: float = 0.0
     accumulate_grad_batches: int = 2
     gradient_clip_val: float = 0.5
 
@@ -21,11 +21,18 @@ class CNN(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout2d(0.25)
-        self.dropout2 = nn.Dropout2d(0.5)
-        self.fc1 = nn.Linear(9216, 10)
+        self.conv1 = nn.Conv2d(3, 64, 3, 1)
+        self.conv2 = nn.Conv2d(64, 64, 3, 1)
+        
+        self.conv3 = nn.Conv2d(64, 128, 3, 1)
+        self.conv4 = nn.Conv2d(128, 128, 3, 1)
+        
+        self.conv5 = nn.Conv2d(128, 256, 3, 1)
+        self.conv6 = nn.Conv2d(256, 256, 3, 1)
+        
+        self.fc1 = nn.Linear(256, 100)
+        # self.fc2 = nn.Linear(1000, 100)
+        
         # self.fc2 = nn.Linear(128, 10)
         
         
@@ -35,11 +42,21 @@ class CNN(nn.Module):
         x = self.conv2(x)
         x = F.relu(x)
         x = F.max_pool2d(x, 2)
-        x = self.dropout1(x)
+        
+        x = self.conv3(x)
+        x = F.relu(x)
+        x = self.conv4(x)
+        x = F.relu(x)
+        x = F.max_pool2d(x, 2)
+        
+        x = self.conv5(x)
+        x = F.relu(x)
+        x = self.conv6(x)
+        x = F.relu(x)
+        
         x = torch.flatten(x, 1)
         x = self.fc1(x)
         # x = F.relu(x)
-        # x = self.dropout2(x)
         # x = self.fc2(x)
         output = F.log_softmax(x, dim=1)
         loss = None

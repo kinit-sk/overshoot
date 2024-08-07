@@ -50,5 +50,6 @@ transform = transforms.Compose([
     transforms.Normalize((0.1307,), (0.3081,))  # Normalize with mean and std deviation for MNIST
 ])
 
-mnist_dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
+# mnist_dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
+mnist_dataset = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=transform)
         

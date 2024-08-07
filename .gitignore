@@ -3,4 +3,5 @@ lightning_logs/
 .next-token-dataloader
 __pycache__
 .mnist_data
+.cifar_data
 slurm_logs/
