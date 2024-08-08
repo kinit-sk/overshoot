@@ -36,7 +36,7 @@ class CNN(nn.Module):
         # self.fc2 = nn.Linear(128, 10)
         
         
-    def forward(self, x, targets=None):
+    def forward(self, x, labels=None):
         x = self.conv1(x)
         x = F.relu(x)
         x = self.conv2(x)
@@ -58,8 +58,8 @@ class CNN(nn.Module):
         x = self.fc1(x)
         # x = F.relu(x)
         # x = self.fc2(x)
-        output = F.log_softmax(x, dim=1)
+        logits = F.log_softmax(x, dim=1)
         loss = None
-        if targets is not None:
-            loss = F.nll_loss(output, targets)
-        return output, loss
+        if labels is not None:
+            loss = F.nll_loss(logits, labels)
+        return {'loss': loss, 'logits': logits}

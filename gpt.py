@@ -147,7 +147,7 @@ class GPT(nn.Module):
         loss = None
         if labels is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1))
-        return logits, loss
+        return {'loss': loss, 'logits': logits}
         
     def from_pretrained(cls, model_type):
         """Loads pretrained GPT-2 model weights from huggingface"""

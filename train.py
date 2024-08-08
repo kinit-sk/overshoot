@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoModelForSequenceClassification
 
 from cnn import CNN, CNNTrainerConfig
-from custom_datasets import NextTokenDataloader, mnist_dataset, SST2Datatset
+from custom_datasets import NextTokenDataloader, Cifar100Dataset, SST2Datatset
 from gpt import GPT, GPTConfig, GPTTrainerConfig
 
 # ------------------------------------------------------------------------------
@@ -37,23 +37,21 @@ class OvershootTrainer(pl.LightningModule):
         self.training_stats = []
 
     def _baseline_training_step(self, batch):
-        output_base, loss_base = self.base_model.forward(**batch)
+        output = self.base_model.forward(**batch)
         self.base_scheduler.step()  # For some reason this needs to be called manually
-        return loss_base, loss_base, output_base
+        return output['loss'], output['loss'], output['logits']
 
     def _overshoot_training_step(self, batch):
         for opt in self.optimizers():
             opt.zero_grad()
 
-        _, loss_overshoot = self.overshoot_model.forward(**batch)
+        output_overshoot = self.overshoot_model.forward(**batch)
 
         # Only to log base loss
         with torch.no_grad():
-            output_base, loss_base = self.base_model.forward(**batch)
-        # import code
-        # code.interact(local=locals())
+            output_base = self.base_model.forward(**batch)
 
-        self.manual_backward(loss_overshoot)
+        self.manual_backward(output_overshoot['loss'])
 
         # Gradients OVERSHOOT -> BASE
         for (name1, param1), (name2, param2) in zip(
@@ -72,7 +70,7 @@ class OvershootTrainer(pl.LightningModule):
 
         self.base_scheduler.step()
         self.overshoot_scheduler.step()
-        return loss_base, loss_overshoot, output_base
+        return output_base['loss'], output_overshoot['loss'], output_base['logits']
 
     def training_step(self, batch, batch_idx):
         if self.automatic_optimization:
@@ -158,15 +156,17 @@ class OvershootTrainer(pl.LightningModule):
 def main():
     if args.task_type == "gpt":
         model = GPT(GPTConfig(vocab_size=50304))
-        dataset = NextTokenDataloader(T=model.config.T, source_file='gubenberg_books.txt')
+        # dataset = NextTokenDataloader(T=model.config.T, source_file='gubenberg_books.txt')
+        dataset = NextTokenDataloader(T=model.config.T, source_file='tiny_shakespear.txt')
         trainer_config = GPTTrainerConfig()
     elif args.task_type == "cnn":
         model = CNN()
-        dataset = mnist_dataset
+        dataset = Cifar100Dataset()
         trainer_config = CNNTrainerConfig()
     elif args.task_type == "roberta":
         model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
         model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2, ignore_mismatched_sizes=True)
+        model.train()
         dataset = SST2Datatset(model_name)
         trainer_config = CNNTrainerConfig()
 
