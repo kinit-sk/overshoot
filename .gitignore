@@ -5,3 +5,4 @@ __pycache__
 .mnist_data
 .cifar_data
 slurm_logs/
+tmp.ipynb

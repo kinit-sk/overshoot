@@ -8,7 +8,7 @@ import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 
-from datasets import NextTokenDataloader
+from custom_datasets import NextTokenDataloader
 from gpt import GPT, GPTConfig
 
 # ------------------------------------------------------------------------------

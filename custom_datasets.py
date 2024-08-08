@@ -2,6 +2,8 @@ import os
 import tiktoken
 import torch
 from torchvision import datasets, transforms
+from datasets import load_dataset
+from transformers import AutoTokenizer
 
 
 class NextTokenDataloader:
@@ -16,7 +18,8 @@ class NextTokenDataloader:
         # Download source file if needed
         if not os.path.exists(file_path):
             download_links = {
-                "tiny_shakespear.txt": 'https://drive.google.com/uc?id=1zPB3Y_9mUfKTrywpOX5Jz9j7TwcMkbnC'
+                "tiny_shakespear.txt": 'https://drive.google.com/uc?id=1zPB3Y_9mUfKTrywpOX5Jz9j7TwcMkbnC',
+                "gubenberg_books.txt": 'https://drive.google.com/uc?id=10N-sj1Nu2dj6XjyBxi43tfqamxb9Rn6t'
             }
             if source_file not in download_links:
                 raise Exception(f'Unsupported source file: {source_file}')
@@ -29,14 +32,15 @@ class NextTokenDataloader:
         enc = tiktoken.get_encoding('gpt2')
         tokens = enc.encode(text)
         self.tokens = torch.tensor(tokens)
-        # self.tokens = self.tokens.repeat(100) # Make dataset artiffically bigger
+        # self.tokens = self.tokens.repeat(25) # Make dataset artiffically bigger
         print(f"Loaded {len(self.tokens)} tokens")
 
     def __getitem__(self, index):
         buf = self.tokens[index * self.T : (index + 1) * self.T + 1]
         x = buf[:-1] # inputs
         y = buf[1:] # targets
-        return x, y
+        # return x, y
+        return {"idx": x, "labels": y}
 
     def __len__(self):
         return len(self.tokens) // (self.T + 1)
@@ -53,3 +57,19 @@ transform = transforms.Compose([
 # mnist_dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
 mnist_dataset = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=transform)
         
+        
+        
+class SST2Datatset:
+    def __init__(self, model_tokenizer: str) -> None:
+        data = load_dataset("nyu-mll/glue", "sst2")['train']
+        tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
+        inpts = tokenizer([d['sentence'] for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+        self.input_ids = inpts['input_ids']
+        self.attention_mask = inpts['attention_mask']
+        self.outputs = [d['label'] for d in data]
+
+    def __getitem__(self, index):
+        return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
+
+    def __len__(self):
+        return len(self.input_ids)

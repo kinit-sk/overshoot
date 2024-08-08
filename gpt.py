@@ -127,7 +127,7 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx, targets=None):
+    def forward(self, idx, labels=None):
         if len(idx.shape) == 3:
             # idx = idx.view(idx.size(1), idx.size(2))
             idx = torch.squeeze(idx)
@@ -145,8 +145,8 @@ class GPT(nn.Module):
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x) # (B, T, vocab_size)
         loss = None
-        if targets is not None:
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+        if labels is not None:
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1))
         return logits, loss
         
     def from_pretrained(cls, model_type):

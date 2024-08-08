@@ -10,9 +10,10 @@ import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
+from transformers import AutoModelForSequenceClassification
 
 from cnn import CNN, CNNTrainerConfig
-from datasets import NextTokenDataloader, mnist_dataset
+from custom_datasets import NextTokenDataloader, mnist_dataset, SST2Datatset
 from gpt import GPT, GPTConfig, GPTTrainerConfig
 
 # ------------------------------------------------------------------------------
@@ -36,7 +37,7 @@ class OvershootTrainer(pl.LightningModule):
         self.training_stats = []
 
     def _baseline_training_step(self, batch):
-        output_base, loss_base = self.base_model.forward(batch[0], batch[1])
+        output_base, loss_base = self.base_model.forward(**batch)
         self.base_scheduler.step()  # For some reason this needs to be called manually
         return loss_base, loss_base, output_base
 
@@ -44,11 +45,11 @@ class OvershootTrainer(pl.LightningModule):
         for opt in self.optimizers():
             opt.zero_grad()
 
-        _, loss_overshoot = self.overshoot_model.forward(batch[0], batch[1])
+        _, loss_overshoot = self.overshoot_model.forward(**batch)
 
         # Only to log base loss
         with torch.no_grad():
-            output_base, loss_base = self.base_model.forward(batch[0], batch[1])
+            output_base, loss_base = self.base_model.forward(**batch)
         # import code
         # code.interact(local=locals())
 
@@ -85,7 +86,7 @@ class OvershootTrainer(pl.LightningModule):
         now = time.time()
         dt = now - self.start_time  # time difference in seconds
         self.start_time = now
-        accuracy = 100 * torch.mean(output_base.argmax(dim=-1) == batch[1], dtype=float).item()
+        accuracy = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
         lr_base = self.base_scheduler.get_last_lr()[-1]
         if hasattr(self, "overshoot_scheduler"):
             lr_overshoot = self.overshoot_scheduler.get_last_lr()[-1]
@@ -157,11 +158,16 @@ class OvershootTrainer(pl.LightningModule):
 def main():
     if args.task_type == "gpt":
         model = GPT(GPTConfig(vocab_size=50304))
-        dataset = NextTokenDataloader(T=model.config.T)
+        dataset = NextTokenDataloader(T=model.config.T, source_file='gubenberg_books.txt')
         trainer_config = GPTTrainerConfig()
     elif args.task_type == "cnn":
         model = CNN()
         dataset = mnist_dataset
+        trainer_config = CNNTrainerConfig()
+    elif args.task_type == "roberta":
+        model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
+        model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2, ignore_mismatched_sizes=True)
+        dataset = SST2Datatset(model_name)
         trainer_config = CNNTrainerConfig()
 
     # Doesn't work inside devana slurn job

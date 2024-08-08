@@ -4,7 +4,7 @@
 JOB_NAME=${1:?"Missing experiment name"}
 TASK_TYPE=${2:?"Missing task type (e.g., 'gpt', 'cnn')."}
 
-OVERSHOOT_FACTORS=(1.0 1.5 2.0 4.0 6.0 10.0 16.0 24.0)
+OVERSHOOT_FACTORS=(1.0 2.0 4.0 6.0 10.0 16.0 24.0)
 
 DST="lightning_logs/${JOB_NAME}"
 if [ -d "${DST}" ]; then
