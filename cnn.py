@@ -16,6 +16,18 @@ class CNNTrainerConfig:
     weight_decay: float = 0.0
     accumulate_grad_batches: int = 2
     gradient_clip_val: float = 0.5
+    
+@dataclass
+class RobertaTrainerConfig:
+    n_gpu: int = torch.cuda.device_count()  # Use all available gpus
+    B: int = 2
+    lr_base: float = 3e-5
+    lr_overshoot: Optional[None] = None
+    epochs: int = 8
+    adam_betas: Tuple[float, float] = 0.9, 0.95
+    weight_decay: float = 0.0
+    accumulate_grad_batches: int = 2
+    gradient_clip_val: float = 0.5
 
 class CNN(nn.Module):
 

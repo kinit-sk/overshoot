@@ -12,8 +12,8 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from transformers import AutoModelForSequenceClassification
 
-from cnn import CNN, CNNTrainerConfig
-from custom_datasets import NextTokenDataloader, Cifar100Dataset, SST2Datatset
+from cnn import CNN, CNNTrainerConfig, RobertaTrainerConfig
+from custom_datasets import NextTokenDataloader, Cifar100Dataset, SST2Datatset, QQPDataset, MMLUDataset, MNLIDataset
 from gpt import GPT, GPTConfig, GPTTrainerConfig
 
 # ------------------------------------------------------------------------------
@@ -163,11 +163,12 @@ def main():
         dataset = Cifar100Dataset()
         trainer_config = CNNTrainerConfig()
     elif args.task_type == "roberta":
-        model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
-        model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2, ignore_mismatched_sizes=True)
+        model_name = "FacebookAI/roberta-base"
+        model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=3, ignore_mismatched_sizes=True)
         model.train()
-        dataset = SST2Datatset(model_name)
-        trainer_config = CNNTrainerConfig()
+        print(model)
+        dataset = MNLIDataset(model_name)
+        trainer_config = RobertaTrainerConfig()
 
     # Doesn't work inside devana slurn job
     # model = torch.compile(model)

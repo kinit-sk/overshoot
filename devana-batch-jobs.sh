@@ -2,7 +2,7 @@
 # set -xe
 
 JOB_NAME=${1:?"Missing experiment name"}
-TASK_TYPE=${2:?"Missing task type (e.g., 'gpt', 'cnn')."}
+TASK_TYPE=${2:?"Missing task type (e.g., 'gpt', 'cnn', 'roberta')."}
 
 OVERSHOOT_FACTORS=(1.0 2.0 4.0 6.0 10.0 16.0 24.0)
 
@@ -15,7 +15,7 @@ mkdir -p "${DST}"
 mkdir -p "slurm_logs"
 
 cp train.py "lightning_logs/${JOB_NAME}/"
-cp datasets.py "lightning_logs/${JOB_NAME}/"
+cp custom_datasets.py "lightning_logs/${JOB_NAME}/"
 cp cnn.py "lightning_logs/${JOB_NAME}/"
 cp gpt.py "lightning_logs/${JOB_NAME}/"
 cp devana-job.sh "lightning_logs/${JOB_NAME}/"

@@ -48,7 +48,6 @@ class NextTokenDataloader:
         
         
         
-# Define transformations for the dataset
 
 class Cifar100Dataset:
     def __init__(self) -> None:
@@ -75,6 +74,51 @@ class SST2Datatset:
         self.input_ids = inpts['input_ids']
         self.attention_mask = inpts['attention_mask']
         self.outputs = [d['label'] for d in data]
+
+    def __getitem__(self, index):
+        return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
+
+    def __len__(self):
+        return len(self.input_ids)
+        
+class QQPDataset:
+    def __init__(self, model_tokenizer: str) -> None:
+        data = load_dataset("nyu-mll/glue", "qqp")['train']
+        tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
+        inpts = tokenizer([f"{d['question1']}  {d['question2']}" for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+        self.input_ids = inpts['input_ids']
+        self.attention_mask = inpts['attention_mask']
+        self.outputs = [d['label'] for d in data]
+
+    def __getitem__(self, index):
+        return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
+
+    def __len__(self):
+        return len(self.input_ids)
+        
+class MNLIDataset:
+    def __init__(self, model_tokenizer: str) -> None:
+        data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
+        tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
+        inpts = tokenizer([f"{d['premise']}  {d['hypothesis']}" for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+        self.input_ids = inpts['input_ids']
+        self.attention_mask = inpts['attention_mask']
+        self.outputs = [d['label'] for d in data]
+
+    def __getitem__(self, index):
+        return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
+
+    def __len__(self):
+        return len(self.input_ids)
+        
+class MMLUDataset:
+    def __init__(self, model_tokenizer: str) -> None:
+        data = load_dataset("lighteval/mmlu", "college_mathematics")['auxiliary_train']
+        tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
+        inpts = tokenizer([f"{d['question']}  {d['choices']}" for d in data],  padding="longest", truncation=True, max_length=1024, return_tensors="pt")
+        self.input_ids = inpts['input_ids']
+        self.attention_mask = inpts['attention_mask']
+        self.outputs = [d['answer'] for d in data]
 
     def __getitem__(self, index):
         return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
