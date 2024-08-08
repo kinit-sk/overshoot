@@ -156,7 +156,6 @@ class OvershootTrainer(pl.LightningModule):
 def main():
     if args.task_type == "gpt":
         model = GPT(GPTConfig(vocab_size=50304))
-        # dataset = NextTokenDataloader(T=model.config.T, source_file='gubenberg_books.txt')
         dataset = NextTokenDataloader(T=model.config.T, source_file='tiny_shakespear.txt')
         trainer_config = GPTTrainerConfig()
     elif args.task_type == "cnn":
