@@ -18,7 +18,7 @@ from gpt import GPT, GPTConfig, GPTTrainerConfig
 # ------------------------------------------------------------------------------
 pl.seed_everything(1337)
 torch.cuda.empty_cache()
-# torch.set_float32_matmul_precision("high")
+torch.set_float32_matmul_precision("high")
 # -----------------------------------------------------------------------------
 
 
@@ -27,7 +27,7 @@ class TrainerConfig:
     n_gpu: int = torch.cuda.device_count() # Use all available gpus
     B: int = 16
     T: int = 1024
-    lr: float = 3e-1
+    lr: float = 3e-4
     epochs: int = 4
     weight_decay: float = 0.1
     accumulate_grad_batches: int = 2
@@ -100,9 +100,13 @@ class DebugTrainer(pl.LightningModule):
 
 # -----------------------------------------------------------------------------
 def main():
-    model = GPT(GPTConfig(vocab_size=50304))
-    dataset = NextTokenDataloader(T=model.config.T, source_file='tiny_shakespear.txt')
-    trainer_config = GPTTrainerConfig()
+    # model = GPT(GPTConfig(vocab_size=50304))
+    # dataset = NextTokenDataloader(T=model.config.T, source_file='tiny_shakespear.txt')
+    # trainer_config = GPTTrainerConfig()
+    
+    model = CNN()
+    dataset = Cifar100Dataset()
+    trainer_config = CNNTrainerConfig()
 
     # Doesn't work inside devana slurn job
     # model = torch.compile(model)
@@ -113,7 +117,7 @@ def main():
         max_epochs=trainer_config.epochs,
         # accumulate_grad_batches=trainer_config.accumulate_grad_batches,
         # gradient_clip_val=trainer_config.gradient_clip_val,
-        # precision="16-mixed",
+        precision="16-mixed",
         enable_progress_bar=False,
         log_every_n_steps=1,
         deterministic=True,
