@@ -65,11 +65,13 @@ class OvershootTrainer(pl.LightningModule):
         for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
             param2.data = param1.data.clone()
 
-        for opt in self.optimizers():
-            opt.step()
 
         self.base_scheduler.step()
         self.overshoot_scheduler.step()
+        
+        for opt in self.optimizers():
+            opt.step()
+            
         return output_base['loss'], output_overshoot['loss'], output_base['logits']
 
     def training_step(self, batch, batch_idx):
@@ -166,10 +168,10 @@ def main():
         model_name = "FacebookAI/roberta-base"
         model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=3, ignore_mismatched_sizes=True)
         model.train()
-        print(model)
         dataset = MNLIDataset(model_name)
         trainer_config = RobertaTrainerConfig()
 
+    print(model)
     # Doesn't work inside devana slurn job
     # model = torch.compile(model)
 
@@ -200,7 +202,6 @@ if __name__ == "__main__":
     # We should always observe the same results from:
     #   1) python train.py --job_name test --baseline
     #   2) python train.py --job_name test --overshoot_factor 1
-    # Sadly not true `automatic_optization` gives differente results (see: `automatic_optimization_debug.py`)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_name", type=str, required=True)

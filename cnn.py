@@ -8,10 +8,10 @@ from typing import Optional, Tuple
 @dataclass
 class CNNTrainerConfig:
     n_gpu: int = torch.cuda.device_count()  # Use all available gpus
-    B: int = 32
-    lr_base: float = 3e-4
+    B: int = 1
+    lr_base: float = 1e-4
     lr_overshoot: Optional[None] = None
-    epochs: int = 10
+    epochs: int = 1
     adam_betas: Tuple[float, float] = 0.9, 0.95
     weight_decay: float = 0.0
     accumulate_grad_batches: int = 2
@@ -33,7 +33,7 @@ class CNN(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 64, 3, 1)
+        self.conv1 = nn.Conv2d(1, 64, 3, 1)
         self.conv2 = nn.Conv2d(64, 64, 3, 1)
         
         self.conv3 = nn.Conv2d(64, 128, 3, 1)
@@ -42,7 +42,7 @@ class CNN(nn.Module):
         self.conv5 = nn.Conv2d(128, 256, 3, 1)
         self.conv6 = nn.Conv2d(256, 256, 3, 1)
         
-        self.fc1 = nn.Linear(256, 100)
+        self.fc1 = nn.Linear(1024, 10)
         # self.fc2 = nn.Linear(1000, 100)
         
         # self.fc2 = nn.Linear(128, 10)
@@ -63,8 +63,8 @@ class CNN(nn.Module):
         
         x = self.conv5(x)
         x = F.relu(x)
-        x = self.conv6(x)
-        x = F.relu(x)
+        # x = self.conv6(x)
+        # x = F.relu(x)
         
         x = torch.flatten(x, 1)
         x = self.fc1(x)
