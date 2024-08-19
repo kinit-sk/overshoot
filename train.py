@@ -205,14 +205,14 @@ if __name__ == "__main__":
     # We should always observe the same results from:
     #   1) python train.py --job_name test --baseline --deterministic
     #   2) python train.py --job_name test --overshoot_factor 1 --deterministic
-    # Sadly deterministic will use 32-bit precision because of bug in pl.
+    # Sadly deterministic have to use 32-bit precision because of bug in pl.
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--job_name", type=str, required=True)
-    parser.add_argument("--overshoot_factor", type=float)
-    parser.add_argument("--task_type", type=str, default="gpt")
-    parser.add_argument("--baseline", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--deterministic", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--job_name", type=str, required=True, help="Sub-folder name to store experiment results")
+    parser.add_argument("--overshoot_factor", type=float, help="Factor to multiply base lr")
+    parser.add_argument("--task_type", type=str, default="gpt", help="Supported types are: `gpt`, `cnn` and `roberta`. For fast iteration use `cnn`.")
+    parser.add_argument("--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default adam optimization process")
+    parser.add_argument("--deterministic", action=argparse.BooleanOptionalAction, default=False, help="Necessary to get the same results for `--baseline` and `--overshoot_factor 1`")
     args = parser.parse_args()
     assert (
         args.overshoot_factor or args.baseline
