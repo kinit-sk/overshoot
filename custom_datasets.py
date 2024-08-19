@@ -53,10 +53,10 @@ class Cifar100Dataset:
     def __init__(self) -> None:
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))  # Normalize with mean and std deviation for MNIST
+            # transforms.Normalize((0.1307,), (0.3081,))  # Normalize with mean and std deviation for MNIST
         ])
-        # self.dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
-        self.dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True)
+        self.dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
+        # self.dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True)
         # self.dataset = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=transform)
         
     def __getitem__(self, index):

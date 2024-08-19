@@ -2,15 +2,13 @@ import argparse
 import copy
 import os
 import time
-from dataclasses import dataclass
-from typing import Optional, Tuple
 
 import pandas as pd
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
-from transformers import AutoModelForSequenceClassification
+from transformers import AutoModelForSequenceClassification, AutoConfig
 
 from cnn import CNN, CNNTrainerConfig, RobertaTrainerConfig
 from custom_datasets import NextTokenDataloader, Cifar100Dataset, SST2Datatset, QQPDataset, MMLUDataset, MNLIDataset
@@ -26,6 +24,7 @@ torch.set_float32_matmul_precision("high")
 class OvershootTrainer(pl.LightningModule):
     def __init__(self, model: torch.nn.Module, dataset, config):
         super(OvershootTrainer, self).__init__()
+        # Manual optimization: https://lightning.ai/docs/pytorch/stable/common/optimization.html
         self.automatic_optimization = args.baseline
         self.base_model = model
         if not args.baseline:
@@ -119,12 +118,8 @@ class OvershootTrainer(pl.LightningModule):
         optimizers = []
         model_names = ["base"] if self.automatic_optimization else ["base", "overshoot"]
         for model_name in model_names:
-            # start with all of the candidate parameters (that require grad)
-            param_dict = {pn: p for pn, p in self.named_parameters()}
-            param_dict = {pn: p for pn, p in param_dict.items() if pn.startswith(model_name)}
-            param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
+            param_dict = {pn: p for pn, p in getattr(self, f"{model_name}_model").named_parameters() if p.requires_grad}
             # create optim groups. Any parameters that is 2D will be weight decayed, otherwise no.
-            # i.e. all weight tensors in matmuls + embeddings decay, all biases and layernorms don't.
             decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
             nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
             optim_groups = [
@@ -166,9 +161,15 @@ def main():
         trainer_config = CNNTrainerConfig()
     elif args.task_type == "roberta":
         model_name = "FacebookAI/roberta-base"
-        model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=3, ignore_mismatched_sizes=True)
+        config = AutoConfig.from_pretrained(model_name)
+        config.hidden_dropout_prob = 0.0  # Default is 0.1
+        config.attention_probs_dropout_prob = 0.0  # Default is 0.1
+        config.num_labels = 2
+        config.ignore_mismatched_sizes = True
+        model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
         model.train()
-        dataset = MNLIDataset(model_name)
+        # dataset = MNLIDataset(model_name)
+        dataset = QQPDataset(model_name)
         trainer_config = RobertaTrainerConfig()
 
     print(model)
@@ -180,19 +181,21 @@ def main():
         trainer_config.lr_overshoot = trainer_config.lr_base * args.overshoot_factor
 
     trainer = OvershootTrainer(model, dataset, trainer_config)
-    pl_trainer = pl.Trainer(
+    pl_trainer_args = argparse.Namespace(
         max_epochs=trainer_config.epochs,
-        # accumulate_grad_batches=trainer_config.accumulate_grad_batches,
-        # gradient_clip_val=trainer_config.gradient_clip_val,
-        precision="16-mixed",
         enable_progress_bar=False,
         log_every_n_steps=1,
         logger=TensorBoardLogger(save_dir=os.path.join("lightning_logs", args.job_name), name=sub_name),
         devices=trainer_config.n_gpu,
         strategy="deepspeed_stage_2" if trainer_config.n_gpu > 1 else "auto",
     )
-    # pl_trainer.strategy.config["zero_force_ds_cpu_optimizer"] = False
-    pl_trainer.fit(trainer)
+    if args.deterministic:
+        print("Deterministic run which is slower.")
+        pl_trainer_args.deterministic = True
+    else:
+        pl_trainer_args.precision = "16-mixed"
+    pl.Trainer(**vars(pl_trainer_args)).fit(trainer)
+    # pl_trainer.fit(trainer)
     pd.DataFrame(trainer.training_stats).to_csv(
         os.path.join("lightning_logs", args.job_name, f"{sub_name}.csv"), index=False
     )
@@ -200,14 +203,16 @@ def main():
 
 if __name__ == "__main__":
     # We should always observe the same results from:
-    #   1) python train.py --job_name test --baseline
-    #   2) python train.py --job_name test --overshoot_factor 1
+    #   1) python train.py --job_name test --baseline --deterministic
+    #   2) python train.py --job_name test --overshoot_factor 1 --deterministic
+    # Sadly deterministic will use 32-bit precision because of bug in pl.
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_name", type=str, required=True)
     parser.add_argument("--overshoot_factor", type=float)
     parser.add_argument("--task_type", type=str, default="gpt")
     parser.add_argument("--baseline", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--deterministic", action=argparse.BooleanOptionalAction, default=False)
     args = parser.parse_args()
     assert (
         args.overshoot_factor or args.baseline
