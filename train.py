@@ -30,7 +30,7 @@ class OvershootTrainer(pl.LightningModule):
         if not args.baseline:
             self.overshoot_model = copy.deepcopy(model)
         self.dataset = dataset
-        self.steps = int(round(config.B + config.epochs * len(dataset) // config.B // config.n_gpu))
+        self.steps = int(round(config.B + config.epochs * len(dataset) // config.B // max(1, config.n_gpu)))
         self.config = config
         self.start_time = time.time()
         self.training_stats = []
@@ -186,7 +186,7 @@ def main():
         enable_progress_bar=False,
         log_every_n_steps=1,
         logger=TensorBoardLogger(save_dir=os.path.join("lightning_logs", args.job_name), name=sub_name),
-        devices=trainer_config.n_gpu,
+        devices=trainer_config.n_gpu if trainer_config.n_gpu > 1 else "auto",
         strategy="deepspeed_stage_2" if trainer_config.n_gpu > 1 else "auto",
     )
     if args.deterministic:
