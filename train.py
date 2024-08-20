@@ -67,7 +67,9 @@ class OvershootTrainer(pl.LightningModule):
 
         grads = torch.cat([p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None])
         if self.previous_grads is not None:
-            self.cosine_sim = F.cosine_similarity(self.previous_grads, grads, dim=0).item()
+            sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
+            if not torch.isnan(sim).item():
+                self.cosine_sim = 0.9 * self.cosine_sim + 0.1 * sim.item()
         self.previous_grads = grads
 
         # Weights BASE -> OVERSHOOT
@@ -163,7 +165,7 @@ class OvershootTrainer(pl.LightningModule):
 def main():
     if args.task_type == "gpt":
         model = GPT(GPTConfig(vocab_size=50304))
-        dataset = NextTokenDataloader(T=model.config.T, source_file="tiny_shakespear.txt")
+        dataset = NextTokenDataloader(T=model.config.T, source_file="gutenberg_books.txt")
         trainer_config = GPTTrainerConfig()
     elif args.task_type == "cnn":
         model = CNN()

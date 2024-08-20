@@ -17,7 +17,7 @@ conda activate overshoot
 
 
 if [ -z ${OVERSHOOT_FACTOR+x} ]; then 
-    python train.py --job_name ${JOB_NAME} --task_type ${TASK_TYPE} --baseline --deterministic
+    python train.py --job_name ${JOB_NAME} --task_type ${TASK_TYPE} --baseline
 else
-    python train.py --job_name ${JOB_NAME} --task_type ${TASK_TYPE} --overshoot_factor ${OVERSHOOT_FACTOR} --deterministic
+    python train.py --job_name ${JOB_NAME} --task_type ${TASK_TYPE} --overshoot_factor ${OVERSHOOT_FACTOR}
 fi

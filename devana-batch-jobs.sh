@@ -25,4 +25,4 @@ for FACTOR in "${OVERSHOOT_FACTORS[@]}"; do
     sbatch --output="slurm_logs/${JOB_NAME}___${TASK_TYPE}___factor:_${FACTOR}.job" -J "${JOB_NAME}"  --export=ALL,JOB_NAME=${JOB_NAME},TASK_TYPE=${TASK_TYPE},OVERSHOOT_FACTOR=${FACTOR} devana-job.sh 
 done
 
-sbatch --output="slurm_logs/${JOB_NAME}___${TASK_TYPE}___baseline.job" -J "${JOB_NAME}"  --export=ALL,JOB_NAME=${JOB_NAME},TASK_TYPE=${TASK_TYPE} devana-job.sh 
+# sbatch --output="slurm_logs/${JOB_NAME}___${TASK_TYPE}___baseline.job" -J "${JOB_NAME}"  --export=ALL,JOB_NAME=${JOB_NAME},TASK_TYPE=${TASK_TYPE} devana-job.sh 

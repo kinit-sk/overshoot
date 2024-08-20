@@ -19,7 +19,7 @@ class NextTokenDataloader:
         if not os.path.exists(file_path):
             download_links = {
                 "tiny_shakespear.txt": 'https://drive.google.com/uc?id=1zPB3Y_9mUfKTrywpOX5Jz9j7TwcMkbnC',
-                "gubenberg_books.txt": 'https://drive.google.com/uc?id=10N-sj1Nu2dj6XjyBxi43tfqamxb9Rn6t'
+                "gutenberg_books.txt": 'https://drive.google.com/uc?id=10N-sj1Nu2dj6XjyBxi43tfqamxb9Rn6t'
             }
             if source_file not in download_links:
                 raise Exception(f'Unsupported source file: {source_file}')
