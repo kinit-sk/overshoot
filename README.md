@@ -22,4 +22,8 @@ By default `devana-batch-jobs.sh` will run several jobs using various `overshoot
 
 
 ## Monitor experiments
-To observe training statistics run `tensorboard --logdir lightning_logs/{job_name} --port 6007` and open in browser `localhost:6007`.
+To observe training statistics run 
+```
+tensorboard --logdir lightning_logs/{job_name} --port 6007
+```
+In browser open `localhost:6007`.
