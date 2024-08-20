@@ -7,11 +7,13 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
+from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from transformers import AutoModelForSequenceClassification, AutoConfig
+from transformers import AutoConfig, AutoModelForSequenceClassification
 
 from cnn import CNN
-from custom_datasets import NextTokenDataloader, Cifar100Dataset, SST2Datatset, QQPDataset, MMLUDataset, MNLIDataset
+from custom_datasets import (Cifar100Dataset, MMLUDataset, MNLIDataset,
+                             NextTokenDataloader, QQPDataset, SST2Datatset)
 from gpt import GPT, GPTConfig
 from trainer_configs import *
 
@@ -35,11 +37,13 @@ class OvershootTrainer(pl.LightningModule):
         self.config = config
         self.start_time = time.time()
         self.training_stats = []
+        self.previous_grads = None
+        self.cosine_sim = 0
 
     def _baseline_training_step(self, batch):
         output = self.base_model.forward(**batch)
         self.base_scheduler.step()  # For some reason this needs to be called manually
-        return output['loss'], output['loss'], output['logits']
+        return output["loss"], output["loss"], output["logits"]
 
     def _overshoot_training_step(self, batch):
         for opt in self.optimizers():
@@ -51,7 +55,7 @@ class OvershootTrainer(pl.LightningModule):
         with torch.no_grad():
             output_base = self.base_model.forward(**batch)
 
-        self.manual_backward(output_overshoot['loss'])
+        self.manual_backward(output_overshoot["loss"])
 
         # Gradients OVERSHOOT -> BASE
         for (name1, param1), (name2, param2) in zip(
@@ -61,18 +65,22 @@ class OvershootTrainer(pl.LightningModule):
                 assert name1 == name2, "Parameter names do not match between models."
                 param2.grad = param1.grad.clone()
 
+        grads = torch.cat([p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None])
+        if self.previous_grads is not None:
+            self.cosine_sim = F.cosine_similarity(self.previous_grads, grads, dim=0).item()
+        self.previous_grads = grads
+
         # Weights BASE -> OVERSHOOT
         for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
             param2.data = param1.data.clone()
 
-
         self.base_scheduler.step()
         self.overshoot_scheduler.step()
-        
+
         for opt in self.optimizers():
             opt.step()
-            
-        return output_base['loss'], output_overshoot['loss'], output_base['logits']
+
+        return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
     def training_step(self, batch, batch_idx):
         if self.automatic_optimization:
@@ -100,7 +108,7 @@ class OvershootTrainer(pl.LightningModule):
                 utilization = torch.cuda.utilization(gpu_index)
                 gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
             print(
-                f"step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | accuracy: {accuracy:2f} | dt: {dt*1000:.2f}ms{gpu_info}"
+                f"step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | cosine_sim: {self.cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}"
             )
 
         stats = {
@@ -109,6 +117,7 @@ class OvershootTrainer(pl.LightningModule):
             "overshoot_lr": lr_overshoot,
             "base_loss": loss_base.item(),
             "overshoot_loss": loss_overshoot.item(),
+            "grads_cosine_similarity": self.cosine_sim,
             "accuracy": accuracy,
         }
         self.training_stats.append(stats)
@@ -154,7 +163,7 @@ class OvershootTrainer(pl.LightningModule):
 def main():
     if args.task_type == "gpt":
         model = GPT(GPTConfig(vocab_size=50304))
-        dataset = NextTokenDataloader(T=model.config.T, source_file='tiny_shakespear.txt')
+        dataset = NextTokenDataloader(T=model.config.T, source_file="tiny_shakespear.txt")
         trainer_config = GPTTrainerConfig()
     elif args.task_type == "cnn":
         model = CNN()
@@ -172,7 +181,7 @@ def main():
         # dataset = MNLIDataset(model_name)
         dataset = QQPDataset(model_name)
         trainer_config = RobertaTrainerConfig()
-    elif args.task_type == "llama":
+    elif args.task_type == "llama":  # TODO not working
         model_name = "meta-llama/Meta-Llama-3.1-8B"
         config = AutoConfig.from_pretrained(model_name)
         config.hidden_dropout_prob = 0.0  # Default is 0.1
@@ -223,9 +232,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_name", type=str, required=True, help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Factor to multiply base lr")
-    parser.add_argument("--task_type", type=str, default="gpt", help="Supported types are: `gpt`, `cnn`, `llama` and `roberta`. For fast iteration use `cnn`.")
-    parser.add_argument("--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default adam optimization process")
-    parser.add_argument("--deterministic", action=argparse.BooleanOptionalAction, default=False, help="Necessary to get the same results for `--baseline` and `--overshoot_factor 1`")
+    parser.add_argument(
+        "--task_type",
+        type=str,
+        default="gpt",
+        help="Supported types are: `gpt`, `cnn`, `llama` and `roberta`. For fast iteration use `cnn`.",
+    )
+    parser.add_argument(
+        "--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default adam optimization process"
+    )
+    parser.add_argument(
+        "--deterministic",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Necessary to get the same results for `--baseline` and `--overshoot_factor 1`",
+    )
     args = parser.parse_args()
     assert (
         args.overshoot_factor or args.baseline
