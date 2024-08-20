@@ -19,3 +19,7 @@ For more info run `python train.py --help`.
 ## Execution on devana
 To schedule jobs using slurm see: `devana-batch-jobs.sh`.
 By default `devana-batch-jobs.sh` will run several jobs using various `overshoot-factors`
+
+
+## Monitor experiments
+To observe training statistics run `tensorboard --logdir lightning_logs/{job_name} --port 6007` and open in browser `localhost:6007`.
