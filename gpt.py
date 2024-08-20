@@ -3,19 +3,6 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from dataclasses import dataclass
-from typing import Optional, Tuple
-
-@dataclass
-class GPTTrainerConfig:
-    n_gpu: int = torch.cuda.device_count()  # Use all available gpus
-    B: int = 16
-    lr_base: float = 3e-4
-    lr_overshoot: Optional[None] = None
-    epochs: int = 4
-    adam_betas: Tuple[float, float] = 0.9, 0.95
-    weight_decay: float = 0.1
-    accumulate_grad_batches: int = 2
-    gradient_clip_val: float = 0.5
 
 
 class CausalSelfAttention(nn.Module):

@@ -86,6 +86,7 @@ class QQPDataset:
     def __init__(self, model_tokenizer: str) -> None:
         data = load_dataset("nyu-mll/glue", "qqp")['train']
         tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
+        tokenizer.pad_token = tokenizer.eos_token
         inpts = tokenizer([f"{d['question1']}  {d['question2']}" for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
         self.input_ids = inpts['input_ids']
         self.attention_mask = inpts['attention_mask']

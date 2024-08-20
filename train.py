@@ -10,9 +10,10 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from transformers import AutoModelForSequenceClassification, AutoConfig
 
-from cnn import CNN, CNNTrainerConfig, RobertaTrainerConfig
+from cnn import CNN
 from custom_datasets import NextTokenDataloader, Cifar100Dataset, SST2Datatset, QQPDataset, MMLUDataset, MNLIDataset
-from gpt import GPT, GPTConfig, GPTTrainerConfig
+from gpt import GPT, GPTConfig
+from trainer_configs import *
 
 # ------------------------------------------------------------------------------
 pl.seed_everything(1337)
@@ -171,6 +172,18 @@ def main():
         # dataset = MNLIDataset(model_name)
         dataset = QQPDataset(model_name)
         trainer_config = RobertaTrainerConfig()
+    elif args.task_type == "llama":
+        model_name = "meta-llama/Meta-Llama-3.1-8B"
+        config = AutoConfig.from_pretrained(model_name)
+        config.hidden_dropout_prob = 0.0  # Default is 0.1
+        config.attention_probs_dropout_prob = 0.0  # Default is 0.1
+        config.num_labels = 2
+        config.ignore_mismatched_sizes = True
+        model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
+        model.train()
+        # dataset = MNLIDataset(model_name)
+        dataset = QQPDataset(model_name)
+        trainer_config = LLAMATrainerConfig()
 
     print(model)
     # Doesn't work inside devana slurn job
@@ -210,7 +223,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_name", type=str, required=True, help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Factor to multiply base lr")
-    parser.add_argument("--task_type", type=str, default="gpt", help="Supported types are: `gpt`, `cnn` and `roberta`. For fast iteration use `cnn`.")
+    parser.add_argument("--task_type", type=str, default="gpt", help="Supported types are: `gpt`, `cnn`, `llama` and `roberta`. For fast iteration use `cnn`.")
     parser.add_argument("--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default adam optimization process")
     parser.add_argument("--deterministic", action=argparse.BooleanOptionalAction, default=False, help="Necessary to get the same results for `--baseline` and `--overshoot_factor 1`")
     args = parser.parse_args()
