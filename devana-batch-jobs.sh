@@ -18,6 +18,7 @@ cp train.py "lightning_logs/${JOB_NAME}/"
 cp custom_datasets.py "lightning_logs/${JOB_NAME}/"
 cp cnn.py "lightning_logs/${JOB_NAME}/"
 cp gpt.py "lightning_logs/${JOB_NAME}/"
+cp trainer_configs.py "lightning_logs/${JOB_NAME}/"
 cp devana-job.sh "lightning_logs/${JOB_NAME}/"
 cp devana-batch-jobs.sh "lightning_logs/${JOB_NAME}/"
 
