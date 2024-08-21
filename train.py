@@ -38,7 +38,10 @@ class OvershootTrainer(pl.LightningModule):
         self.start_time = time.time()
         self.training_stats = []
         self.previous_grads = None
-        self.cosine_sim = 0
+        self.previous_params = None
+        self.last_update = None
+        self.grad_cosine_sim = 0
+        self.update_cosine_sim = 0
 
     def _baseline_training_step(self, batch):
         output = self.base_model.forward(**batch)
@@ -66,11 +69,21 @@ class OvershootTrainer(pl.LightningModule):
                 param2.grad = param1.grad.clone()
 
         grads = torch.cat([p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None])
+        params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
         if self.previous_grads is not None:
             sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
             if not torch.isnan(sim).item():
-                self.cosine_sim = 0.9 * self.cosine_sim + 0.1 * sim.item()
+                self.grad_cosine_sim = 0.9 * self.grad_cosine_sim + 0.1 * sim.item()
+        if self.previous_params is not None:
+            update = params - self.previous_params
+            if self.last_update is not None:
+                sim = F.cosine_similarity(self.last_update, update, dim=0)
+                if not torch.isnan(sim).item():
+                    self.update_cosine_sim = 0.9 * self.update_cosine_sim + 0.1 * sim.item()
+            self.last_update = update
+                    
         self.previous_grads = grads
+        self.previous_params = params
 
         # Weights BASE -> OVERSHOOT
         for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
@@ -110,7 +123,7 @@ class OvershootTrainer(pl.LightningModule):
                 utilization = torch.cuda.utilization(gpu_index)
                 gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
             print(
-                f"step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | cosine_sim: {self.cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}"
+                f"step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}"
             )
 
         stats = {
@@ -119,7 +132,8 @@ class OvershootTrainer(pl.LightningModule):
             "overshoot_lr": lr_overshoot,
             "base_loss": loss_base.item(),
             "overshoot_loss": loss_overshoot.item(),
-            "grads_cosine_similarity": self.cosine_sim,
+            "grads_cosine_similarity": self.grad_cosine_sim,
+            "update_cosine_similarity": self.update_cosine_sim,
             "accuracy": accuracy,
         }
         self.training_stats.append(stats)
@@ -165,7 +179,7 @@ class OvershootTrainer(pl.LightningModule):
 def main():
     if args.task_type == "gpt":
         model = GPT(GPTConfig(vocab_size=50304))
-        dataset = NextTokenDataloader(T=model.config.T, source_file="gutenberg_books.txt")
+        dataset = NextTokenDataloader(T=model.config.T, source_file="tiny_shakespear.txt")
         trainer_config = GPTTrainerConfig()
     elif args.task_type == "cnn":
         model = CNN()
