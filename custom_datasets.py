@@ -7,12 +7,11 @@ from datasets import load_dataset
 
 class NextTokenDataloader:
     
-    def __init__(self, T: int, shift_labels: bool = True, source_file: str = 'tiny_shakespear.txt', cache_dir='.next-token-dataloader'):
+    def __init__(self, T: int, source_file: str = 'tiny_shakespear.txt', cache_dir='.next-token-dataloader'):
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
         os.environ["TIKTOKEN_CACHE_DIR"] = cache_dir
         self.T = T
-        self.shift_labels = shift_labels
 
         file_path = os.path.join(cache_dir, source_file)
         # Download source file if needed
@@ -36,19 +35,31 @@ class NextTokenDataloader:
         print(f"Loaded {len(self.tokens)} tokens")
 
     def __getitem__(self, index):
-        buf = self.tokens[index * self.T : (index + 1) * self.T + 1]
-        x = buf[:-1] # inputs
-        y = buf[1:] # targets
-        if self.shift_labels:
-            return {"input_ids": x, "labels": y}
-        else:
-            return {"input_ids": x, "labels": x}
+        # buf = self.tokens[index * self.T : (index + 1) * self.T + 1]
+        # x = buf[:-1] # inputs
+        # y = buf[1:] # targets
+        buf = self.tokens[index * self.T : (index + 1) * self.T]
+        return {"input_ids": buf, "labels": buf} # Dont shift labels. Use same approach as HF
 
     def __len__(self):
-        return len(self.tokens) // (self.T + 1)
+        return len(self.tokens) // (self.T)
         
         
         
+class MnistDataset:
+    def __init__(self) -> None:
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),  # Normalize with mean and std deviation for MNIST
+            # transforms.RandomRotation(10),
+        ])
+        self.dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
+        
+    def __getitem__(self, index):
+        return {"x": self.dataset[index][0], "labels": self.dataset[index][1]}
+
+    def __len__(self):
+        return len(self.dataset)
         
 
 class Cifar100Dataset:
@@ -58,8 +69,6 @@ class Cifar100Dataset:
             transforms.Normalize((0.1307,), (0.3081,)),  # Normalize with mean and std deviation for MNIST
             # transforms.RandomRotation(10),
         ])
-        # self.dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
-        # self.dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True)
         self.dataset = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=transform)
         
     def __getitem__(self, index):
@@ -70,20 +79,20 @@ class Cifar100Dataset:
         
         
         
-class SST2Datatset:
-    def __init__(self, model_tokenizer: str) -> None:
-        data = load_dataset("nyu-mll/glue", "sst2")['train']
-        tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
-        inpts = tokenizer([d['sentence'] for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
-        self.input_ids = inpts['input_ids']
-        self.attention_mask = inpts['attention_mask']
-        self.outputs = [d['label'] for d in data]
+# class SST2Datatset:
+#     def __init__(self, model_tokenizer: str) -> None:
+#         data = load_dataset("nyu-mll/glue", "sst2")['train']
+#         tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
+#         inpts = tokenizer([d['sentence'] for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+#         self.input_ids = inpts['input_ids']
+#         self.attention_mask = inpts['attention_mask']
+#         self.outputs = [d['label'] for d in data]
 
-    def __getitem__(self, index):
-        return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
+#     def __getitem__(self, index):
+#         return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
 
-    def __len__(self):
-        return len(self.input_ids)
+#     def __len__(self):
+#         return len(self.input_ids)
         
 class QQPDataset:
     def __init__(self, tokenizer: str) -> None:

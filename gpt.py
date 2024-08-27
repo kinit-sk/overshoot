@@ -133,7 +133,10 @@ class GPT(nn.Module):
         logits = self.lm_head(x) # (B, T, vocab_size)
         loss = None
         if labels is not None:
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1))
+            logits_shift = logits[:, :-1, :].contiguous()
+            labels_shift = labels[:, 1:].contiguous()
+            loss = F.cross_entropy(logits_shift.view(-1, logits_shift.size(-1)), labels_shift.view(-1))
+            # loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1))
         return {'loss': loss, 'logits': logits}
         
     def from_pretrained(cls, model_type):

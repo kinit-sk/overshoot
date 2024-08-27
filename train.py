@@ -2,6 +2,7 @@ import argparse
 import copy
 import os
 import time
+from typing import Optional
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -12,8 +13,8 @@ from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForPreTraining
 
 from cnn import CNN
-from custom_datasets import (Cifar100Dataset, MMLUDataset, MNLIDataset,
-                             NextTokenDataloader, QQPDataset, SST2Datatset)
+from custom_datasets import (MnistDataset, Cifar100Dataset, MMLUDataset, MNLIDataset,
+                             NextTokenDataloader, QQPDataset)
 from gpt import GPT, GPTConfig
 from trainer_configs import *
 
@@ -109,7 +110,12 @@ class OvershootTrainer(pl.LightningModule):
         now = time.time()
         dt = now - self.start_time  # time difference in seconds
         self.start_time = now
-        accuracy = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
+        
+        if args.dataset in ['shakespear', 'gutenberg']:
+            accuracy = 100 * torch.mean(output_base.argmax(dim=-1)[:,:-1] == batch["labels"][:,1:], dtype=float).item()
+        else:
+            accuracy = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
+            
         lr_base = self.base_scheduler.get_last_lr()[-1]
         if hasattr(self, "overshoot_scheduler"):
             lr_overshoot = self.overshoot_scheduler.get_last_lr()[-1]
@@ -175,40 +181,60 @@ class OvershootTrainer(pl.LightningModule):
         return DataLoader(self.dataset, batch_size=self.config.B)
 
 
-# -----------------------------------------------------------------------------
-def main():
-    if args.model_type == "gpt":
-        model = GPT(GPTConfig(vocab_size=50304))
-        dataset = NextTokenDataloader(T=model.config.T, source_file="tiny_shakespear.txt")
-        trainer_config = GPTTrainerConfig()
-    elif args.model_type == "cnn":
-        model = CNN()
-        dataset = Cifar100Dataset()
-        trainer_config = CNNTrainerConfig()
-    else: # e.g., "FacebookAI/roberta-base", "openai-community/gpt2"
-        if args.model_type == "gpt-cls":
-            model_name = "openai-community/gpt2"
-        else:
-            model_name = args.model_type
-            
+def init_model(model_name, dataset_name):
+    model_map = {
+        "gpt_hf": "openai-community/gpt2",
+        "roberta_hf": "FacebookAI/roberta-base",
+    }
+    
+    if model_name == "gpt":
+        return GPT(GPTConfig(vocab_size=50304)), None
+        # return GPT(GPTConfig(vocab_size=50257)), None
+    elif model_name == "cnn":
+        return CNN(), None
+    elif model_name in model_map:
+        model_name = model_map[model_name]
         config = AutoConfig.from_pretrained(model_name)
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        tokenizer.pad_token = tokenizer.eos_token
         config.hidden_dropout_prob = 0.0  # Default is 0.1
         config.attention_probs_dropout_prob = 0.0  # Default is 0.1
-        # config.num_labels = 2
-        config.ignore_mismatched_sizes = True
-        model = AutoModelForPreTraining.from_pretrained(model_name, config=config)
-        model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
+
+        if dataset_name in ['shakespear', 'gutenberg']:
+            config.ignore_mismatched_sizes = True
+            model = AutoModelForPreTraining.from_pretrained(model_name, config=config)
+            tokenizer.pad_token = tokenizer.eos_token
+            model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
+        else:
+            config.num_labels = 2
+            model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
         model.train()
-        trainer_config = RobertaTrainerConfig()
-        # if args.glue_dataset == "qqp":
-        #     dataset = QQPDataset(tokenizer)
-        # elif args.glue_dataset == "mnli":
-        #     dataset = MNLIDataset(tokenizer)
-        # elif args.glue_dataset == "mmlu":
-        #     dataset = MMLUDataset(tokenizer)
-        dataset = NextTokenDataloader(T=1024, source_file="tiny_shakespear.txt")
+        
+        return model, tokenizer
+    
+
+def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
+    if dataset_name == "mnist":
+        return MnistDataset()
+    elif dataset_name == "cifar100":
+        return Cifar100Dataset()
+    elif dataset_name == "shakespear":
+        return NextTokenDataloader(T=T, source_file="tiny_shakespear.txt")
+    elif dataset_name == "gutenberg":
+        return NextTokenDataloader(T=T, source_file="gutenberg_books.txt")
+    elif dataset_name == "qqp":
+        return QQPDataset(tokenizer=tokenizer)
+    elif dataset_name == "mnli":
+        return MNLIDataset(tokenizer=tokenizer)
+    elif dataset_name == "mmlu":
+        return MMLUDataset(tokenizer=tokenizer)
+
+
+
+# -----------------------------------------------------------------------------
+def main():
+    model, tokenizer = init_model(args.model, args.dataset)
+    dataset = init_dataset(args.dataset, tokenizer, 1024)
+    trainer_config = TrainerConfig()
 
     print(model)
     # Doesn't work inside devana slurn job
@@ -249,16 +275,19 @@ if __name__ == "__main__":
     parser.add_argument("--job_name", type=str, required=True, help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Factor to multiply base lr")
     parser.add_argument(
-        "--model_type",
+        "--model",
         type=str,
-        default="gpt",
-        help="Supported types are: `gpt`, `cnn`, `llama` and `roberta`. For fast iteration use `cnn`.",
+        required=True,
+        help="Supported types are: `gpt`, `cnn`, `gpt_hf` and `roberta_hf`. For fast iteration use `cnn`.",
     )
     parser.add_argument(
-        "--glue_dataset",
+        "--dataset",
         type=str,
-        default="qqp",
-        help="Dataset to use in case of huggingface model.",
+        required=True,
+        help="""Dataset to use. Options: 
+                                   a) vision: `mnist`, `cifar100`
+                                   b) next-token-prediction: `shakespear`, `gutenberg`,
+                                   c) text-classification: `qqp`, `mnli`, `mmlu`""",
     )
     parser.add_argument(
         "--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default adam optimization process"

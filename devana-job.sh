@@ -17,7 +17,7 @@ conda activate overshoot
 
 
 if [ -z ${OVERSHOOT_FACTOR+x} ]; then 
-    python train.py --job_name ${JOB_NAME} --model_type ${MODEL_TYPE} --baseline
+    python train.py --job_name ${JOB_NAME} --model ${MODEL} --dataset ${DATASET} --baseline
 else
-    python train.py --job_name ${JOB_NAME} --model_type ${MODEL_TYPE} --overshoot_factor ${OVERSHOOT_FACTOR}
+    python train.py --job_name ${JOB_NAME} --model ${MODEL} --dataset ${DATASET} --overshoot_factor ${OVERSHOOT_FACTOR}
 fi
