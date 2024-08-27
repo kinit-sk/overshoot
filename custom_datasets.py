@@ -3,16 +3,16 @@ import tiktoken
 import torch
 from torchvision import datasets, transforms
 from datasets import load_dataset
-from transformers import AutoTokenizer
 
 
 class NextTokenDataloader:
     
-    def __init__(self, T: int, source_file: str = 'tiny_shakespear.txt', cache_dir='.next-token-dataloader'):
+    def __init__(self, T: int, shift_labels: bool = True, source_file: str = 'tiny_shakespear.txt', cache_dir='.next-token-dataloader'):
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
         os.environ["TIKTOKEN_CACHE_DIR"] = cache_dir
         self.T = T
+        self.shift_labels = shift_labels
 
         file_path = os.path.join(cache_dir, source_file)
         # Download source file if needed
@@ -39,8 +39,10 @@ class NextTokenDataloader:
         buf = self.tokens[index * self.T : (index + 1) * self.T + 1]
         x = buf[:-1] # inputs
         y = buf[1:] # targets
-        # return x, y
-        return {"idx": x, "labels": y}
+        if self.shift_labels:
+            return {"input_ids": x, "labels": y}
+        else:
+            return {"input_ids": x, "labels": x}
 
     def __len__(self):
         return len(self.tokens) // (self.T + 1)
@@ -84,10 +86,8 @@ class SST2Datatset:
         return len(self.input_ids)
         
 class QQPDataset:
-    def __init__(self, model_tokenizer: str) -> None:
+    def __init__(self, tokenizer: str) -> None:
         data = load_dataset("nyu-mll/glue", "qqp")['train']
-        tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
-        tokenizer.pad_token = tokenizer.eos_token
         inpts = tokenizer([f"{d['question1']}  {d['question2']}" for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
         self.input_ids = inpts['input_ids']
         self.attention_mask = inpts['attention_mask']
@@ -100,9 +100,8 @@ class QQPDataset:
         return len(self.input_ids)
         
 class MNLIDataset:
-    def __init__(self, model_tokenizer: str) -> None:
+    def __init__(self, tokenizer) -> None:
         data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
-        tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
         inpts = tokenizer([f"{d['premise']}  {d['hypothesis']}" for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
         self.input_ids = inpts['input_ids']
         self.attention_mask = inpts['attention_mask']
@@ -115,9 +114,8 @@ class MNLIDataset:
         return len(self.input_ids)
         
 class MMLUDataset:
-    def __init__(self, model_tokenizer: str) -> None:
+    def __init__(self, tokenizer) -> None:
         data = load_dataset("lighteval/mmlu", "college_mathematics")['auxiliary_train']
-        tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
         inpts = tokenizer([f"{d['question']}  {d['choices']}" for d in data],  padding="longest", truncation=True, max_length=1024, return_tensors="pt")
         self.input_ids = inpts['input_ids']
         self.attention_mask = inpts['attention_mask']

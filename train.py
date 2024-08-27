@@ -9,7 +9,7 @@ import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from transformers import AutoConfig, AutoModelForSequenceClassification
+from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForPreTraining
 
 from cnn import CNN
 from custom_datasets import (Cifar100Dataset, MMLUDataset, MNLIDataset,
@@ -177,38 +177,38 @@ class OvershootTrainer(pl.LightningModule):
 
 # -----------------------------------------------------------------------------
 def main():
-    if args.task_type == "gpt":
+    if args.model_type == "gpt":
         model = GPT(GPTConfig(vocab_size=50304))
         dataset = NextTokenDataloader(T=model.config.T, source_file="tiny_shakespear.txt")
         trainer_config = GPTTrainerConfig()
-    elif args.task_type == "cnn":
+    elif args.model_type == "cnn":
         model = CNN()
         dataset = Cifar100Dataset()
         trainer_config = CNNTrainerConfig()
-    elif args.task_type == "roberta":
-        model_name = "FacebookAI/roberta-base"
+    else: # e.g., "FacebookAI/roberta-base", "openai-community/gpt2"
+        if args.model_type == "gpt-cls":
+            model_name = "openai-community/gpt2"
+        else:
+            model_name = args.model_type
+            
         config = AutoConfig.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer.pad_token = tokenizer.eos_token
         config.hidden_dropout_prob = 0.0  # Default is 0.1
         config.attention_probs_dropout_prob = 0.0  # Default is 0.1
-        config.num_labels = 2
+        # config.num_labels = 2
         config.ignore_mismatched_sizes = True
-        model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
+        model = AutoModelForPreTraining.from_pretrained(model_name, config=config)
+        model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
         model.train()
-        # dataset = MNLIDataset(model_name)
-        dataset = QQPDataset(model_name)
         trainer_config = RobertaTrainerConfig()
-    elif args.task_type == "llama":  # TODO not working
-        model_name = "meta-llama/Meta-Llama-3.1-8B"
-        config = AutoConfig.from_pretrained(model_name)
-        config.hidden_dropout_prob = 0.0  # Default is 0.1
-        config.attention_probs_dropout_prob = 0.0  # Default is 0.1
-        config.num_labels = 2
-        config.ignore_mismatched_sizes = True
-        model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
-        model.train()
-        # dataset = MNLIDataset(model_name)
-        dataset = QQPDataset(model_name)
-        trainer_config = LLAMATrainerConfig()
+        # if args.glue_dataset == "qqp":
+        #     dataset = QQPDataset(tokenizer)
+        # elif args.glue_dataset == "mnli":
+        #     dataset = MNLIDataset(tokenizer)
+        # elif args.glue_dataset == "mmlu":
+        #     dataset = MMLUDataset(tokenizer)
+        dataset = NextTokenDataloader(T=1024, source_file="tiny_shakespear.txt")
 
     print(model)
     # Doesn't work inside devana slurn job
@@ -249,10 +249,16 @@ if __name__ == "__main__":
     parser.add_argument("--job_name", type=str, required=True, help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Factor to multiply base lr")
     parser.add_argument(
-        "--task_type",
+        "--model_type",
         type=str,
         default="gpt",
         help="Supported types are: `gpt`, `cnn`, `llama` and `roberta`. For fast iteration use `cnn`.",
+    )
+    parser.add_argument(
+        "--glue_dataset",
+        type=str,
+        default="qqp",
+        help="Dataset to use in case of huggingface model.",
     )
     parser.add_argument(
         "--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default adam optimization process"

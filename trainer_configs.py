@@ -16,8 +16,8 @@ class CNNTrainerConfig:
 @dataclass
 class RobertaTrainerConfig:
     n_gpu: int = torch.cuda.device_count()
-    B: int = 16
-    lr_base: float = 1e-4
+    B: int = 64
+    lr_base: float = 2e-4
     lr_overshoot: Optional[None] = None
     epochs: int = 2
     adam_betas: Tuple[float, float] = 0.9, 0.95

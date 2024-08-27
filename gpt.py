@@ -114,16 +114,16 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx, labels=None):
-        if len(idx.shape) == 3:
-            # idx = idx.view(idx.size(1), idx.size(2))
-            idx = torch.squeeze(idx)
-        B, T = idx.size()
+    def forward(self, input_ids, labels=None):
+        if len(input_ids.shape) == 3:
+            # input_ids = input_ids.view(input_ids.size(1), input_ids.size(2))
+            input_ids = torch.squeeze(input_ids)
+        B, T = input_ids.size()
         assert T <= self.config.block_size, f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"
         # forward the token and posisition embeddings
-        pos = torch.arange(0, T, dtype=torch.long, device=idx.device) # shape (T)
+        pos = torch.arange(0, T, dtype=torch.long, device=input_ids.device) # shape (T)
         pos_emb = self.transformer.wpe(pos) # position embeddings of shape (T, n_embd)
-        tok_emb = self.transformer.wte(idx) # token embeddings of shape (B, T, n_embd)
+        tok_emb = self.transformer.wte(input_ids) # token embeddings of shape (B, T, n_embd)
         x = tok_emb + pos_emb
         # forward the blocks of the transformer
         for block in self.transformer.h:
