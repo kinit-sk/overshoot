@@ -5,10 +5,10 @@ from typing import Optional, Tuple
 @dataclass
 class CNNTrainerConfig:
     n_gpu: int = torch.cuda.device_count()
-    B: int = 16
-    lr_base: float = 5e-4
+    B: int = 64
+    lr_base: float = 2e-3
     lr_overshoot: Optional[None] = None
-    epochs: int = 6
+    epochs: int = 160
     adam_betas: Tuple[float, float] = 0.9, 0.95
     weight_decay: float = 0.0
     

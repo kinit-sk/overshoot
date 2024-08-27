@@ -83,12 +83,12 @@ class OvershootTrainer(pl.LightningModule):
             self.last_update = update
                     
         self.previous_grads = grads
-        self.previous_params = params
 
         # Weights BASE -> OVERSHOOT
         for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
             param2.data = param1.data.clone()
-
+            
+        self.previous_params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
         self.base_scheduler.step()
         self.overshoot_scheduler.step()
 
