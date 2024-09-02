@@ -11,7 +11,7 @@ Stochastic gradient descent based optimization method for faster convergence.
 
 To run experiments execute for example:
 ```
-python train.py --job_name test --baseline --model_type roberta
+python train.py --job_name test --model gpt --dataset shakespear --overshoot_factor 2.0
 ```
 When having cpu only it's recomended to use `--model_type cnn`.
 For more info run `python train.py --help`.
