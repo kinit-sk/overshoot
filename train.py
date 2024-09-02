@@ -49,52 +49,53 @@ class OvershootTrainer(pl.LightningModule):
         self.base_scheduler.step()  # For some reason this needs to be called manually
         return output["loss"], output["loss"], output["logits"]
 
-    def _overshoot_training_step(self, batch):
-        for opt in self.optimizers():
-            opt.zero_grad()
+    def _overshoot_training_step(self, batch, batch_idx):
+        if batch_idx == 0: # Most likely this is not needed
+            for opt in self.optimizers():
+                opt.zero_grad()
 
         output_overshoot = self.overshoot_model.forward(**batch)
-
-        # Only to log base loss
         with torch.no_grad():
-            output_base = self.base_model.forward(**batch)
+            output_base = self.base_model.forward(**batch) # only to log base loss
+        self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
 
-        self.manual_backward(output_overshoot["loss"])
-
-        # Gradients OVERSHOOT -> BASE
-        for (name1, param1), (name2, param2) in zip(
-            self.overshoot_model.named_parameters(), self.base_model.named_parameters()
-        ):
-            if param1.grad is not None:
-                assert name1 == name2, "Parameter names do not match between models."
-                param2.grad = param1.grad.clone()
-
-        if args.compute_cosine:
-            grads = torch.cat([p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None])
-            params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
-            if self.previous_grads is not None:
-                sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
-                if not torch.isnan(sim).item():
-                    self.grad_cosine_sim = 0.9 * self.grad_cosine_sim + 0.1 * sim.item()
-            if self.previous_params is not None:
-                update = params - self.previous_params
-                if self.last_update is not None:
-                    sim = F.cosine_similarity(self.last_update, update, dim=0)
-                    if not torch.isnan(sim).item():
-                        self.update_cosine_sim = 0.9 * self.update_cosine_sim + 0.1 * sim.item()
-                self.last_update = update
-            self.previous_grads = grads
-
-        # Weights BASE -> OVERSHOOT
-        for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
-            param2.data = param1.data.clone()
+        if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
             
-        self.previous_params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
-        self.base_scheduler.step()
-        self.overshoot_scheduler.step()
+            # 1) Gradients OVERSHOOT -> BASE
+            for (name1, param1), (name2, param2) in zip(
+                self.overshoot_model.named_parameters(), self.base_model.named_parameters()
+            ):
+                if param1.grad is not None:
+                    assert name1 == name2, "Parameter names do not match between models."
+                    param2.grad = param1.grad.clone()
 
-        for opt in self.optimizers():
-            opt.step()
+            if args.compute_cosine:
+                grads = torch.cat([p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None])
+                params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
+                if self.previous_grads is not None:
+                    sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
+                    if not torch.isnan(sim).item():
+                        self.grad_cosine_sim = 0.9 * self.grad_cosine_sim + 0.1 * sim.item()
+                if self.previous_params is not None:
+                    update = params - self.previous_params
+                    if self.last_update is not None:
+                        sim = F.cosine_similarity(self.last_update, update, dim=0)
+                        if not torch.isnan(sim).item():
+                            self.update_cosine_sim = 0.9 * self.update_cosine_sim + 0.1 * sim.item()
+                    self.last_update = update
+                self.previous_grads = grads
+
+            # 2) Weights BASE -> OVERSHOOT
+            for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
+                param2.data = param1.data.clone()
+                
+            self.previous_params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
+
+            # 3) Update models based on gradients
+            self.base_scheduler.step(); self.overshoot_scheduler.step()
+            for opt in self.optimizers():
+                opt.step()
+                opt.zero_grad()
 
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
@@ -102,7 +103,7 @@ class OvershootTrainer(pl.LightningModule):
         if self.automatic_optimization:
             loss_base, loss_overshoot, output_base = self._baseline_training_step(batch)
         else:
-            loss_base, loss_overshoot, output_base = self._overshoot_training_step(batch)
+            loss_base, loss_overshoot, output_base = self._overshoot_training_step(batch, batch_idx)
 
         for device_id in range(self.config.n_gpu):
             torch.cuda.synchronize(device_id)  # wait for the GPUs to finish work
@@ -254,6 +255,7 @@ def main():
         max_epochs=trainer_config.epochs,
         enable_progress_bar=False,
         log_every_n_steps=1,
+        accumulate_grad_batches=trainer_config.accumulate_grad_batches if args.baseline else 1,
         logger=TensorBoardLogger(save_dir=os.path.join("lightning_logs", args.job_name), name=sub_name),
         devices=trainer_config.n_gpu if trainer_config.n_gpu > 1 else "auto",
         strategy="deepspeed_stage_2" if trainer_config.n_gpu > 1 else "auto",

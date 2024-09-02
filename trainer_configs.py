@@ -7,6 +7,7 @@ from typing import Optional, Tuple
 class TrainerConfig:
     n_gpu: int = torch.cuda.device_count()
     B: int = 16
+    accumulate_grad_batches: int = 1
     lr_base: float = 3e-4
     lr_overshoot: Optional[None] = None
     epochs: int = 200
