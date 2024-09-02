@@ -196,7 +196,6 @@ def init_model(model_name, dataset_name):
         tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"]) # use tokenizer from HF
         tokenizer.pad_token = tokenizer.eos_token
         return GPT(GPTConfig(vocab_size=50304)), tokenizer
-        # return GPT(GPTConfig(vocab_size=50257)), None
     elif model_name == "cnn":
         return CNN(), None
     elif model_name in model_map:
@@ -210,11 +209,12 @@ def init_model(model_name, dataset_name):
         if dataset_name in ['shakespear', 'gutenberg']:
             # model = AutoModelForPreTraining.from_pretrained(model_name, config=config) # pre-trained model
             model = AutoModelForPreTraining.from_config(config) # from scratch
-            tokenizer.pad_token = tokenizer.eos_token
-            model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
         else:
             config.num_labels = 2
             model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
+            
+        tokenizer.pad_token = tokenizer.eos_token
+        model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
         model.train()
         
         return model, tokenizer
