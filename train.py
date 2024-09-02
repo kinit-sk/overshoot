@@ -187,7 +187,7 @@ def init_model(model_name, dataset_name):
         "gpt_hf": "openai-community/gpt2",
         "roberta_hf": "FacebookAI/roberta-base",
         "bloom_hf": "bigscience/bloom-560m",
-        "opt_hf": "facebook/opt-125m"
+        "mdeberta_hf": "microsoft/mdeberta-v3-base"
     }
     
     if model_name == "gpt":
@@ -206,8 +206,8 @@ def init_model(model_name, dataset_name):
         config.ignore_mismatched_sizes = True
 
         if dataset_name in ['shakespear', 'gutenberg']:
-            # model = AutoModelForPreTraining.from_pretrained(model_name, config=config)
-            model = AutoModelForPreTraining.from_config(config)
+            # model = AutoModelForPreTraining.from_pretrained(model_name, config=config) # pre-trained model
+            model = AutoModelForPreTraining.from_config(config) # from scratch
             tokenizer.pad_token = tokenizer.eos_token
             model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
         else:
@@ -239,7 +239,7 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
 # -----------------------------------------------------------------------------
 def main():
     model, tokenizer = init_model(args.model, args.dataset)
-    dataset = init_dataset(args.dataset, tokenizer, 1024)
+    dataset = init_dataset(args.dataset, tokenizer, 512 if args.model in ["roberta_hf", "bert_hf"] else 1024)
     trainer_config = TrainerConfig()
 
     print(model)
