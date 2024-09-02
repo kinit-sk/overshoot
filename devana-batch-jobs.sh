@@ -3,7 +3,7 @@
 
 # e.g., ./devana-batch-jobs.sh large_batch_size_test gpt_hf shakespear
 JOB_NAME=${1:?"Missing experiment name"}
-MODEL=${2:?"Missing model name. Options: 'gpt', 'cnn', 'gpt_hf', 'roberta_hf')."}
+MODEL=${2:?"Missing model name. Options: 'gpt', 'cnn', 'gpt_hf', 'roberta_hf', 'bloom_hf', 'mdeberta_hf', 't5_hf'."}
 DATASET=${3:?"Missing dataset name. a) vision: 'mnist', 'cifar100'. b) next-token-prediction: 'shakespear', 'gutenberg'. c) text-classification: 'qqp', 'mnli', 'mmlu'"}
 
 OVERSHOOT_FACTORS=(1.0 2.0 4.0 6.0 14.0 24.0)

@@ -186,8 +186,10 @@ def init_model(model_name, dataset_name):
     model_map = {
         "gpt_hf": "openai-community/gpt2",
         "roberta_hf": "FacebookAI/roberta-base",
+        "xlm_roberta_hf": "FacebookAI/xlm-roberta-base",
         "bloom_hf": "bigscience/bloom-560m",
-        "mdeberta_hf": "microsoft/mdeberta-v3-base"
+        "mdeberta_hf": "microsoft/mdeberta-v3-base",
+        "t5_hf": "google-t5/t5-base",
     }
     
     if model_name == "gpt":
@@ -239,7 +241,7 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
 # -----------------------------------------------------------------------------
 def main():
     model, tokenizer = init_model(args.model, args.dataset)
-    dataset = init_dataset(args.dataset, tokenizer, 512 if args.model in ["roberta_hf", "bert_hf"] else 1024)
+    dataset = init_dataset(args.dataset, tokenizer, 512 if args.model in ["xlm_roberta_hf", "roberta_hf", "bert_hf"] else 1024)
     trainer_config = TrainerConfig()
 
     print(model)
