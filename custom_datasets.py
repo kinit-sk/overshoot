@@ -7,7 +7,7 @@ from datasets import load_dataset
 
 class NextTokenDataloader:
     
-    def __init__(self, T: int, source_file: str = 'tiny_shakespear.txt', cache_dir='.next-token-dataloader'):
+    def __init__(self, tokenizer, T: int, source_file: str = 'tiny_shakespear.txt', cache_dir='.next-token-dataloader'):
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
         os.environ["TIKTOKEN_CACHE_DIR"] = cache_dir
@@ -27,10 +27,7 @@ class NextTokenDataloader:
 
         with open(file_path, 'r') as f:
             text = f.read()
-
-        enc = tiktoken.get_encoding('gpt2')
-        tokens = enc.encode(text)
-        self.tokens = torch.tensor(tokens)
+        self.tokens = torch.tensor(tokenizer(text)[0].ids)
         # self.tokens = self.tokens.repeat(25) # Make dataset artiffically bigger
         print(f"Loaded {len(self.tokens)} tokens")
 

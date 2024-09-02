@@ -69,21 +69,21 @@ class OvershootTrainer(pl.LightningModule):
                 assert name1 == name2, "Parameter names do not match between models."
                 param2.grad = param1.grad.clone()
 
-        grads = torch.cat([p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None])
-        params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
-        if self.previous_grads is not None:
-            sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
-            if not torch.isnan(sim).item():
-                self.grad_cosine_sim = 0.9 * self.grad_cosine_sim + 0.1 * sim.item()
-        if self.previous_params is not None:
-            update = params - self.previous_params
-            if self.last_update is not None:
-                sim = F.cosine_similarity(self.last_update, update, dim=0)
+        if args.compute_cosine:
+            grads = torch.cat([p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None])
+            params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
+            if self.previous_grads is not None:
+                sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
                 if not torch.isnan(sim).item():
-                    self.update_cosine_sim = 0.9 * self.update_cosine_sim + 0.1 * sim.item()
-            self.last_update = update
-                    
-        self.previous_grads = grads
+                    self.grad_cosine_sim = 0.9 * self.grad_cosine_sim + 0.1 * sim.item()
+            if self.previous_params is not None:
+                update = params - self.previous_params
+                if self.last_update is not None:
+                    sim = F.cosine_similarity(self.last_update, update, dim=0)
+                    if not torch.isnan(sim).item():
+                        self.update_cosine_sim = 0.9 * self.update_cosine_sim + 0.1 * sim.item()
+                self.last_update = update
+            self.previous_grads = grads
 
         # Weights BASE -> OVERSHOOT
         for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
@@ -185,10 +185,14 @@ def init_model(model_name, dataset_name):
     model_map = {
         "gpt_hf": "openai-community/gpt2",
         "roberta_hf": "FacebookAI/roberta-base",
+        "bloom_hf": "bigscience/bloom-560m",
+        "opt_hf": "facebook/opt-125m"
     }
     
     if model_name == "gpt":
-        return GPT(GPTConfig(vocab_size=50304)), None
+        tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"]) # use tokenizer from HF
+        tokenizer.pad_token = tokenizer.eos_token
+        return GPT(GPTConfig(vocab_size=50304)), tokenizer
         # return GPT(GPTConfig(vocab_size=50257)), None
     elif model_name == "cnn":
         return CNN(), None
@@ -196,12 +200,13 @@ def init_model(model_name, dataset_name):
         model_name = model_map[model_name]
         config = AutoConfig.from_pretrained(model_name)
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        config.hidden_dropout_prob = 0.0  # Default is 0.1
-        config.attention_probs_dropout_prob = 0.0  # Default is 0.1
+        # config.hidden_dropout_prob = 0.0  # Default is 0.1
+        # config.attention_probs_dropout_prob = 0.0  # Default is 0.1
+        config.ignore_mismatched_sizes = True
 
         if dataset_name in ['shakespear', 'gutenberg']:
-            config.ignore_mismatched_sizes = True
-            model = AutoModelForPreTraining.from_pretrained(model_name, config=config)
+            # model = AutoModelForPreTraining.from_pretrained(model_name, config=config)
+            model = AutoModelForPreTraining.from_config(config)
             tokenizer.pad_token = tokenizer.eos_token
             model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
         else:
@@ -218,9 +223,9 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
     elif dataset_name == "cifar100":
         return Cifar100Dataset()
     elif dataset_name == "shakespear":
-        return NextTokenDataloader(T=T, source_file="tiny_shakespear.txt")
+        return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear.txt")
     elif dataset_name == "gutenberg":
-        return NextTokenDataloader(T=T, source_file="gutenberg_books.txt")
+        return NextTokenDataloader(tokenizer, T=T, source_file="gutenberg_books.txt")
     elif dataset_name == "qqp":
         return QQPDataset(tokenizer=tokenizer)
     elif dataset_name == "mnli":
@@ -297,6 +302,11 @@ if __name__ == "__main__":
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Necessary to get the same results for `--baseline` and `--overshoot_factor 1`",
+    )
+    parser.add_argument(
+        "--compute_cosine",
+        action=argparse.BooleanOptionalAction,
+        default=False,
     )
     args = parser.parse_args()
     assert (
