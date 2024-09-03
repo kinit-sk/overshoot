@@ -253,8 +253,9 @@ def main():
     if not args.baseline:
         trainer_config.lr_overshoot = trainer_config.lr_base * args.overshoot_factor
     if args.adaptive_adam_beta:
-        beta1 = 1 - 1 / 2 * (args.overshoot_factor - 1)
+        beta1 = 1 - 1 / (2 * (args.overshoot_factor - 1))
         trainer_config.adam_betas = beta1, trainer_config.adam_betas[1]
+        print(f"Using adam beta1={beta1}.")
 
     trainer = OvershootTrainer(model, dataset, trainer_config)
     pl_trainer_args = argparse.Namespace(
