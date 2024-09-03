@@ -244,14 +244,17 @@ def main():
     model, tokenizer = init_model(args.model, args.dataset)
     dataset = init_dataset(args.dataset, tokenizer, 512 if args.model in ["xlm_roberta_hf", "roberta_hf", "bert_hf"] else 1024)
     trainer_config = TrainerConfig()
-
     print(model)
+    
     # Doesn't work inside devana slurn job
     # model = torch.compile(model)
 
     sub_name = "baseline" if args.baseline else f"overshoot_factor_{args.overshoot_factor:.2f}"
     if not args.baseline:
         trainer_config.lr_overshoot = trainer_config.lr_base * args.overshoot_factor
+    if args.adaptive_adam_beta:
+        beta1 = 1 - 1 / 2 * (args.overshoot_factor - 1)
+        trainer_config.adam_betas = beta1, trainer_config.adam_betas[1]
 
     trainer = OvershootTrainer(model, dataset, trainer_config)
     pl_trainer_args = argparse.Namespace(
@@ -310,6 +313,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--compute_cosine",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Compute cosine similarity between successive vectors.",
+    )
+    parser.add_argument(
+        "--adaptive_adam_beta",
         action=argparse.BooleanOptionalAction,
         default=False,
     )
