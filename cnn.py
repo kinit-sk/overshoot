@@ -7,12 +7,12 @@ class CNN(nn.Module):
         super().__init__()
         self.convs = nn.ModuleList(
             [
-                nn.Conv2d(3, 32, 3, 1),
+                nn.Conv2d(1, 32, 3, 1),
                 nn.Conv2d(32, 64, 3, 1),
                 nn.Conv2d(64, 128, 3, 1),
             ]
         )
-        self.fc1 = nn.Linear(512, 128)
+        self.fc1 = nn.Linear(128, 128)
         self.fc2 = nn.Linear(128, 100)
         self.dropout = nn.Dropout(0.5)
         

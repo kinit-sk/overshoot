@@ -15,6 +15,7 @@ from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassifi
 from cnn import CNN
 from custom_datasets import (MnistDataset, Cifar100Dataset, MMLUDataset, MNLIDataset,
                              NextTokenDataloader, QQPDataset)
+from custom_optimizers import AdamW as CustomAdamW
 from gpt import GPT, GPTConfig
 from trainer_configs import *
 
@@ -164,7 +165,7 @@ class OvershootTrainer(pl.LightningModule):
             print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
             print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
             # Create AdamW optimizer and use the fused version if it is available
-            opt = torch.optim.AdamW(
+            opt = CustomAdamW(
                 optim_groups,
                 lr=getattr(self.config, f"lr_{model_name}"),
                 betas=self.config.adam_betas,
@@ -287,7 +288,7 @@ if __name__ == "__main__":
         "--model",
         type=str,
         required=True,
-        help="Supported types are: `gpt`, `cnn`, `gpt_hf` and `roberta_hf`. For fast iteration use `cnn`.",
+        help="Supported types are: `gpt`, `cnn`, `gpt_hf`, `roberta_hf`, `bloom_hf`, `mdeberta_hf` and `t5_hf`. For fast iteration use `cnn`.",
     )
     parser.add_argument(
         "--dataset",
