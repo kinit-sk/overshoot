@@ -252,7 +252,7 @@ def main():
     sub_name = "baseline" if args.baseline else f"overshoot_factor_{args.overshoot_factor:.2f}"
     if not args.baseline:
         trainer_config.lr_overshoot = trainer_config.lr_base * args.overshoot_factor
-    if args.adaptive_adam_beta:
+    if args.adaptive_adam_beta and not args.baseline and args.overshoot_factor > 1:
         beta1 = 1 - 1 / (2 * (args.overshoot_factor - 1))
         trainer_config.adam_betas = beta1, trainer_config.adam_betas[1]
         print(f"Using adam beta1={beta1}.")
@@ -327,4 +327,6 @@ if __name__ == "__main__":
     assert (
         args.overshoot_factor or args.baseline
     ), "Overshoot factor or baseline needs to be set. See python train.py --help"
+    if args.adaptive_adam_beta and (args.baseline or args.overshoot_factor <=1):
+        print("Warning: Adaptive adam beta only works with overshoot factor > 1.")
     main()
