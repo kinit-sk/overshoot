@@ -3,18 +3,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class CNN(nn.Module):
-    def __init__(self):
+    def __init__(self, inpt_shape, output_shape):
         super().__init__()
         self.convs = nn.ModuleList(
             [
-                nn.Conv2d(1, 32, 3, 1),
-                nn.Conv2d(32, 64, 3, 1),
-                nn.Conv2d(64, 128, 3, 1),
+                nn.Conv2d(inpt_shape[-1], 32, 3, padding='same'),
+                nn.Conv2d(32, 64, 3, padding='same'),
+                nn.Conv2d(64, 128, 3, padding='same'),
             ]
         )
-        self.fc1 = nn.Linear(128, 128)
-        self.fc2 = nn.Linear(128, 100)
-        self.dropout = nn.Dropout(0.5)
+        self.fc1 = nn.Linear(round(inpt_shape[0] / 2**len(self.convs))**2 * 128, 512)
+        self.fc2 = nn.Linear(512, output_shape)
+        # self.dropout = nn.Dropout(0.5)
         
     def forward(self, x, labels=None):
         for conv in self.convs:
@@ -25,7 +25,6 @@ class CNN(nn.Module):
         
         x = self.fc1(x)
         x = F.relu(x)
-        x = self.dropout(x)
         x = self.fc2(x)
         logits = F.log_softmax(x, dim=1)
         

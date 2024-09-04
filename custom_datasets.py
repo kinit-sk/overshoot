@@ -28,6 +28,9 @@ class NextTokenDataloader:
         with open(file_path, 'r') as f:
             text = f.read()
         self.tokens = torch.tensor(tokenizer(text)[0].ids)
+        # enc = tiktoken.get_encoding('gpt2')
+        # tokens = enc.encode(text)
+        # self.tokens = torch.tensor(tokens)
         # self.tokens = self.tokens.repeat(25) # Make dataset artiffically bigger
         print(f"Loaded {len(self.tokens)} tokens")
 
@@ -74,6 +77,20 @@ class Cifar100Dataset:
     def __len__(self):
         return len(self.dataset)
         
+class Cifar10Dataset:
+    def __init__(self) -> None:
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),  # Normalize with mean and std deviation for MNIST
+            # transforms.RandomRotation(10),
+        ])
+        self.dataset = datasets.CIFAR10(root='./.cifar_data_10', train=True, download=True, transform=transform)
+        
+    def __getitem__(self, index):
+        return {"x": self.dataset[index][0], "labels": self.dataset[index][1]}
+
+    def __len__(self):
+        return len(self.dataset)
         
         
 # class SST2Datatset:
