@@ -180,6 +180,7 @@ class OvershootTrainer(pl.LightningModule):
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
+                    foreach=False,
                 )
             elif "sgd" in args.opt_name:
                 opt = opt_map[args.opt_name](
@@ -192,6 +193,7 @@ class OvershootTrainer(pl.LightningModule):
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     alpha=self.config.adam_betas[1],
+                    foreach=False,
                 )
                 
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=self.steps)

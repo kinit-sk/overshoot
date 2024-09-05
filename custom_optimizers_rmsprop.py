@@ -291,9 +291,14 @@ def _single_tensor_rmsprop(
         square_avg = square_avgs[i]
 
         step += 1
-
-        if weight_decay != 0:
-            grad = grad.add(param, alpha=weight_decay)
+        
+        #----------------------------
+        # Old
+        # if weight_decay != 0:
+        #     grad = grad.add(param, alpha=weight_decay)
+        # New
+        param.mul_(1 - lr * weight_decay)
+        #----------------------------
 
         is_complex_param = torch.is_complex(param)
         if is_complex_param:
