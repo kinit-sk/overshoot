@@ -164,19 +164,25 @@ class OvershootTrainer(pl.LightningModule):
             num_nodecay_params = sum(p.numel() for p in nodecay_params)
             print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
             print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
-            if args.use_rmsprop:
-                # RMSprop with bias correction term. Equivalent to Adam with beta1=0
-                opt = CustomRMSprop(
-                    optim_groups,
-                    alpha=self.config.adam_betas[1],
-                    lr=getattr(self.config, f"lr_{model_name}"),
-                )
-            else:
-                opt = torch.optim.Adam(
+            opt_map = {
+                "adam": torch.optim.Adam,
+                "adamW": torch.optim.AdamW,
+                "rmsprop": torch.optim.RMSprop,
+                "rmsprop_custom": CustomRMSprop, # RMSprop with bias correction term. Equivalent to Adam with beta1=0
+            }
+            if "adam" in args.opt_name:
+                opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
                 )
+            else:
+                opt = opt_map[args.opt_name](
+                    optim_groups,
+                    lr=getattr(self.config, f"lr_{model_name}"),
+                    alpha=self.config.adam_betas[1],
+                )
+                
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=self.steps)
             optimizers.append(opt)
             setattr(self, f"{model_name}_scheduler", lr_scheduler)
@@ -336,9 +342,9 @@ if __name__ == "__main__":
         default=False,
     )
     parser.add_argument(
-        "--use_rmsprop",
-        action=argparse.BooleanOptionalAction,
-        default=False,
+        "--opt_name",
+        type=str,
+        default='adam',
     )
     args = parser.parse_args()
     assert (
