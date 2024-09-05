@@ -165,18 +165,17 @@ class OvershootTrainer(pl.LightningModule):
             print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
             print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
             if args.use_rmsprop:
+                # RMSprop with bias correction term. Equivalent to Adam with beta1=0
                 opt = CustomRMSprop(
                     optim_groups,
                     alpha=self.config.adam_betas[1],
                     lr=getattr(self.config, f"lr_{model_name}"),
-                    weight_decay=0,
                 )
             else:
-                opt = torch.optim.AdamW(
+                opt = torch.optim.Adam(
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
-                    weight_decay=0,
                 )
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=self.steps)
             optimizers.append(opt)
