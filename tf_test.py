@@ -14,7 +14,7 @@ model = models.Sequential([
     layers.Conv2D(128, (3, 3), activation='relu'),
     layers.MaxPooling2D((2, 2)),
     layers.Flatten(),
-    layers.Dense(50, activation='relu'),
+    layers.Dense(512, activation='relu'),
     layers.Dense(10, activation='softmax')
 ])
 

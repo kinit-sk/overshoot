@@ -13,9 +13,9 @@ from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForPreTraining
 
 from cnn import CNN
-from custom_datasets import (MnistDataset, Cifar100Dataset, MMLUDataset, MNLIDataset,
+from custom_datasets import (MnistDataset, Cifar10Dataset, Cifar100Dataset, MMLUDataset, MNLIDataset,
                              NextTokenDataloader, QQPDataset)
-from custom_optimizers import AdamW as CustomAdamW
+from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
 from gpt import GPT, GPTConfig
 from trainer_configs import *
 
@@ -131,7 +131,7 @@ class OvershootTrainer(pl.LightningModule):
                 utilization = torch.cuda.utilization(gpu_index)
                 gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
             print(
-                f"step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}"
+                f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}"
             )
 
         stats = {
@@ -164,14 +164,20 @@ class OvershootTrainer(pl.LightningModule):
             num_nodecay_params = sum(p.numel() for p in nodecay_params)
             print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
             print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
-            # Create AdamW optimizer and use the fused version if it is available
-            opt = CustomAdamW(
-                optim_groups,
-                lr=getattr(self.config, f"lr_{model_name}"),
-                betas=self.config.adam_betas,
-                eps=1e-8,
-                fused=False,
-            )
+            if args.use_rmsprop:
+                opt = CustomRMSprop(
+                    optim_groups,
+                    alpha=self.config.adam_betas[1],
+                    lr=getattr(self.config, f"lr_{model_name}"),
+                    weight_decay=0,
+                )
+            else:
+                opt = torch.optim.AdamW(
+                    optim_groups,
+                    lr=getattr(self.config, f"lr_{model_name}"),
+                    betas=self.config.adam_betas,
+                    weight_decay=0,
+                )
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=self.steps)
             optimizers.append(opt)
             setattr(self, f"{model_name}_scheduler", lr_scheduler)
@@ -192,13 +198,18 @@ def init_model(model_name, dataset_name):
         "mdeberta_hf": "microsoft/mdeberta-v3-base",
         "t5_hf": "google-t5/t5-base",
     }
+    dataset_to_shape = {
+        "mnist": ((28, 28, 1), 10),
+        "cifar10": ((32, 32, 3), 10),
+        "cifar100": ((32, 32, 3), 100)
+    }
     
     if model_name == "gpt":
         tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"]) # use tokenizer from HF
         tokenizer.pad_token = tokenizer.eos_token
         return GPT(GPTConfig(vocab_size=50304)), tokenizer
     elif model_name == "cnn":
-        return CNN(), None
+        return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None
     elif model_name in model_map:
         model_name = model_map[model_name]
         config = AutoConfig.from_pretrained(model_name)
@@ -224,6 +235,8 @@ def init_model(model_name, dataset_name):
 def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
     if dataset_name == "mnist":
         return MnistDataset()
+    elif dataset_name == "cifar10":
+        return Cifar10Dataset()
     elif dataset_name == "cifar100":
         return Cifar100Dataset()
     elif dataset_name == "shakespear":
@@ -252,7 +265,7 @@ def main():
     sub_name = "baseline" if args.baseline else f"overshoot_factor_{args.overshoot_factor:.2f}"
     if not args.baseline:
         trainer_config.lr_overshoot = trainer_config.lr_base * args.overshoot_factor
-    if args.adaptive_adam_beta and not args.baseline and args.overshoot_factor > 1:
+    if args.adaptive_adam_beta and args.overshoot_factor and args.overshoot_factor > 1:
         beta1 = 1 - 1 / (2 * (args.overshoot_factor - 1))
         trainer_config.adam_betas = beta1, trainer_config.adam_betas[1]
         print(f"Using adam beta1={beta1}.")
@@ -299,7 +312,7 @@ if __name__ == "__main__":
         type=str,
         required=True,
         help="""Dataset to use. Options: 
-                                   a) vision: `mnist`, `cifar100`
+                                   a) vision: `mnist`, `cifar10`, `cifar100`
                                    b) next-token-prediction: `shakespear`, `gutenberg`,
                                    c) text-classification: `qqp`, `mnli`, `mmlu`""",
     )
@@ -323,10 +336,15 @@ if __name__ == "__main__":
         action=argparse.BooleanOptionalAction,
         default=False,
     )
+    parser.add_argument(
+        "--use_rmsprop",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
     args = parser.parse_args()
     assert (
         args.overshoot_factor or args.baseline
     ), "Overshoot factor or baseline needs to be set. See python train.py --help"
-    if args.adaptive_adam_beta and (args.baseline or args.overshoot_factor <=1):
-        print("Warning: Adaptive adam beta only works with overshoot factor > 1.")
+    if args.adaptive_adam_beta and ((not args.overshoot_factor) or args.overshoot_factor <=1):
+        print("Warning: Adaptive adam beta only works with overshoot factor > 1.", flush=True)
     main()
