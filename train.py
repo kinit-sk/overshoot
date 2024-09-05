@@ -166,15 +166,26 @@ class OvershootTrainer(pl.LightningModule):
             print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
             opt_map = {
                 "adam": torch.optim.Adam,
+                "adam_zero": torch.optim.Adam,
                 "adamW": torch.optim.AdamW,
                 "rmsprop": torch.optim.RMSprop,
                 "rmsprop_custom": CustomRMSprop, # RMSprop with bias correction term. Equivalent to Adam with beta1=0
+                "sgd": torch.optim.SGD,
+                "sgd_momentum": torch.optim.SGD,
             }
             if "adam" in args.opt_name:
+                if args.opt_name == "adam_zero":
+                    self.config.adam_betas = 0, self.config.adam_betas[1]
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
+                )
+            elif "sgd" in args.opt_name:
+                opt = opt_map[args.opt_name](
+                    optim_groups,
+                    lr=getattr(self.config, f"lr_{model_name}"),
+                    momentum=0.9 if args.opt_name == "sgd_momentum" else 0
                 )
             else:
                 opt = opt_map[args.opt_name](
