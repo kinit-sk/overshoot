@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import models
 
 class CNN(nn.Module):
     def __init__(self, inpt_shape, output_shape):
@@ -34,4 +35,20 @@ class CNN(nn.Module):
         loss = None
         if labels is not None:
             loss = F.nll_loss(logits, labels)
+        return {'loss': loss, 'logits': logits}
+
+
+class ResNet50(nn.Module):
+
+    def __init__(self, num_classes: int):
+        super().__init__()
+        self._ce_loss = torch.nn.CrossEntropyLoss()
+        self._model = models.resnet50(pretrained=False)
+        self._model.fc = nn.Linear(self._model.fc.in_features, num_classes)
+
+    def forward(self, x, labels=None):
+        logits = self._model(x)
+        loss = None
+        if labels is not None:
+            loss = self._ce_loss(logits, labels)
         return {'loss': loss, 'logits': logits}

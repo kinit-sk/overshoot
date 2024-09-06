@@ -14,7 +14,7 @@ class TrainerConfig:
     lr_overshoot: Optional[None] = None
     epochs: int = 200
     adam_betas: Tuple[float, float] = 0.9, 0.999
-    weight_decay: float = 0.1
+    weight_decay: float = 0.0
 
 # @dataclass
 # class CNNTrainerConfig:

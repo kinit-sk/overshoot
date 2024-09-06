@@ -49,6 +49,7 @@ class NextTokenDataloader:
 class MnistDataset:
     def __init__(self) -> None:
         transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=3), 
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,)),  # Normalize with mean and std deviation for MNIST
             # transforms.RandomRotation(10),

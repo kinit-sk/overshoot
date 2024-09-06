@@ -12,7 +12,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForPreTraining
 
-from cnn import CNN
+from cnn import CNN, ResNet50
 from custom_datasets import (MnistDataset, Cifar10Dataset, Cifar100Dataset, MMLUDataset, MNLIDataset,
                              NextTokenDataloader, QQPDataset)
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
@@ -229,6 +229,8 @@ def init_model(model_name, dataset_name):
         return GPT(GPTConfig(vocab_size=50304)), tokenizer
     elif model_name == "cnn":
         return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None
+    elif model_name == "resnet50":
+        return ResNet50(dataset_to_shape[dataset_name][1]), None
     elif model_name in model_map:
         model_name = model_map[model_name]
         config = AutoConfig.from_pretrained(model_name)
