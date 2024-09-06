@@ -315,13 +315,14 @@ def _single_tensor_rmsprop(
             grad_avg.lerp_(grad, 1 - alpha)
             avg = square_avg.addcmul(grad_avg, grad_avg, value=-1).sqrt_()
         else:
-            # 1) Original varaint
+            #----------------------------
+            # 1) Old
             # avg = square_avg.sqrt() #old
-            
-            # 2) Bias correction variant
+            # 2) New
             bias_correction2 = 1 - alpha**step.item() 
             bias_correction2_sqrt = _dispatch_sqrt(bias_correction2)
             avg = square_avg.sqrt() / bias_correction2_sqrt
+            #----------------------------
 
         if differentiable:
             avg = avg.add(eps)
@@ -411,9 +412,14 @@ def _multi_tensor_rmsprop(
             if maximize:
                 torch._foreach_add_(grouped_grads, grouped_params, alpha=weight_decay)
             else:
-                grouped_grads = torch._foreach_add(  # type: ignore[assignment]
-                    grouped_grads, grouped_params, alpha=weight_decay
-                )
+                #----------------------------
+                # Old
+                # grouped_grads = torch._foreach_add(  # type: ignore[assignment]
+                #     grouped_grads, grouped_params, alpha=weight_decay
+                # )
+                # New
+                torch._foreach_mul_(grouped_params, 1 - lr * weight_decay)
+                #----------------------------
 
         torch._foreach_mul_(grouped_square_avgs, alpha)
         torch._foreach_addcmul_(
@@ -429,11 +435,14 @@ def _multi_tensor_rmsprop(
             torch._foreach_add_(avg, eps)
         else:
             avg = torch._foreach_sqrt(grouped_square_avgs)
-            # Bias correction-------------------
+            #----------------------------
+            # Old
+            # ---
+            # New
             bias_correction2 = [1 - alpha ** _get_value(step) for step in grouped_state_steps]
             bias_correction2_sqrt = [_dispatch_sqrt(bc) for bc in bias_correction2]  # type: ignore[arg-type]
             torch._foreach_div_(avg, bias_correction2_sqrt)
-            # -------------------
+            #----------------------------
             torch._foreach_add_(avg, eps)
 
         if momentum > 0:
