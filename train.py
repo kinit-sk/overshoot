@@ -113,7 +113,7 @@ class OvershootTrainer(pl.LightningModule):
         dt = now - self.start_time  # time difference in seconds
         self.start_time = now
         
-        if args.dataset in ['shakespear', 'gutenberg']:
+        if args.dataset in ['shakespear', 'gutenberg'] and 'gpt' in args.model:
             accuracy = 100 * torch.mean(output_base.argmax(dim=-1)[:,:-1] == batch["labels"][:,1:], dtype=float).item()
         else:
             accuracy = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
@@ -131,7 +131,7 @@ class OvershootTrainer(pl.LightningModule):
                 utilization = torch.cuda.utilization(gpu_index)
                 gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
             print(
-                f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}"
+                f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}", flush=True
             )
 
         stats = {
@@ -259,9 +259,11 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
     elif dataset_name == "cifar100":
         return Cifar100Dataset()
     elif dataset_name == "shakespear":
-        return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear.txt")
+        return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear_")
+        # return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear.txt")
     elif dataset_name == "gutenberg":
-        return NextTokenDataloader(tokenizer, T=T, source_file="gutenberg_books.txt")
+        # return NextTokenDataloader(tokenizer, T=T, source_file="gutenberg_books.txt")
+        return NextTokenDataloader(tokenizer, T=T, source_file="gutenberg_books_")
     elif dataset_name == "qqp":
         return QQPDataset(tokenizer=tokenizer)
     elif dataset_name == "mnli":
@@ -276,7 +278,7 @@ def main():
     model, tokenizer = init_model(args.model, args.dataset)
     dataset = init_dataset(args.dataset, tokenizer, 512 if args.model in ["xlm_roberta_hf", "roberta_hf", "bert_hf"] else 1024)
     trainer_config = TrainerConfig()
-    print(model)
+    print(model, flush=True)
     
     # Doesn't work inside devana slurn job
     # model = torch.compile(model)

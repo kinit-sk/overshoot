@@ -12,10 +12,11 @@ class NextTokenDataloader:
             os.makedirs(cache_dir)
         os.environ["TIKTOKEN_CACHE_DIR"] = cache_dir
         self.T = T
+        self._tokenizer = tokenizer
 
         file_path = os.path.join(cache_dir, source_file)
         # Download source file if needed
-        if not os.path.exists(file_path):
+        if not os.path.exists(file_path) and all([not f.startswith(source_file) for f in os.listdir(cache_dir)]):
             download_links = {
                 "tiny_shakespear.txt": 'https://drive.google.com/uc?id=1zPB3Y_9mUfKTrywpOX5Jz9j7TwcMkbnC',
                 "gutenberg_books.txt": 'https://drive.google.com/uc?id=10N-sj1Nu2dj6XjyBxi43tfqamxb9Rn6t'
@@ -25,24 +26,56 @@ class NextTokenDataloader:
             import gdown
             gdown.download(download_links[source_file], file_path, quiet=False)
 
-        with open(file_path, 'r') as f:
-            text = f.read()
-        self.tokens = torch.tensor(tokenizer(text)[0].ids)
+        if source_file.endswith("_"):
+            self._sherds = [os.path.join(cache_dir, f) for f in os.listdir(cache_dir) if f.startswith(source_file)]
+        else:
+            self._sherds = [file_path]
+            
+        self._current_shred = 0
+        self._shred_offset = 0
+        self._length = 0
+        for i, s in enumerate(self._sherds):
+            tokens = self.__tokenize_file(s)
+            self._length += tokens.shape[0] // self.T
+            print(f"Loading shred: {i}/{len(self._sherds)}, size: {tokens.shape[0] // self.T}", flush=True)
+            if i == 0:
+                self._tokens = tokens
+
+        
+        
         # enc = tiktoken.get_encoding('gpt2')
         # tokens = enc.encode(text)
         # self.tokens = torch.tensor(tokens)
         # self.tokens = self.tokens.repeat(25) # Make dataset artiffically bigger
-        print(f"Loaded {len(self.tokens)} tokens")
+        print(f"Loaded {self._length} tokens")
+
+    def __tokenize_file(self, file_path):
+        with open(file_path, 'r') as f:
+            text = f.read()
+            return self._tokenizer(text, return_tensors="pt")['input_ids'].view(-1)
 
     def __getitem__(self, index):
+        
+        if len(self._sherds):
+            if index == 0:
+                self._current_shred = 0
+                self._shred_offset = 0
+                self._tokens = self.__tokenize_file(self._sherds[self._current_shred])
+            elif index - self._shred_offset >= self._tokens.shape[0] // self.T:
+                self._current_shred += 1
+                assert self._current_shred < len(self._sherds), "Reached end of sherd list"
+                self._shred_offset += self._tokens.shape[0] // self.T
+                self._tokens = self.__tokenize_file(self._sherds[self._current_shred])
+
         # buf = self.tokens[index * self.T : (index + 1) * self.T + 1]
         # x = buf[:-1] # inputs
         # y = buf[1:] # targets
-        buf = self.tokens[index * self.T : (index + 1) * self.T]
+        index -= self._shred_offset
+        buf = self._tokens[index * self.T : (index + 1) * self.T]
         return {"input_ids": buf, "labels": buf} # Dont shift labels. Use same approach as HF
 
     def __len__(self):
-        return len(self.tokens) // (self.T)
+        return self._length
         
         
         
