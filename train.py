@@ -58,7 +58,8 @@ class OvershootTrainer(pl.LightningModule):
         output_overshoot = self.overshoot_model.forward(**batch)
         with torch.no_grad():
             output_base = self.base_model.forward(**batch) # only to log base loss
-        self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
+        output_overshoot["loss"] /= self.config.accumulate_grad_batches
+        self.manual_backward(output_overshoot["loss"])
 
         if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
             
@@ -134,18 +135,19 @@ class OvershootTrainer(pl.LightningModule):
                 f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}", flush=True
             )
 
-        stats = {
-            "step": len(self.training_stats),
-            "base_lr": lr_base,
-            "overshoot_lr": lr_overshoot,
-            "base_loss": loss_base.item(),
-            "overshoot_loss": loss_overshoot.item(),
-            "grads_cosine_similarity": self.grad_cosine_sim,
-            "update_cosine_similarity": self.update_cosine_sim,
-            "accuracy": accuracy,
-        }
-        self.training_stats.append(stats)
-        self.log_dict(stats)
+        if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
+            stats = {
+                "step": len(self.training_stats),
+                "base_lr": lr_base,
+                "overshoot_lr": lr_overshoot,
+                "base_loss": loss_base.item(),
+                "overshoot_loss": loss_overshoot.item(),
+                "grads_cosine_similarity": self.grad_cosine_sim,
+                "update_cosine_similarity": self.update_cosine_sim,
+                "accuracy": accuracy,
+            }
+            self.training_stats.append(stats)
+            self.log_dict(stats)
         return loss_overshoot
 
     def configure_optimizers(self):
