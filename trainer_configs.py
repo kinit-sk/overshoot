@@ -14,6 +14,7 @@ class TrainerConfig:
     lr_overshoot: Optional[None] = None
     epochs: int = 200
     adam_betas: Tuple[float, float] = 0.9, 0.999
+    sgd_momentum: float = 0.9
     weight_decay: float = 0.0
 
 # @dataclass

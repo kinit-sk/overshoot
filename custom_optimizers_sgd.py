@@ -346,16 +346,27 @@ def _single_tensor_sgd(
 
             if buf is None:
                 buf = torch.clone(grad).detach()
+                #----------------------
+                # New
+                param_update = torch.mul(buf, 1 + overshoot)
+                #----------------------
                 momentum_buffer_list[i] = buf
             else:
+                #----------------------
+                # New
+                # If updating momentum like this: mt = b * mt + g
+                param_update = torch.mul(buf, momentum * overshoot + momentum - overshoot).add(grad, alpha=overshoot + 1)
+                # If updating momentum like this: mt = b * mt + (1 - b) * g
+                # param_update = torch.mul(buf, momentum * overshoot + momentum - overshoot).add(grad, alpha=overshoot + 1 - momentum - momentum * overshoot)
+                #----------------------
                 buf.mul_(momentum).add_(grad, alpha=1 - dampening)
 
-            if nesterov:
-                grad = grad.add(buf, alpha=momentum)
-            else:
-                grad = buf
+            # if nesterov:
+            #     grad = grad.add(buf, alpha=momentum)
+            # else:
+            #     grad = buf
 
-        param.add_(grad, alpha=-lr)
+        param.add_(param_update, alpha=-lr)
 
 
 def _multi_tensor_sgd(

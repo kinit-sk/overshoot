@@ -16,6 +16,7 @@ from cnn import CNN, ResNet50
 from custom_datasets import (MnistDataset, Cifar10Dataset, Cifar100Dataset, MMLUDataset, MNLIDataset,
                              NextTokenDataloader, QQPDataset)
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
+from custom_optimizers_sgd import SGD as OvershootSGD
 from gpt import GPT, GPTConfig
 from trainer_configs import *
 
@@ -102,6 +103,7 @@ class OvershootTrainer(pl.LightningModule):
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
     def training_step(self, batch, batch_idx):
+        # self.trainer.should_stop = batch_idx > 300
         if self.automatic_optimization:
             loss_base, loss_overshoot, output_base = self._baseline_training_step(batch)
         else:
@@ -175,6 +177,8 @@ class OvershootTrainer(pl.LightningModule):
                 "rmsprop_custom": CustomRMSprop, # RMSprop with bias correction term. Equivalent to Adam with beta1=0
                 "sgd": torch.optim.SGD,
                 "sgd_momentum": torch.optim.SGD,
+                "sgd_nesterov": torch.optim.SGD,
+                "sgd_overshoot": OvershootSGD,
             }
             if "adam" in args.opt_name:
                 if "zero" in args.opt_name:
@@ -184,11 +188,19 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
                 )
+            elif args.opt_name == "sgd_overshoot":
+                opt = opt_map[args.opt_name](
+                    optim_groups,
+                    lr=getattr(self.config, f"lr_{model_name}"),
+                    momentum=self.config.sgd_momentum,
+                    overshoot=args.overshoot_factor - 1,
+                )
             elif "sgd" in args.opt_name:
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
-                    momentum=0.9 if args.opt_name == "sgd_momentum" else 0
+                    momentum=0 if args.opt_name == "sgd" else self.config.sgd_momentum,
+                    nesterov="nesterov" in args.opt_name,
                 )
             else:
                 opt = opt_map[args.opt_name](
