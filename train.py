@@ -173,6 +173,7 @@ class OvershootTrainer(pl.LightningModule):
                 "adamW": torch.optim.AdamW,
                 "adam_zero": torch.optim.Adam,
                 "adamW_zero": torch.optim.AdamW,
+                "nadam": torch.optim.NAdam,
                 "rmsprop": torch.optim.RMSprop,
                 "rmsprop_custom": CustomRMSprop, # RMSprop with bias correction term. Equivalent to Adam with beta1=0
                 "sgd": torch.optim.SGD,
@@ -180,7 +181,14 @@ class OvershootTrainer(pl.LightningModule):
                 "sgd_nesterov": torch.optim.SGD,
                 "sgd_overshoot": OvershootSGD,
             }
-            if "adam" in args.opt_name:
+            if args.opt_name == "nadam":
+                opt = opt_map[args.opt_name](
+                    optim_groups,
+                    lr=getattr(self.config, f"lr_{model_name}"),
+                    betas=self.config.adam_betas,
+                    momentum_decay=0
+                )
+            elif "adam" in args.opt_name:
                 if "zero" in args.opt_name:
                     self.config.adam_betas = 0, self.config.adam_betas[1]
                 opt = opt_map[args.opt_name](
