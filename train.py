@@ -17,6 +17,7 @@ from custom_datasets import (MnistDataset, Cifar10Dataset, Cifar100Dataset, MMLU
                              NextTokenDataloader, QQPDataset)
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
 from custom_optimizers_sgd import SGD as OvershootSGD
+from custom_optimizers_adamw_overshoot import AdamW as OvershootAdamW
 from gpt import GPT, GPTConfig
 from trainer_configs import *
 
@@ -180,6 +181,7 @@ class OvershootTrainer(pl.LightningModule):
                 "sgd_momentum": torch.optim.SGD,
                 "sgd_nesterov": torch.optim.SGD,
                 "sgd_overshoot": OvershootSGD,
+                "adamW_overshoot": OvershootAdamW,
             }
             if args.opt_name == "nadam":
                 opt = opt_map[args.opt_name](
