@@ -378,7 +378,12 @@ def _single_tensor_adamw(
         param.mul_(1 - lr * weight_decay)
 
         # Decay the first and second moment running average coefficient
-        exp_avg.lerp_(grad, 1 - beta1)
+        #-------------------------------
+        # Old
+        # exp_avg.lerp_(grad, 1 - beta1)
+        # New: pospone momentum update
+        # nothing
+        #-------------------------------
         exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
         if capturable or differentiable:
@@ -412,6 +417,7 @@ def _single_tensor_adamw(
                     exp_avg_sq.sqrt() / (bias_correction2_sqrt * step_size_neg)
                 ).add_(eps / step_size_neg)
 
+            exp_avg.lerp_(grad, 1 - beta1)
             param.addcdiv_(exp_avg, denom)
         else:
             step = _get_value(step_t)
@@ -432,7 +438,20 @@ def _single_tensor_adamw(
             else:
                 denom = (exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
 
-            param.addcdiv_(exp_avg, denom, value=-step_size)
+            #--------------------------------------------
+            # Old
+            # param.addcdiv_(exp_avg, denom, value=-step_size)
+            # New
+            overshoot = 9.0
+            old_momentum_coef = overshoot * beta1 + beta1 - overshoot
+            grad_coef = 1 + overshoot - beta1 - ( overshoot * beta1 )
+            param.addcdiv_(old_momentum_coef * exp_avg + grad_coef * grad, denom, value=-step_size)
+            exp_avg.lerp_(grad, 1 - beta1) # Only now update the momentum
+            # print("-------------------")
+            # print(old_momentum_coef * exp_avg + grad_coef * grad)
+            # print(denom)
+            # import code; code.interact(local=locals())
+            #--------------------------------------------
 
         # Lastly, switch back to complex view
         if amsgrad and torch.is_complex(params[i]):

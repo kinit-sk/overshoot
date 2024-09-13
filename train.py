@@ -188,7 +188,8 @@ class OvershootTrainer(pl.LightningModule):
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
-                    momentum_decay=0
+                    momentum_decay=0,
+                    foreach=False
                 )
             elif "adam" in args.opt_name:
                 if "zero" in args.opt_name:
@@ -197,6 +198,7 @@ class OvershootTrainer(pl.LightningModule):
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
+                    foreach=False
                 )
             elif args.opt_name == "sgd_overshoot":
                 opt = opt_map[args.opt_name](
