@@ -7,3 +7,4 @@ __pycache__
 .cifar_data_10
 slurm_logs/
 tmp.ipynb
+coco

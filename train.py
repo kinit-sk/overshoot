@@ -329,12 +329,18 @@ def main():
 
 if __name__ == "__main__":
     # We should always observe the same results from:
-    #   1) python train.py --job_name test --baseline --deterministic
-    #   2) python train.py --job_name test --overshoot_factor 1 --deterministic
+    #   1) python train.py --baseline --deterministic
+    #   2) python train.py --overshoot_factor 1 --deterministic
     # Sadly deterministic have to use 32-bit precision because of bug in pl.
 
+    # We should observe the same results for:
+    #  1)  python train.py --model cnn --dataset mnist --deterministic --opt_name sgd_nesterov --baseline
+    #  2)  python train.py --model cnn --dataset mnist --deterministic --opt_name sgd_overshoot --baseline --overshoot_factor 1.9
+    #  3)  python train.py --model cnn --dataset mnist --deterministic --opt_name sgd_momentum --overshoot_factor 1.9
+    # For sanity check always use accelerator='cpu' !!!
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--job_name", type=str, required=True, help="Sub-folder name to store experiment results")
+    parser.add_argument("--job_name", type=str, default="test", help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Factor to multiply base lr")
     parser.add_argument(
         "--model",
