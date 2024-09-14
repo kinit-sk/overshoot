@@ -35,6 +35,7 @@ class AdamW(Optimizer):
         betas: Tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-8,
         weight_decay: float = 1e-2,
+        overshoot: float = 0,
         amsgrad: bool = False,
         *,
         maximize: bool = False,
@@ -57,11 +58,14 @@ class AdamW(Optimizer):
             raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
         if not 0.0 <= weight_decay:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+        if not 0.0 <= overshoot:
+            raise ValueError(f"Invalid overshoot value: {overshoot}")
         defaults = dict(
             lr=lr,
             betas=betas,
             eps=eps,
             weight_decay=weight_decay,
+            overshoot=overshoot,
             amsgrad=amsgrad,
             foreach=foreach,
             maximize=maximize,
@@ -123,6 +127,7 @@ class AdamW(Optimizer):
         amsgrad,
         exp_avgs,
         exp_avg_sqs,
+        last_steps,
         max_exp_avg_sqs,
         state_steps,
     ):
@@ -159,6 +164,9 @@ class AdamW(Optimizer):
                 state["exp_avg_sq"] = torch.zeros_like(
                     p, memory_format=torch.preserve_format
                 )
+                state["last_steps"] = torch.zeros_like(
+                    p, memory_format=torch.preserve_format
+                )
                 if amsgrad:
                     # Maintains max of all exp. moving avg. of sq. grad. values
                     state["max_exp_avg_sq"] = torch.zeros_like(
@@ -167,6 +175,7 @@ class AdamW(Optimizer):
 
             exp_avgs.append(state["exp_avg"])
             exp_avg_sqs.append(state["exp_avg_sq"])
+            last_steps.append(state["last_steps"])
 
             if group["amsgrad"]:
                 max_exp_avg_sqs.append(state["max_exp_avg_sq"])
@@ -208,6 +217,7 @@ class AdamW(Optimizer):
             grads: List[Tensor] = []
             exp_avgs: List[Tensor] = []
             exp_avg_sqs: List[Tensor] = []
+            last_steps: List[Tensor] = []
             max_exp_avg_sqs: List[Tensor] = []
             state_steps: List[Tensor] = []
             amsgrad: bool = group["amsgrad"]
@@ -220,6 +230,7 @@ class AdamW(Optimizer):
                 amsgrad,
                 exp_avgs,
                 exp_avg_sqs,
+                last_steps,
                 max_exp_avg_sqs,
                 state_steps,
             )
@@ -229,6 +240,7 @@ class AdamW(Optimizer):
                 grads,
                 exp_avgs,
                 exp_avg_sqs,
+                last_steps,
                 max_exp_avg_sqs,
                 state_steps,
                 amsgrad=amsgrad,
@@ -236,6 +248,7 @@ class AdamW(Optimizer):
                 beta2=beta2,
                 lr=group["lr"],
                 weight_decay=group["weight_decay"],
+                overshoot=group["overshoot"],
                 eps=group["eps"],
                 maximize=group["maximize"],
                 foreach=group["foreach"],
@@ -325,6 +338,7 @@ def _single_tensor_adamw(
     grads: List[Tensor],
     exp_avgs: List[Tensor],
     exp_avg_sqs: List[Tensor],
+    last_steps: List[Tensor],
     max_exp_avg_sqs: List[Tensor],
     state_steps: List[Tensor],
     grad_scale: Optional[Tensor],
@@ -335,6 +349,7 @@ def _single_tensor_adamw(
     beta2: float,
     lr: Union[Tensor, float],
     weight_decay: float,
+    overshoot: float,
     eps: float,
     maximize: bool,
     capturable: bool,
@@ -353,6 +368,7 @@ def _single_tensor_adamw(
         grad = grads[i] if not maximize else -grads[i]
         exp_avg = exp_avgs[i]
         exp_avg_sq = exp_avg_sqs[i]
+        last_step = last_steps[i]
         step_t = state_steps[i]
 
         # If compiling, the compiler will handle cudagraph checks, see note [torch.compile x capturable]
@@ -367,6 +383,7 @@ def _single_tensor_adamw(
             grad = torch.view_as_real(grad)
             exp_avg = torch.view_as_real(exp_avg)
             exp_avg_sq = torch.view_as_real(exp_avg_sq)
+            last_step = torch.view_as_real(last_step)
             if amsgrad:
                 max_exp_avg_sqs[i] = torch.view_as_real(max_exp_avg_sqs[i])
             param = torch.view_as_real(param)
@@ -378,12 +395,7 @@ def _single_tensor_adamw(
         param.mul_(1 - lr * weight_decay)
 
         # Decay the first and second moment running average coefficient
-        #-------------------------------
-        # Old
-        # exp_avg.lerp_(grad, 1 - beta1)
-        # New: pospone momentum update
-        # nothing
-        #-------------------------------
+        exp_avg.lerp_(grad, 1 - beta1)
         exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
         if capturable or differentiable:
@@ -417,8 +429,14 @@ def _single_tensor_adamw(
                     exp_avg_sq.sqrt() / (bias_correction2_sqrt * step_size_neg)
                 ).add_(eps / step_size_neg)
 
-            exp_avg.lerp_(grad, 1 - beta1)
-            param.addcdiv_(exp_avg, denom)
+            #--------------------------------------------
+            # Old
+            # param.addcdiv_(exp_avg, denom)
+            # New
+            param.add_(last_step, alpha=-overshoot)
+            last_step.copy_(torch.div(exp_avg, denom))
+            param.add_(last_step, alpha=1 + overshoot)
+            #--------------------------------------------
         else:
             step = _get_value(step_t)
 
@@ -442,15 +460,9 @@ def _single_tensor_adamw(
             # Old
             # param.addcdiv_(exp_avg, denom, value=-step_size)
             # New
-            overshoot = 9.0
-            old_momentum_coef = overshoot * beta1 + beta1 - overshoot
-            grad_coef = 1 + overshoot - beta1 - ( overshoot * beta1 )
-            param.addcdiv_(old_momentum_coef * exp_avg + grad_coef * grad, denom, value=-step_size)
-            exp_avg.lerp_(grad, 1 - beta1) # Only now update the momentum
-            # print("-------------------")
-            # print(old_momentum_coef * exp_avg + grad_coef * grad)
-            # print(denom)
-            # import code; code.interact(local=locals())
+            param.add_(last_step, alpha=-overshoot)
+            last_step.copy_(torch.mul(-step_size, exp_avg).div_(denom))
+            param.add_(last_step, alpha=1 + overshoot)
             #--------------------------------------------
 
         # Lastly, switch back to complex view
@@ -463,6 +475,7 @@ def _multi_tensor_adamw(
     grads: List[Tensor],
     exp_avgs: List[Tensor],
     exp_avg_sqs: List[Tensor],
+    last_steps: List[Tensor],
     max_exp_avg_sqs: List[Tensor],
     state_steps: List[Tensor],
     grad_scale: Optional[Tensor],
@@ -473,6 +486,7 @@ def _multi_tensor_adamw(
     beta2: float,
     lr: Union[Tensor, float],
     weight_decay: float,
+    overshoot: float,
     eps: float,
     maximize: bool,
     capturable: bool,
@@ -503,13 +517,14 @@ def _multi_tensor_adamw(
     assert grad_scale is None and found_inf is None
 
     grouped_tensors = Optimizer._group_tensors_by_device_and_dtype(
-        [params, grads, exp_avgs, exp_avg_sqs, max_exp_avg_sqs, state_steps]
+        [params, grads, exp_avgs, exp_avg_sqs, last_steps, max_exp_avg_sqs, state_steps]
     )
     for (
         device_params,
         device_grads,
         device_exp_avgs,
         device_exp_avg_sqs,
+        device_last_steps,
         device_max_exp_avg_sqs,
         device_state_steps,
     ), _ in grouped_tensors.values():
@@ -520,11 +535,12 @@ def _multi_tensor_adamw(
                     device_grads,
                     device_exp_avgs,
                     device_exp_avg_sqs,
+                    device_last_steps,
                     device_max_exp_avg_sqs,
                 )
             else:
                 _view_as_real(
-                    device_params, device_grads, device_exp_avgs, device_exp_avg_sqs
+                    device_params, device_grads, device_exp_avgs, device_exp_avg_sqs, device_last_steps
                 )
 
         if maximize:
@@ -634,6 +650,7 @@ def _fused_adamw(
     grads: List[Tensor],
     exp_avgs: List[Tensor],
     exp_avg_sqs: List[Tensor],
+    last_steps: List[Tensor],
     max_exp_avg_sqs: List[Tensor],
     state_steps: List[Tensor],
     grad_scale: Optional[Tensor],
@@ -644,6 +661,7 @@ def _fused_adamw(
     beta2: float,
     lr: Union[Tensor, float],
     weight_decay: float,
+    overshoot: float,
     eps: float,
     maximize: bool,
     capturable: bool,  # Needed for consistency.
@@ -669,7 +687,7 @@ def _fused_adamw(
     )
 
     grouped_tensors = Optimizer._group_tensors_by_device_and_dtype(
-        [params, grads, exp_avgs, exp_avg_sqs, max_exp_avg_sqs, state_steps]
+        [params, grads, exp_avgs, exp_avg_sqs, last_steps, max_exp_avg_sqs, state_steps]
     )
     for (device, _), (
         (
@@ -677,6 +695,7 @@ def _fused_adamw(
             device_grads,
             device_exp_avgs,
             device_exp_avg_sqs,
+            device_last_steps,
             device_max_exp_avg_sqs,
             device_state_steps,
         ),
@@ -701,6 +720,7 @@ def _fused_adamw(
             device_grads,
             device_exp_avgs,
             device_exp_avg_sqs,
+            device_last_steps,
             device_max_exp_avg_sqs,
             device_state_steps,
             amsgrad=amsgrad,
@@ -708,6 +728,7 @@ def _fused_adamw(
             beta1=beta1,
             beta2=beta2,
             weight_decay=weight_decay,
+            overshoot=overshoot,
             eps=eps,
             maximize=maximize,
             grad_scale=device_grad_scale,
@@ -725,6 +746,7 @@ def adamw(
     grads: List[Tensor],
     exp_avgs: List[Tensor],
     exp_avg_sqs: List[Tensor],
+    last_steps: List[Tensor],
     max_exp_avg_sqs: List[Tensor],
     state_steps: List[Tensor],
     # kwonly args with defaults are not supported by functions compiled with torchscript issue #70627
@@ -742,6 +764,7 @@ def adamw(
     beta2: float,
     lr: Union[float, Tensor],
     weight_decay: float,
+    overshoot: float,
     eps: float,
     maximize: bool,
 ):
@@ -789,6 +812,7 @@ def adamw(
         grads,
         exp_avgs,
         exp_avg_sqs,
+        last_steps,
         max_exp_avg_sqs,
         state_steps,
         amsgrad=amsgrad,
@@ -796,6 +820,7 @@ def adamw(
         beta2=beta2,
         lr=lr,
         weight_decay=weight_decay,
+        overshoot=overshoot,
         eps=eps,
         maximize=maximize,
         capturable=capturable,

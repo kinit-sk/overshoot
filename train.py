@@ -191,6 +191,15 @@ class OvershootTrainer(pl.LightningModule):
                     momentum_decay=0,
                     foreach=False
                 )
+            elif args.opt_name == "adamW_overshoot":
+                opt = opt_map[args.opt_name](
+                    optim_groups,
+                    lr=getattr(self.config, f"lr_{model_name}"),
+                    betas=self.config.adam_betas,
+                    weight_decay=self.config.weight_decay,
+                    foreach=False,
+                    overshoot=args.overshoot_factor - 1
+                )
             elif "adam" in args.opt_name:
                 if "zero" in args.opt_name:
                     self.config.adam_betas = 0, self.config.adam_betas[1]
@@ -198,6 +207,7 @@ class OvershootTrainer(pl.LightningModule):
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
+                    weight_decay=self.config.weight_decay,
                     foreach=False
                 )
             elif args.opt_name == "sgd_overshoot":
