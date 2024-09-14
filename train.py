@@ -136,6 +136,7 @@ class OvershootTrainer(pl.LightningModule):
                 gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
             print(
                 f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}", flush=True
+                # f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f}", flush=True
             )
 
         if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
@@ -197,7 +198,6 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
                     weight_decay=self.config.weight_decay,
-                    foreach=False,
                     overshoot=args.overshoot_factor - 1
                 )
             elif "adam" in args.opt_name:
@@ -208,7 +208,6 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
                     weight_decay=self.config.weight_decay,
-                    foreach=False
                 )
             elif args.opt_name == "sgd_overshoot":
                 opt = opt_map[args.opt_name](
