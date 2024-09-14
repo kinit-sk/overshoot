@@ -612,6 +612,7 @@ def _multi_tensor_adamw(
 
             # at this point, exp_avg_sq_sqrt = - (1 - beta^t) * [sqrt(exp_avg_sq / (1 - beta2^t)) + eps] / lr
             torch._foreach_addcdiv_(device_params, device_exp_avgs, exp_avg_sq_sqrt)
+            # TODO: Implement overshoot!
         else:
             bias_correction1 = [
                 1 - beta1 ** _get_value(step) for step in device_state_steps
@@ -637,12 +638,21 @@ def _multi_tensor_adamw(
 
             torch._foreach_div_(exp_avg_sq_sqrt, bias_correction2_sqrt)
             torch._foreach_add_(exp_avg_sq_sqrt, eps)
-            torch._foreach_addcdiv_(
-                device_params,
-                device_exp_avgs,
-                exp_avg_sq_sqrt,
-                step_size,  # type: ignore[arg-type]
-            )
+            
+            #--------------------------------------------
+            # Old
+            # torch._foreach_addcdiv_(
+            #     device_params,
+            #     device_exp_avgs,
+            #     exp_avg_sq_sqrt,
+            #     step_size,  # type: ignore[arg-type]
+            # )
+            # New
+            torch._foreach_add_(device_params, device_last_steps, alpha=-overshoot)
+            fraction = torch._foreach_div(device_exp_avgs, exp_avg_sq_sqrt)
+            torch._foreach_copy_(device_last_steps, torch._foreach_mul(fraction, step_size))
+            torch._foreach_add_(device_params, device_last_steps, alpha=1 + overshoot)
+            #--------------------------------------------
 
 
 def _fused_adamw(
