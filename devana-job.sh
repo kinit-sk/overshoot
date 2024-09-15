@@ -14,10 +14,7 @@ set -xe
 eval "$(conda shell.bash hook)"
 conda activate overshoot
 
+for ((i=1; i<=${N_RUNS}; i++)); do
+    python train.py ${PYTHON_ARGS}
+done
 
-
-if [ -z ${OVERSHOOT_FACTOR+x} ]; then 
-    python train.py --job_name ${JOB_NAME} --model ${MODEL} --dataset ${DATASET} --baseline --opt_name ${OPT_NAME}
-else
-    python train.py --job_name ${JOB_NAME} --model ${MODEL} --dataset ${DATASET} --overshoot_factor ${OVERSHOOT_FACTOR}  --opt_name ${OPT_NAME}
-fi

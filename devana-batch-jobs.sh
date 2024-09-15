@@ -2,13 +2,15 @@
 # set -xe
 
 # e.g., ./devana-batch-jobs.sh large_batch_size_test gpt_hf shakespear
-JOB_NAME=${1:?"Missing experiment name"}
+EXPERIMENT_NAME=${1:?"Missing experiment name"}
 MODEL=${2:?"Missing model name. Options: 'gpt', 'cnn', 'gpt_hf', 'roberta_hf', 'bloom_hf', 'mdeberta_hf', 't5_hf'."}
 DATASET=${3:?"Missing dataset name. a) vision: 'mnist', 'cifar100'. b) next-token-prediction: 'shakespear', 'gutenberg'. c) text-classification: 'qqp', 'mnli', 'mmlu'"}
+N_RUNS=${4:-3}
 
 OVERSHOOT_FACTORS=(1.0 2.0 4.0 6.0 14.0 24.0)
+PYTHON_ARGS_BASE="--experiment_name ${EXPERIMENT_NAME} --model ${MODEL} --dataset ${DATASET}"
 
-DST="lightning_logs/${JOB_NAME}"
+DST="lightning_logs/${EXPERIMENT_NAME}"
 if [ -d "${DST}" ]; then
     echo "Removing previous experiments results!"
     rm -rf "${DST}"
@@ -16,16 +18,29 @@ fi
 mkdir -p "${DST}"
 mkdir -p "slurm_logs"
 
-cp train.py "lightning_logs/${JOB_NAME}/"
-cp custom_datasets.py "lightning_logs/${JOB_NAME}/"
-cp cnn.py "lightning_logs/${JOB_NAME}/"
-cp gpt.py "lightning_logs/${JOB_NAME}/"
-cp trainer_configs.py "lightning_logs/${JOB_NAME}/"
-cp devana-job.sh "lightning_logs/${JOB_NAME}/"
-cp devana-batch-jobs.sh "lightning_logs/${JOB_NAME}/"
+cp train.py "lightning_logs/${EXPERIMENT_NAME}/"
+cp custom_datasets.py "lightning_logs/${EXPERIMENT_NAME}/"
+cp cnn.py "lightning_logs/${EXPERIMENT_NAME}/"
+cp gpt.py "lightning_logs/${EXPERIMENT_NAME}/"
+cp trainer_configs.py "lightning_logs/${EXPERIMENT_NAME}/"
+cp devana-job.sh "lightning_logs/${EXPERIMENT_NAME}/"
+cp devana-batch-jobs.sh "lightning_logs/${EXPERIMENT_NAME}/"
 
-for FACTOR in "${OVERSHOOT_FACTORS[@]}"; do
-    sbatch --output="slurm_logs/${JOB_NAME}___${MODEL_TYPE}___factor:_${FACTOR}.job" -J "${JOB_NAME}"  --export=ALL,JOB_NAME=${JOB_NAME},MODEL=${MODEL},DATASET=${DATASET},OVERSHOOT_FACTOR=${FACTOR} devana-job.sh 
-done
+# OPT_NAME="adam"
+# for FACTOR in "${OVERSHOOT_FACTORS[@]}"; do
+#     PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name overshoot_${FACTOR} --opt_name ${OPT_NAME} --overshoot_factor ${FACTOR}"
+#     sbatch --output="slurm_logs/"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}" devana-job.sh 
+# done
 
-# sbatch --output="slurm_logs/${JOB_NAME}___${MODEL_TYPE}___baseline.job" -J "${JOB_NAME}"  --export=ALL,JOB_NAME=${JOB_NAME},MODEL=${MODEL},DATASET=${DATASET} devana-job.sh 
+
+OPT_NAME="adam"
+PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name ${OPT_NAME} --opt_name ${OPT_NAME} --overshoot_factor 1.9"
+sbatch --output="slurm_logs/"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",N_RUNS=${N_RUNS} devana-job.sh 
+
+OPT_NAME="nadam"
+PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name ${OPT_NAME} --opt_name ${OPT_NAME} --baseline"
+sbatch --output="slurm_logs/"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",N_RUNS=${N_RUNS} devana-job.sh 
+
+OPT_NAME="adamW_overshoot"
+PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name ${OPT_NAME} --opt_name ${OPT_NAME} --baseline --overshoot_factor 1.9"
+sbatch --output="slurm_logs/"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",N_RUNS=${N_RUNS} devana-job.sh 

@@ -22,7 +22,6 @@ from gpt import GPT, GPTConfig
 from trainer_configs import *
 
 # ------------------------------------------------------------------------------
-pl.seed_everything(1337)
 torch.cuda.empty_cache()
 torch.set_float32_matmul_precision("high")
 # -----------------------------------------------------------------------------
@@ -318,7 +317,6 @@ def main():
     # Doesn't work inside devana slurn job
     # model = torch.compile(model)
 
-    sub_name = "baseline" if args.baseline else f"overshoot_factor_{args.overshoot_factor:.2f}"
     if not args.baseline:
         trainer_config.lr_overshoot = trainer_config.lr_base * args.overshoot_factor
     if args.adaptive_adam_beta and args.overshoot_factor and args.overshoot_factor > 1:
@@ -332,7 +330,7 @@ def main():
         enable_progress_bar=False,
         log_every_n_steps=1,
         accumulate_grad_batches=trainer_config.accumulate_grad_batches if args.baseline else 1,
-        logger=TensorBoardLogger(save_dir=os.path.join("lightning_logs", args.job_name), name=sub_name),
+        logger=TensorBoardLogger(save_dir=os.path.join("lightning_logs", args.experiment_name), name=args.job_name),
         devices=trainer_config.n_gpu if trainer_config.n_gpu > 1 else "auto",
         strategy="deepspeed_stage_2" if trainer_config.n_gpu > 1 else "auto",
     )
@@ -342,10 +340,9 @@ def main():
     else:
         pl_trainer_args.precision = "16-mixed"
     pl.Trainer(**vars(pl_trainer_args)).fit(trainer)
-    # pl_trainer.fit(trainer)
-    pd.DataFrame(trainer.training_stats).to_csv(
-        os.path.join("lightning_logs", args.job_name, f"{sub_name}.csv"), index=False
-    )
+    # pd.DataFrame(trainer.training_stats).to_csv(
+    #     os.path.join("lightning_logs", args.job_name, f"{sub_name}.csv"), index=False
+    # )
 
 
 if __name__ == "__main__":
@@ -361,6 +358,7 @@ if __name__ == "__main__":
     # For sanity check always use accelerator='cpu' !!!
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--experiment_name", type=str, default="test", help="Folder name to store experiment results")
     parser.add_argument("--job_name", type=str, default="test", help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Factor to multiply base lr")
     parser.add_argument(
@@ -409,4 +407,6 @@ if __name__ == "__main__":
     ), "Overshoot factor or baseline needs to be set. See python train.py --help"
     if args.adaptive_adam_beta and ((not args.overshoot_factor) or args.overshoot_factor <=1):
         print("Warning: Adaptive adam beta only works with overshoot factor > 1.", flush=True)
+    if args.deterministic:
+        pl.seed_everything(1337)
     main()
