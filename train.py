@@ -334,7 +334,7 @@ def main():
         devices=trainer_config.n_gpu if trainer_config.n_gpu > 1 else "auto",
         strategy="deepspeed_stage_2" if trainer_config.n_gpu > 1 else "auto",
     )
-    if args.deterministic:
+    if args.seed:
         print("Deterministic run which is slower.")
         pl_trainer_args.deterministic = True
     else:
@@ -347,14 +347,14 @@ def main():
 
 if __name__ == "__main__":
     # We should always observe the same results from:
-    #   1) python train.py --baseline --deterministic
-    #   2) python train.py --overshoot_factor 1 --deterministic
+    #   1) python train.py --baseline --seed 1
+    #   2) python train.py --overshoot_factor 1 --seed 1
     # Sadly deterministic have to use 32-bit precision because of bug in pl.
 
     # We should observe the same results for:
-    #  1)  python train.py --model cnn --dataset mnist --deterministic --opt_name sgd_nesterov --baseline
-    #  2)  python train.py --model cnn --dataset mnist --deterministic --opt_name sgd_overshoot --baseline --overshoot_factor 1.9
-    #  3)  python train.py --model cnn --dataset mnist --deterministic --opt_name sgd_momentum --overshoot_factor 1.9
+    #  1)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_nesterov --baseline
+    #  2)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_overshoot --baseline --overshoot_factor 1.9
+    #  3)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_momentum --overshoot_factor 1.9
     # For sanity check always use accelerator='cpu' !!!
 
     parser = argparse.ArgumentParser()
@@ -380,10 +380,10 @@ if __name__ == "__main__":
         "--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default adam optimization process"
     )
     parser.add_argument(
-        "--deterministic",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Necessary to get the same results for `--baseline` and `--overshoot_factor 1`",
+        "--seed",
+        type=int,
+        required=False,
+        help="If specified, use this seed for reproducibility.",
     )
     parser.add_argument(
         "--compute_cosine",
@@ -407,6 +407,6 @@ if __name__ == "__main__":
     ), "Overshoot factor or baseline needs to be set. See python train.py --help"
     if args.adaptive_adam_beta and ((not args.overshoot_factor) or args.overshoot_factor <=1):
         print("Warning: Adaptive adam beta only works with overshoot factor > 1.", flush=True)
-    if args.deterministic:
-        pl.seed_everything(1337)
+    if args.seed:
+        pl.seed_everything(args.seed)
     main()
