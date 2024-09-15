@@ -14,7 +14,7 @@ set -xe
 eval "$(conda shell.bash hook)"
 conda activate overshoot
 
-for seed in "${SEEDS[@]}"; do
+for seed in ${SEEDS}; do
     PYTHON_ARGS_FINAL="${PYTHON_ARGS} --seed ${seed}"
     python train.py ${PYTHON_ARGS_FINAL}
 done

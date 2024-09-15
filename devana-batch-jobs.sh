@@ -14,6 +14,7 @@ SEEDS=()
 for ((i=1; i<=${N_RUNS}; i++)); do
     SEEDS+=(${RANDOM})
 done
+SEEDS="${SEEDS[@]}"
 
 DST="lightning_logs/${EXPERIMENT_NAME}"
 if [ -d "${DST}" ]; then
@@ -34,18 +35,18 @@ cp devana-batch-jobs.sh "lightning_logs/${EXPERIMENT_NAME}/"
 OPT_NAME="adamW_overshoot"
 for FACTOR in "${OVERSHOOT_FACTORS[@]}"; do
     PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name ${OPT_NAME}_overshoot_${FACTOR} --opt_name ${OPT_NAME} --baseline --overshoot_factor ${FACTOR}"
-    sbatch --output="slurm_logs/"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS=${SEEDS} devana-job.sh 
+    sbatch --output="slurm_logs/config:_"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh 
 done
 
 
-# OPT_NAME="adam"
-# PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name ${OPT_NAME} --opt_name ${OPT_NAME} --overshoot_factor 1.9"
-# sbatch --output="slurm_logs/"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS=${SEEDS} devana-job.sh 
+OPT_NAME="adam"
+PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name ${OPT_NAME} --opt_name ${OPT_NAME} --baseline"
+sbatch --output="slurm_logs/config:_"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh 
 
-# OPT_NAME="nadam"
-# PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name ${OPT_NAME} --opt_name ${OPT_NAME} --baseline"
-# sbatch --output="slurm_logs/"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS=${SEEDS} devana-job.sh 
+OPT_NAME="nadam"
+PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name ${OPT_NAME} --opt_name ${OPT_NAME} --baseline"
+sbatch --output="slurm_logs/config:_"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh 
 
 # OPT_NAME="adamW_overshoot"
 # PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name ${OPT_NAME} --opt_name ${OPT_NAME} --baseline --overshoot_factor 1.9"
-# sbatch --output="slurm_logs/"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS=${SEEDS} devana-job.sh 
+# sbatch --output="slurm_logs/"${PYTHON_ARGS// /___}".job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh 
