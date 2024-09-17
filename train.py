@@ -261,8 +261,8 @@ def init_model(model_name, dataset_name):
         return GPT(GPTConfig(vocab_size=50304)), tokenizer
     elif model_name == "cnn":
         return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None
-    elif model_name == "resnet50":
-        return ResNet50(dataset_to_shape[dataset_name][1]), None
+    elif model_name.startswith("resnet"):
+        return ResNet(dataset_to_shape[dataset_name][1], type=model_name), None
     elif model_name in model_map:
         model_name = model_map[model_name]
         config = AutoConfig.from_pretrained(model_name)
