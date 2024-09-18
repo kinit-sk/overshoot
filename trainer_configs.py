@@ -6,13 +6,13 @@ from typing import Optional, Tuple
 @dataclass
 class TrainerConfig:
     n_gpu: int = torch.cuda.device_count()
-    B: int = 32
+    B: int = 64
     accumulate_grad_batches: int = 1
     # lr_base: float =  3e-4
     # lr_base: float =  1e-5 # For LLM classification finetuning
     lr_base: float = 0.001  # For CV problem use this 
     lr_overshoot: Optional[None] = None
-    epochs: int = 200
+    epochs: int = 15
     adam_betas: Tuple[float, float] = 0.9, 0.999
     sgd_momentum: float = 0.9
     weight_decay: float = 0.0

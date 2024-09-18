@@ -347,26 +347,38 @@ def _single_tensor_sgd(
             if buf is None:
                 buf = torch.clone(grad).detach()
                 #----------------------
+                # Old
+                # param.add_(buf, alpha=-lr)
                 # New
-                param_update = torch.mul(buf, 1 + overshoot)
+                param.add_(buf, alpha=-lr * (1 + overshoot))
                 #----------------------
                 momentum_buffer_list[i] = buf
             else:
                 #----------------------
                 # New
-                # If updating momentum like this: mt = b * mt + g
-                param_update = torch.mul(buf, momentum * overshoot + momentum - overshoot).add(grad, alpha=overshoot + 1)
                 # If updating momentum like this: mt = b * mt + (1 - b) * g
+                # Default: mt = b * mt + g
                 # param_update = torch.mul(buf, momentum * overshoot + momentum - overshoot).add(grad, alpha=overshoot + 1 - momentum - momentum * overshoot)
+
+                # A) Slow variant, numerical identical to nesterov for momentum == 0.9
+                param_update = torch.mul(buf, momentum * overshoot + momentum - overshoot).add(grad, alpha=overshoot + 1)
+                param.add_(param_update, alpha=-lr)
+                # B) Fast variant, results are rounded differently
+                # param.add_(buf, alpha=-lr * (momentum * overshoot + momentum - overshoot))
+                # param.add_(grad, alpha=-lr * (overshoot + 1))
                 #----------------------
                 buf.mul_(momentum).add_(grad, alpha=1 - dampening)
+                #----------------------
+                # Old
+                # param.add_(buf, alpha=-lr)
+                #----------------------
 
             # if nesterov:
             #     grad = grad.add(buf, alpha=momentum)
             # else:
             #     grad = buf
-
-        param.add_(param_update, alpha=-lr)
+        else:
+            param.add_(grad, alpha=-lr)
 
 
 def _multi_tensor_sgd(

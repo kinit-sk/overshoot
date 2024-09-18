@@ -12,12 +12,13 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForPreTraining
 
-from cnn import CNN, ResNet50
+from cnn import CNN, ResNet
 from custom_datasets import (MnistDataset, Cifar10Dataset, Cifar100Dataset, MMLUDataset, MNLIDataset,
                              NextTokenDataloader, QQPDataset)
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
 from custom_optimizers_sgd import SGD as OvershootSGD
 from custom_optimizers_adamw_overshoot import AdamW as OvershootAdamW
+from custom_optimizers_adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
 from gpt import GPT, GPTConfig
 from trainer_configs import *
 
@@ -48,7 +49,7 @@ class OvershootTrainer(pl.LightningModule):
 
     def _baseline_training_step(self, batch):
         output = self.base_model.forward(**batch)
-        self.base_scheduler.step()  # For some reason this needs to be called manually
+        # self.base_scheduler.step()  # For some reason this needs to be called manually
         return output["loss"], output["loss"], output["logits"]
 
     def _overshoot_training_step(self, batch, batch_idx):
@@ -182,6 +183,7 @@ class OvershootTrainer(pl.LightningModule):
                 "sgd_nesterov": torch.optim.SGD,
                 "sgd_overshoot": OvershootSGD,
                 "adamW_overshoot": OvershootAdamW,
+                "adamW_overshoot_v2": OvershootAdamW_v2,
             }
             if args.opt_name == "nadam":
                 opt = opt_map[args.opt_name](
@@ -197,7 +199,8 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
                     weight_decay=self.config.weight_decay,
-                    overshoot=args.overshoot_factor - 1
+                    overshoot=args.overshoot_factor - 1,
+                    foreach=False
                 )
             elif "adam" in args.opt_name:
                 if "zero" in args.opt_name:
@@ -207,6 +210,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
                     weight_decay=self.config.weight_decay,
+                    foreach=False
                 )
             elif args.opt_name == "sgd_overshoot":
                 opt = opt_map[args.opt_name](
@@ -214,6 +218,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     momentum=self.config.sgd_momentum,
                     overshoot=args.overshoot_factor - 1,
+                    foreach=False
                 )
             elif "sgd" in args.opt_name:
                 opt = opt_map[args.opt_name](
@@ -221,12 +226,14 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     momentum=0 if args.opt_name == "sgd" else self.config.sgd_momentum,
                     nesterov="nesterov" in args.opt_name,
+                    foreach=False
                 )
             else:
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     alpha=self.config.adam_betas[1],
+                    foreach=False
                 )
                 
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=self.steps)
