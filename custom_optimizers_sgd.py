@@ -361,11 +361,11 @@ def _single_tensor_sgd(
                 # param_update = torch.mul(buf, momentum * overshoot + momentum - overshoot).add(grad, alpha=overshoot + 1 - momentum - momentum * overshoot)
 
                 # A) Slow variant, numerical identical to nesterov for momentum == 0.9
-                param_update = torch.mul(buf, momentum * overshoot + momentum - overshoot).add(grad, alpha=overshoot + 1)
-                param.add_(param_update, alpha=-lr)
+                # param_update = torch.mul(buf, momentum * overshoot + momentum - overshoot).add(grad, alpha=overshoot + 1)
+                # param.add_(param_update, alpha=-lr)
                 # B) Fast variant, results are rounded differently
-                # param.add_(buf, alpha=-lr * (momentum * overshoot + momentum - overshoot))
-                # param.add_(grad, alpha=-lr * (overshoot + 1))
+                param.add_(buf, alpha=-lr * (momentum * overshoot + momentum - overshoot))
+                param.add_(grad, alpha=-lr * (overshoot + 1))
                 #----------------------
                 buf.mul_(momentum).add_(grad, alpha=1 - dampening)
                 #----------------------
@@ -413,6 +413,7 @@ def _multi_tensor_sgd(
         device_has_sparse_grad = has_sparse_grad and any(
             grad.is_sparse for grad in device_grads
         )
+        # device_has_sparse_grad = False
 
         if maximize:
             device_grads = torch._foreach_neg(device_grads)  # type: ignore[assignment]
@@ -425,50 +426,68 @@ def _multi_tensor_sgd(
                 device_grads = torch._foreach_add(  # type: ignore[assignment]
                     device_grads, device_params, alpha=weight_decay
                 )
-
-        if momentum != 0:
-            bufs = []
-
-            all_states_with_momentum_buffer = True
-            for i in range(len(device_momentum_buffer_list)):
-                if device_momentum_buffer_list[i] is None:
-                    all_states_with_momentum_buffer = False
-                    break
+                
+        if momentum == 0:
+            if not device_has_sparse_grad:
+                # handle internal item() call if lr is a tensor
+                if isinstance(lr, torch.Tensor) and torch._utils.is_compiling():
+                    grads_x_lr = torch._foreach_mul(device_grads, -lr)
+                    torch._foreach_add_(device_params, grads_x_lr)
                 else:
-                    bufs.append(device_momentum_buffer_list[i])
-
-            if all_states_with_momentum_buffer:
-                torch._foreach_mul_(bufs, momentum)
-                torch._foreach_add_(bufs, device_grads, alpha=1 - dampening)
+                    torch._foreach_add_(device_params, device_grads, alpha=-lr)
             else:
-                bufs = []
-                for i in range(len(device_momentum_buffer_list)):
-                    if device_momentum_buffer_list[i] is None:
-                        buf = device_momentum_buffer_list[i] = momentum_buffer_list[
-                            indices[i]
-                        ] = torch.clone(device_grads[i]).detach()
-                    else:
-                        buf = device_momentum_buffer_list[i]
-                        buf.mul_(momentum).add_(device_grads[i], alpha=1 - dampening)
+                # foreach APIs don't support sparse
+                for i in range(len(device_params)):
+                    device_params[i].add_(device_grads[i], alpha=-lr)
+            return
 
-                    bufs.append(buf)
-
-            if nesterov:
-                torch._foreach_add_(device_grads, bufs, alpha=momentum)
+        bufs = []
+        all_states_with_momentum_buffer = True
+        for i in range(len(device_momentum_buffer_list)):
+            if device_momentum_buffer_list[i] is None:
+                all_states_with_momentum_buffer = False
+                break
             else:
-                device_grads = bufs
+                bufs.append(device_momentum_buffer_list[i])
 
-        if not device_has_sparse_grad:
-            # handle internal item() call if lr is a tensor
-            if isinstance(lr, torch.Tensor) and torch._utils.is_compiling():
-                grads_x_lr = torch._foreach_mul(device_grads, -lr)
-                torch._foreach_add_(device_params, grads_x_lr)
+        if all_states_with_momentum_buffer:
+            # Update model params first with old momentum
+            if not device_has_sparse_grad:
+                # handle internal item() call if lr is a tensor
+                if (isinstance(lr, torch.Tensor) and torch._utils.is_compiling()):
+                    bufs_x_lr = torch._foreach_mul(bufs, -lr)
+                    grads_x_lr = torch._foreach_mul(device_grads, -lr)
+                    torch._foreach_add_(device_params, bufs_x_lr, alpha=momentum * overshoot + momentum - overshoot)
+                    torch._foreach_add_(device_params, grads_x_lr, alpha=overshoot + 1)
+                else:
+                    torch._foreach_add_(device_params, bufs, alpha=-lr * (momentum * overshoot + momentum - overshoot))
+                    torch._foreach_add_(device_params, device_grads, alpha=-lr * (overshoot + 1))
             else:
-                torch._foreach_add_(device_params, device_grads, alpha=-lr)
+                # foreach APIs don't support sparse
+                for i in range(len(device_params)):
+                    device_params[i].add_(bufs[i], alpha=-lr * (momentum * overshoot + momentum - overshoot))
+                    device_params[i].add_(device_grads[i], alpha=-lr * (overshoot + 1))
+            
+            torch._foreach_mul_(bufs, momentum)
+            torch._foreach_add_(bufs, device_grads, alpha=1 - dampening)
         else:
-            # foreach APIs don't support sparse
-            for i in range(len(device_params)):
-                device_params[i].add_(device_grads[i], alpha=-lr)
+            bufs = []
+            for i in range(len(device_momentum_buffer_list)):
+                params = device_params[i]
+                if device_momentum_buffer_list[i] is None:
+                    buf = device_momentum_buffer_list[i] = momentum_buffer_list[
+                        indices[i]
+                    ] = torch.clone(device_grads[i]).detach()
+                    params.add_(buf, alpha=-lr * (1 + overshoot))
+                else:
+                    buf = device_momentum_buffer_list[i]
+                    # Update model params first with old momentum
+                    params.add_(buf, alpha=-lr * (momentum * overshoot + momentum - overshoot))
+                    params.add_(device_grads[i], alpha=-lr * (overshoot + 1))
+                    buf.mul_(momentum).add_(device_grads[i], alpha=1 - dampening)
+
+                bufs.append(buf)
+
 
 
 def _fused_sgd(
