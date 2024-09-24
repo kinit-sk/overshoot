@@ -193,14 +193,14 @@ class OvershootTrainer(pl.LightningModule):
                     momentum_decay=0,
                     foreach=False
                 )
-            elif args.opt_name == "adamW_overshoot":
+            elif args.opt_name.startswith("adamW_overshoot"):
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
                     weight_decay=self.config.weight_decay,
                     overshoot=args.overshoot_factor - 1,
-                    foreach=False
+                    foreach=True,
                 )
             elif "adam" in args.opt_name:
                 if "zero" in args.opt_name:
@@ -210,7 +210,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=self.config.adam_betas,
                     weight_decay=self.config.weight_decay,
-                    foreach=False
+                    foreach=True,
                 )
             elif args.opt_name == "sgd_overshoot":
                 opt = opt_map[args.opt_name](
@@ -218,7 +218,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     momentum=self.config.sgd_momentum,
                     overshoot=args.overshoot_factor - 1,
-                    foreach=False
+                    foreach=True,
                 )
             elif "sgd" in args.opt_name:
                 opt = opt_map[args.opt_name](
@@ -226,7 +226,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     momentum=0 if args.opt_name == "sgd" else self.config.sgd_momentum,
                     nesterov="nesterov" in args.opt_name,
-                    foreach=False
+                    foreach=True,
                 )
             else:
                 opt = opt_map[args.opt_name](
