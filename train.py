@@ -288,8 +288,10 @@ def init_model(model_name, dataset_name):
         tokenizer.pad_token = tokenizer.eos_token
         model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
         model.train()
-        
         return model, tokenizer
+    else:
+        raise ValueError(f"Model {model_name} not found")
+        
     
 
 def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
