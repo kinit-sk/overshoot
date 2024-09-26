@@ -142,19 +142,37 @@ class Cifar10Dataset:
 #     def __len__(self):
 #         return len(self.input_ids)
         
+# class QQPDataset:
+#     def __init__(self, tokenizer: str) -> None:
+#         data = load_dataset("nyu-mll/glue", "qqp")['train']
+#         inpts = tokenizer([f"{d['question1']}  {d['question2']}" for d in data][:10],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+#         self.input_ids = inpts['input_ids']
+#         self.attention_mask = inpts['attention_mask']
+#         self.outputs = [d['label'] for d in data]
+
+#     def __getitem__(self, index):
+#         # import code; code.interact(local=locals())
+#         # return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
+#         return {"input_ids": self.input_ids[index], "labels": self.outputs[index]}
+
+#     def __len__(self):
+#         return len(self.input_ids)
+        
+        
 class QQPDataset:
     def __init__(self, tokenizer: str) -> None:
-        data = load_dataset("nyu-mll/glue", "qqp")['train']
-        inpts = tokenizer([f"{d['question1']}  {d['question2']}" for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
-        self.input_ids = inpts['input_ids']
-        self.attention_mask = inpts['attention_mask']
-        self.outputs = [d['label'] for d in data]
+        self.data = load_dataset("nyu-mll/glue", "qqp")['train']
+        self.tokenizer = tokenizer
 
     def __getitem__(self, index):
-        return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
+        inpts = self.tokenizer([f"{self.data[index]['question1']}  {self.data[index]['question2']}"],  padding="max_length", truncation=True, max_length=512, return_tensors="pt")
+        input_ids = inpts['input_ids'][0]
+        attention_mask = inpts['attention_mask'][0]
+        outputs = self.data[index]['label']
+        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
 
     def __len__(self):
-        return len(self.input_ids)
+        return len(self.data)
         
 class MNLIDataset:
     def __init__(self, tokenizer) -> None:
