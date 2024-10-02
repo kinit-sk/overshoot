@@ -4,7 +4,6 @@ import os
 import time
 from typing import Optional
 
-import pandas as pd
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -14,7 +13,7 @@ from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassifi
 
 from cnn import CNN, ResNet
 from custom_datasets import (MnistDataset, Cifar10Dataset, Cifar100Dataset, MMLUDataset, MNLIDataset,
-                             NextTokenDataloader, QQPDataset)
+                             NextTokenDataloader, QQPDataset, SST2Datatset)
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
 from custom_optimizers_sgd import SGD as OvershootSGD
 from custom_optimizers_adamw_overshoot import AdamW as OvershootAdamW
@@ -38,9 +37,12 @@ class OvershootTrainer(pl.LightningModule):
             self.overshoot_model = copy.deepcopy(model)
         self.dataset = dataset
         self.steps = int(round(config.B + config.epochs * len(dataset) // config.B // max(1, config.n_gpu)))
+        if config.max_steps:
+            self.steps = min(self.steps, config.max_steps)
         self.config = config
         self.start_time = time.time()
-        self.training_stats = []
+        self.current_step = 0
+        # Cosine gradient statistics
         self.previous_grads = None
         self.previous_params = None
         self.last_update = None
@@ -49,7 +51,8 @@ class OvershootTrainer(pl.LightningModule):
 
     def _baseline_training_step(self, batch):
         output = self.base_model.forward(**batch)
-        # self.base_scheduler.step()  # For some reason this needs to be called manually
+        if self.config.decay_lr:
+            self.base_scheduler.step()
         return output["loss"], output["loss"], output["logits"]
 
     def _overshoot_training_step(self, batch, batch_idx):
@@ -60,8 +63,7 @@ class OvershootTrainer(pl.LightningModule):
         output_overshoot = self.overshoot_model.forward(**batch)
         with torch.no_grad():
             output_base = self.base_model.forward(**batch) # only to log base loss
-        output_overshoot["loss"] /= self.config.accumulate_grad_batches
-        self.manual_backward(output_overshoot["loss"])
+        self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
 
         if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
             
@@ -95,8 +97,12 @@ class OvershootTrainer(pl.LightningModule):
                 
             self.previous_params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
 
-            # 3) Update models based on gradients
-            self.base_scheduler.step(); self.overshoot_scheduler.step()
+            # (Optional) 3) Update learning rates
+            if self.config.decay_lr:
+                self.base_scheduler.step()
+                self.overshoot_scheduler.step()
+                
+            # 4) Update models based on gradients
             for opt in self.optimizers():
                 opt.step()
                 opt.zero_grad()
@@ -104,9 +110,22 @@ class OvershootTrainer(pl.LightningModule):
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
     def training_step(self, batch, batch_idx):
-        # self.trainer.should_stop = batch_idx > 300
+        self.trainer.should_stop = self.current_step >= self.steps 
+        
         if self.automatic_optimization:
+            # TODO: How to compute base loss when having only overshoot models
+            # if hasattr(self.optimizers(), "move_to_base"):
+            #     with torch.no_grad():
+            #         self.optimizers().move_to_base()
+            #         base_output_dict = self.base_model.forward(**batch)
+            #         loss_base = base_output_dict["loss"]
+            #         output_base = base_output_dict["logits"]
+            #         self.optimizers().move_to_overshoot()
+            #     _, loss_overshoot, _ = self._baseline_training_step(batch)
+            # else:
+            #     loss_base, loss_overshoot, output_base = self._baseline_training_step(batch)
             loss_base, loss_overshoot, output_base = self._baseline_training_step(batch)
+                
         else:
             loss_base, loss_overshoot, output_base = self._overshoot_training_step(batch, batch_idx)
 
@@ -141,7 +160,7 @@ class OvershootTrainer(pl.LightningModule):
 
         if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
             stats = {
-                "step": len(self.training_stats),
+                "step": self.current_step,
                 "base_lr": lr_base,
                 "overshoot_lr": lr_overshoot,
                 "base_loss": loss_base.item(),
@@ -150,8 +169,8 @@ class OvershootTrainer(pl.LightningModule):
                 "update_cosine_similarity": self.update_cosine_sim,
                 "accuracy": accuracy,
             }
-            self.training_stats.append(stats)
             self.log_dict(stats)
+        self.current_step += 1
         return loss_overshoot
 
     def configure_optimizers(self):
@@ -279,10 +298,9 @@ def init_model(model_name, dataset_name):
         config.ignore_mismatched_sizes = True
 
         if dataset_name in ['shakespear', 'gutenberg']:
-            # model = AutoModelForPreTraining.from_pretrained(model_name, config=config) # pre-trained model
             model = AutoModelForPreTraining.from_config(config) # from scratch
         else:
-            config.num_labels = 2
+            config.num_labels = 3 if dataset_name == 'mnli' else 2
             model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
             
         tokenizer.pad_token = tokenizer.eos_token
@@ -303,10 +321,10 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
         return Cifar100Dataset()
     elif dataset_name == "shakespear":
         return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear_")
-        # return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear.txt")
     elif dataset_name == "gutenberg":
-        # return NextTokenDataloader(tokenizer, T=T, source_file="gutenberg_books.txt")
         return NextTokenDataloader(tokenizer, T=T, source_file="gutenberg_books_")
+    elif dataset_name == "sst":
+        return SST2Datatset(tokenizer=tokenizer)
     elif dataset_name == "qqp":
         return QQPDataset(tokenizer=tokenizer)
     elif dataset_name == "mnli":
@@ -340,18 +358,12 @@ def main():
         log_every_n_steps=1,
         accumulate_grad_batches=trainer_config.accumulate_grad_batches if args.baseline else 1,
         logger=TensorBoardLogger(save_dir=os.path.join("lightning_logs", args.experiment_name), name=args.job_name),
+        precision="16-mixed" if trainer_config.use_16_bit_precision else None,
+        deterministic=True if args.seed else None,
         devices=trainer_config.n_gpu if trainer_config.n_gpu > 1 else "auto",
         strategy="deepspeed_stage_2" if trainer_config.n_gpu > 1 else "auto",
     )
-    if args.seed:
-        print("Deterministic run which is slower.")
-        pl_trainer_args.deterministic = True
-    else:
-        pl_trainer_args.precision = "16-mixed"
     pl.Trainer(**vars(pl_trainer_args)).fit(trainer)
-    # pd.DataFrame(trainer.training_stats).to_csv(
-    #     os.path.join("lightning_logs", args.job_name, f"{sub_name}.csv"), index=False
-    # )
 
 
 if __name__ == "__main__":
