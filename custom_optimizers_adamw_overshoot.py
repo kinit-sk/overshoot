@@ -262,6 +262,29 @@ class AdamW(Optimizer):
 
         return loss
 
+    # TODO: This is only experimental!
+    def move_to_base(self):
+        for group in self.param_groups:
+            for param in group["params"]:
+                if param.grad is None:
+                    continue
+                if len(self.state[param]) == 0:
+                    return
+                # import code; code.interact(local=locals())
+                last_step = self.state[param]["last_steps"]
+                param.add_(last_step, alpha=-group["overshoot"])
+                
+    # TODO: This is only experimental!
+    def move_to_overshoot(self):
+        for group in self.param_groups:
+            for param in group["params"]:
+                if param.grad is None:
+                    continue
+                if len(self.state[param]) == 0:
+                    return
+                last_step = self.state[param]["last_steps"]
+                param.add_(last_step, alpha=group["overshoot"])
+
 
 
 AdamW.__doc__ = (
