@@ -127,20 +127,6 @@ class Cifar10Dataset:
         return len(self.dataset)
         
         
-# class SST2Datatset:
-#     def __init__(self, model_tokenizer: str) -> None:
-#         data = load_dataset("nyu-mll/glue", "sst2")['train']
-#         tokenizer = AutoTokenizer.from_pretrained(model_tokenizer)
-#         inpts = tokenizer([d['sentence'] for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
-#         self.input_ids = inpts['input_ids']
-#         self.attention_mask = inpts['attention_mask']
-#         self.outputs = [d['label'] for d in data]
-
-#     def __getitem__(self, index):
-#         return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
-
-#     def __len__(self):
-#         return len(self.input_ids)
 
 class SST2Datatset:
     def __init__(self, tokenizer: str) -> None:
@@ -157,21 +143,6 @@ class SST2Datatset:
     def __len__(self):
         return len(self.data)
         
-# class QQPDataset:
-#     def __init__(self, tokenizer: str) -> None:
-#         data = load_dataset("nyu-mll/glue", "qqp")['train']
-#         inpts = tokenizer([f"{d['question1']}  {d['question2']}" for d in data][:10],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
-#         self.input_ids = inpts['input_ids']
-#         self.attention_mask = inpts['attention_mask']
-#         self.outputs = [d['label'] for d in data]
-
-#     def __getitem__(self, index):
-#         # import code; code.interact(local=locals())
-#         # return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
-#         return {"input_ids": self.input_ids[index], "labels": self.outputs[index]}
-
-#     def __len__(self):
-#         return len(self.input_ids)
         
         
 class QQPDataset:
@@ -188,20 +159,6 @@ class QQPDataset:
 
     def __len__(self):
         return len(self.data)
-        
-# class MNLIDataset:
-#     def __init__(self, tokenizer) -> None:
-#         data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
-#         inpts = tokenizer([f"{d['premise']}  {d['hypothesis']}" for d in data],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
-#         self.input_ids = inpts['input_ids']
-#         self.attention_mask = inpts['attention_mask']
-#         self.outputs = [d['label'] for d in data]
-
-#     def __getitem__(self, index):
-#         return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
-
-#     def __len__(self):
-#         return len(self.input_ids)
         
 class MNLIDataset:
     def __init__(self, tokenizer: str) -> None:
