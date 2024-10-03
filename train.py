@@ -9,15 +9,17 @@ import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForPreTraining
+from transformers import (AutoConfig, AutoModelForPreTraining,
+                          AutoModelForSequenceClassification, AutoTokenizer)
 
 from cnn import CNN, ResNet
-from custom_datasets import (MnistDataset, Cifar10Dataset, Cifar100Dataset, MMLUDataset, MNLIDataset,
-                             NextTokenDataloader, QQPDataset, SST2Datatset)
-from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
-from custom_optimizers_sgd import SGD as OvershootSGD
+from custom_datasets import (Cifar10Dataset, Cifar100Dataset, MMLUDataset,
+                             MnistDataset, MNLIDataset, NextTokenDataloader,
+                             QQPDataset, SST2Datatset)
 from custom_optimizers_adamw_overshoot import AdamW as OvershootAdamW
 from custom_optimizers_adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
+from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
+from custom_optimizers_sgd import SGD as OvershootSGD
 from gpt import GPT, GPTConfig
 from trainer_configs import *
 
@@ -57,17 +59,17 @@ class OvershootTrainer(pl.LightningModule):
         return output["loss"], output["loss"], output["logits"]
 
     def _overshoot_training_step(self, batch, batch_idx):
-        if batch_idx == 0: # Most likely this is not needed
+        if batch_idx == 0:  # Most likely this is not needed
             for opt in self.optimizers():
                 opt.zero_grad()
 
         output_overshoot = self.overshoot_model.forward(**batch)
         with torch.no_grad():
-            output_base = self.base_model.forward(**batch) # only to log base loss
+            output_base = self.base_model.forward(**batch)  # only to log base loss
         self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
 
         if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
-            
+
             # 1) Gradients OVERSHOOT -> BASE
             for (name1, param1), (name2, param2) in zip(
                 self.overshoot_model.named_parameters(), self.base_model.named_parameters()
@@ -77,7 +79,9 @@ class OvershootTrainer(pl.LightningModule):
                     param2.grad = param1.grad.clone()
 
             if args.compute_cosine:
-                grads = torch.cat([p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None])
+                grads = torch.cat(
+                    [p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None]
+                )
                 params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
                 if self.previous_grads is not None:
                     sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
@@ -95,14 +99,14 @@ class OvershootTrainer(pl.LightningModule):
             # 2) Weights BASE -> OVERSHOOT
             for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
                 param2.data = param1.data.clone()
-                
+
             self.previous_params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
 
             # (Optional) 3) Update learning rates
             if self.config.decay_lr:
                 self.base_scheduler.step()
                 self.overshoot_scheduler.step()
-                
+
             # 4) Update models based on gradients
             for opt in self.optimizers():
                 opt.step()
@@ -111,8 +115,8 @@ class OvershootTrainer(pl.LightningModule):
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
     def training_step(self, batch, batch_idx):
-        self.trainer.should_stop = self.current_step >= self.steps 
-        
+        self.trainer.should_stop = self.current_step >= self.steps
+
         if self.automatic_optimization:
             # TODO: How to compute base loss when having only overshoot models
             # if hasattr(self.optimizers(), "move_to_base"):
@@ -126,7 +130,7 @@ class OvershootTrainer(pl.LightningModule):
             # else:
             #     loss_base, loss_overshoot, output_base = self._baseline_training_step(batch)
             loss_base, loss_overshoot, output_base = self._baseline_training_step(batch)
-                
+
         else:
             loss_base, loss_overshoot, output_base = self._overshoot_training_step(batch, batch_idx)
 
@@ -136,12 +140,14 @@ class OvershootTrainer(pl.LightningModule):
         now = time.time()
         dt = now - self.start_time  # time difference in seconds
         self.start_time = now
-        
-        if args.dataset in ['shakespear', 'gutenberg'] and 'gpt' in args.model:
-            accuracy = 100 * torch.mean(output_base.argmax(dim=-1)[:,:-1] == batch["labels"][:,1:], dtype=float).item()
+
+        if args.dataset in ["shakespear", "gutenberg"] and "gpt" in args.model:
+            accuracy = (
+                100 * torch.mean(output_base.argmax(dim=-1)[:, :-1] == batch["labels"][:, 1:], dtype=float).item()
+            )
         else:
             accuracy = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
-            
+
         lr_base = self.base_scheduler.get_last_lr()[-1]
         if hasattr(self, "overshoot_scheduler"):
             lr_overshoot = self.overshoot_scheduler.get_last_lr()[-1]
@@ -156,7 +162,8 @@ class OvershootTrainer(pl.LightningModule):
                     utilization = torch.cuda.utilization(gpu_index)
                     gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
             print(
-                f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}", flush=True
+                f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}",
+                flush=True,
                 # f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f}", flush=True
             )
 
@@ -198,7 +205,7 @@ class OvershootTrainer(pl.LightningModule):
                 "adamW_zero": torch.optim.AdamW,
                 "nadam": torch.optim.NAdam,
                 "rmsprop": torch.optim.RMSprop,
-                "rmsprop_custom": CustomRMSprop, # RMSprop with bias correction term. Equivalent to Adam with beta1=0
+                "rmsprop_custom": CustomRMSprop,  # RMSprop with bias correction term. Equivalent to Adam with beta1=0
                 "sgd": torch.optim.SGD,
                 "sgd_momentum": torch.optim.SGD,
                 "sgd_nesterov": torch.optim.SGD,
@@ -212,7 +219,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
                     momentum_decay=0,
-                    foreach=False
+                    foreach=False,
                 )
             elif args.opt_name.startswith("adamW_overshoot"):
                 opt = opt_map[args.opt_name](
@@ -224,7 +231,7 @@ class OvershootTrainer(pl.LightningModule):
                     foreach=True,
                 )
             elif "adam" in args.opt_name:
-                self.config.adam_beta1 *= ("zero" not in args.opt_name)
+                self.config.adam_beta1 *= "zero" not in args.opt_name
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
@@ -253,9 +260,9 @@ class OvershootTrainer(pl.LightningModule):
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     alpha=self.config.adam_beta2,
-                    foreach=False
+                    foreach=False,
                 )
-                
+
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=self.steps)
             optimizers.append(opt)
             setattr(self, f"{model_name}_scheduler", lr_scheduler)
@@ -276,14 +283,10 @@ def init_model(model_name, dataset_name):
         "mdeberta_hf": "microsoft/mdeberta-v3-base",
         "t5_hf": "google-t5/t5-base",
     }
-    dataset_to_shape = {
-        "mnist": ((28, 28, 3), 10),
-        "cifar10": ((32, 32, 3), 10),
-        "cifar100": ((32, 32, 3), 100)
-    }
-    
+    dataset_to_shape = {"mnist": ((28, 28, 3), 10), "cifar10": ((32, 32, 3), 10), "cifar100": ((32, 32, 3), 100)}
+
     if model_name == "gpt":
-        tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"]) # use tokenizer from HF
+        tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"])  # use tokenizer from HF
         tokenizer.pad_token = tokenizer.eos_token
         return GPT(GPTConfig(vocab_size=50304)), tokenizer
     elif model_name == "cnn":
@@ -298,20 +301,19 @@ def init_model(model_name, dataset_name):
         # config.attention_probs_dropout_prob = 0.0  # Default is 0.1
         config.ignore_mismatched_sizes = True
 
-        if dataset_name in ['shakespear', 'gutenberg']:
-            model = AutoModelForPreTraining.from_config(config) # from scratch
+        if dataset_name in ["shakespear", "gutenberg"]:
+            model = AutoModelForPreTraining.from_config(config)  # from scratch
         else:
-            config.num_labels = 3 if dataset_name == 'mnli' else 2
+            config.num_labels = 3 if dataset_name == "mnli" else 2
             model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
-            
+
         tokenizer.pad_token = tokenizer.eos_token
         model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
         model.train()
         return model, tokenizer
     else:
         raise ValueError(f"Model {model_name} not found")
-        
-    
+
 
 def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
     if dataset_name == "mnist":
@@ -334,15 +336,16 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
         return MMLUDataset(tokenizer=tokenizer)
 
 
-
 # -----------------------------------------------------------------------------
 def main():
     model, tokenizer = init_model(args.model, args.dataset)
-    dataset = init_dataset(args.dataset, tokenizer, 512 if args.model in ["xlm_roberta_hf", "roberta_hf", "bert_hf"] else 1024)
+    dataset = init_dataset(
+        args.dataset, tokenizer, 512 if args.model in ["xlm_roberta_hf", "roberta_hf", "bert_hf"] else 1024
+    )
     trainer_config = TrainerConfig(args.config_override)
     print(f"Model: {model}")
     print(f"Config: {trainer_config}")
-    
+
     # Doesn't work inside devana slurn job
     # model = torch.compile(model)
 
@@ -411,12 +414,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--opt_name",
         type=str,
-        default='adam',
+        default="adam",
     )
     parser.add_argument(
         "--config_override",
         type=str,
-        nargs='+',
+        nargs="+",
         default=None,
         help="Sequence of key-value pairs to override config. E.g. --config_override lr_base=0.01",
     )
