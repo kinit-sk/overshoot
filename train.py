@@ -13,7 +13,7 @@ from custom_optimizers_adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
 from custom_optimizers_sgd import SGD as OvershootSGD
 from misc import init_dataset, init_model, get_gpu_stats
-from trainer_configs import *
+from trainer_configs import TrainerConfig
 
 # ------------------------------------------------------------------------------
 torch.cuda.empty_cache()
@@ -67,7 +67,7 @@ class OvershootTrainer(pl.LightningModule):
         if hasattr(self.optimizers(), "move_to_base"):
             with torch.no_grad():
                 self.optimizers().move_to_base()
-                base_loss = self.base_model.forward(**batch)["loss"]
+                base_loss = self.base_model.forward(**batch)["loss"] # only to log base loss
                 self.optimizers().move_to_overshoot()
         output = self.base_model.forward(**batch)
         if self.config.decay_lr:
@@ -226,9 +226,7 @@ class OvershootTrainer(pl.LightningModule):
 # -----------------------------------------------------------------------------
 def main():
     model, tokenizer = init_model(args.model, args.dataset)
-    dataset = init_dataset(
-        args.dataset, tokenizer, 512 if args.model in ["xlm_roberta_hf", "roberta_hf", "bert_hf"] else 1024
-    )
+    dataset = init_dataset(args.dataset, tokenizer, 512 if args.model in ["xlm_roberta_hf", "roberta_hf", "bert_hf"] else 1024)
     trainer_config = TrainerConfig(args.config_override)
     print(f"Model: {model}")
     print(f"Config: {trainer_config}")
@@ -246,7 +244,7 @@ def main():
         precision="16-mixed" if trainer_config.use_16_bit_precision else None,
         deterministic=True if args.seed else None,
         devices=trainer_config.n_gpu if trainer_config.n_gpu > 1 else "auto",
-        strategy="deepspeed_stage_2" if trainer_config.n_gpu > 1 else "auto",
+        strategy="ddp" if trainer_config.n_gpu > 1 else "auto",
     )
     print("Starting training")
     pl.Trainer(**vars(pl_trainer_args)).fit(trainer)
@@ -268,6 +266,9 @@ if __name__ == "__main__":
     parser.add_argument("--experiment_name", type=str, default="test", help="Folder name to store experiment results")
     parser.add_argument("--job_name", type=str, default="test", help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Look-ahead factor when computng gradients")
+    parser.add_argument("--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default process")
+    parser.add_argument("--seed", type=int, required=False, help="If specified, use this seed for reproducibility.")
+    parser.add_argument("--opt_name", type=str, default="adamW")
     parser.add_argument(
         "--model",
         type=str,
@@ -284,24 +285,10 @@ if __name__ == "__main__":
                                    c) text-classification: `qqp`, `mnli`, `sst`""",
     )
     parser.add_argument(
-        "--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default adam optimization process"
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        required=False,
-        help="If specified, use this seed for reproducibility.",
-    )
-    parser.add_argument(
         "--compute_cosine",
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Compute cosine similarity between successive vectors.",
-    )
-    parser.add_argument(
-        "--opt_name",
-        type=str,
-        default="adam",
     )
     parser.add_argument(
         "--config_override",
