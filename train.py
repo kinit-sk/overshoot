@@ -35,6 +35,7 @@ class OvershootTrainer(pl.LightningModule):
         self.base_model = model
         if not args.baseline:
             self.overshoot_model = copy.deepcopy(model)
+            config.lr_overshoot = config.lr_base * args.overshoot_factor
         self.dataset = dataset
         self.steps = int(round(config.B + config.epochs * len(dataset) // config.B // max(1, config.n_gpu)))
         if config.max_steps:
@@ -147,12 +148,13 @@ class OvershootTrainer(pl.LightningModule):
         else:
             lr_overshoot = lr_base
 
-        if batch_idx % 10 == 0:
+        if batch_idx % self.config.log_every_n_steps == 0:
             gpu_info = ""
-            for gpu_index in range(self.config.n_gpu):
-                max_vram = torch.cuda.memory_reserved(gpu_index) / (1024 * 1024 * 1024)
-                utilization = torch.cuda.utilization(gpu_index)
-                gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
+            if self.config.log_gpu and self.config.n_gpu > 0:
+                for gpu_index in range(self.config.n_gpu):
+                    max_vram = torch.cuda.memory_reserved(gpu_index) / (1024 * 1024 * 1024)
+                    utilization = torch.cuda.utilization(gpu_index)
+                    gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
             print(
                 f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}", flush=True
                 # f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f}", flush=True
@@ -344,14 +346,11 @@ def main():
     # Doesn't work inside devana slurn job
     # model = torch.compile(model)
 
-    if not args.baseline:
-        trainer_config.lr_overshoot = trainer_config.lr_base * args.overshoot_factor
-
     trainer = OvershootTrainer(model, dataset, trainer_config)
     pl_trainer_args = argparse.Namespace(
         max_epochs=trainer_config.epochs,
         enable_progress_bar=False,
-        log_every_n_steps=1,
+        log_every_n_steps=trainer_config.log_every_n_steps,
         accumulate_grad_batches=trainer_config.accumulate_grad_batches if args.baseline else 1,
         logger=TensorBoardLogger(save_dir=os.path.join("lightning_logs", args.experiment_name), name=args.job_name),
         precision="16-mixed" if trainer_config.use_16_bit_precision else None,

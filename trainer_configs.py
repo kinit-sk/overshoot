@@ -8,7 +8,6 @@ from typing import Optional, Sequence, get_type_hints, get_args
 
 @dataclass
 class TrainerConfig:
-    n_gpu: int = torch.cuda.device_count()
     B: int = 64
     accumulate_grad_batches: int = 1
     # lr_base: float =  3e-4
@@ -18,11 +17,14 @@ class TrainerConfig:
     epochs: int = 15
     max_steps: Optional[int] = None
     decay_lr: bool = False
-    use_16_bit_precision: bool = False
     adam_beta1: float = 0.9
     adam_beta2: float = 0.999
     sgd_momentum: float = 0.9
     weight_decay: float = 0.0
+    log_every_n_steps: int = 10
+    n_gpu: int = torch.cuda.device_count()
+    use_16_bit_precision: bool = torch.cuda.device_count() > 0
+    log_gpu: bool = False
     
     def __init__(self, override: Optional[Sequence[str]] = None) -> None:
         if override is None:
