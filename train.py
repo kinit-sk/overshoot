@@ -2,25 +2,18 @@ import argparse
 import copy
 import os
 import time
-from typing import Optional
 
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from transformers import (AutoConfig, AutoModelForPreTraining,
-                          AutoModelForSequenceClassification, AutoTokenizer)
 
-from cnn import CNN, ResNet
-from custom_datasets import (Cifar10Dataset, Cifar100Dataset, MMLUDataset,
-                             MnistDataset, MNLIDataset, NextTokenDataloader,
-                             QQPDataset, SST2Datatset)
 from custom_optimizers_adamw_overshoot import AdamW as OvershootAdamW
 from custom_optimizers_adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
 from custom_optimizers_sgd import SGD as OvershootSGD
-from gpt import GPT, GPTConfig
+from misc import init_dataset, init_model
 from trainer_configs import *
 
 # ------------------------------------------------------------------------------
@@ -37,7 +30,7 @@ class OvershootTrainer(pl.LightningModule):
         self.base_model = model
         if not args.baseline:
             self.overshoot_model = copy.deepcopy(model)
-            config.lr_overshoot = config.lr_base * args.overshoot_factor
+            config.lr_overshoot = config.lr_base * (args.overshoot_factor + 1)
         self.dataset = dataset
         self.steps = int(round(config.B + config.epochs * len(dataset) // config.B // max(1, config.n_gpu)))
         if config.max_steps:
@@ -227,7 +220,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
                     weight_decay=self.config.weight_decay,
-                    overshoot=args.overshoot_factor - 1,
+                    overshoot=args.overshoot_factor,
                     foreach=True,
                 )
             elif "adam" in args.opt_name:
@@ -244,7 +237,7 @@ class OvershootTrainer(pl.LightningModule):
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     momentum=self.config.sgd_momentum,
-                    overshoot=args.overshoot_factor - 1,
+                    overshoot=args.overshoot_factor,
                     foreach=True,
                 )
             elif "sgd" in args.opt_name:
@@ -272,68 +265,6 @@ class OvershootTrainer(pl.LightningModule):
     def train_dataloader(self):
         print("Total Steps: ", self.steps)
         return DataLoader(self.dataset, batch_size=self.config.B)
-
-
-def init_model(model_name, dataset_name):
-    model_map = {
-        "gpt_hf": "openai-community/gpt2",
-        "roberta_hf": "FacebookAI/roberta-base",
-        "xlm_roberta_hf": "FacebookAI/xlm-roberta-base",
-        "bloom_hf": "bigscience/bloom-560m",
-        "mdeberta_hf": "microsoft/mdeberta-v3-base",
-        "t5_hf": "google-t5/t5-base",
-    }
-    dataset_to_shape = {"mnist": ((28, 28, 3), 10), "cifar10": ((32, 32, 3), 10), "cifar100": ((32, 32, 3), 100)}
-
-    if model_name == "gpt":
-        tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"])  # use tokenizer from HF
-        tokenizer.pad_token = tokenizer.eos_token
-        return GPT(GPTConfig(vocab_size=50304)), tokenizer
-    elif model_name == "cnn":
-        return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None
-    elif model_name.startswith("resnet"):
-        return ResNet(dataset_to_shape[dataset_name][1], type=model_name), None
-    elif model_name in model_map:
-        model_name = model_map[model_name]
-        config = AutoConfig.from_pretrained(model_name)
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        # config.hidden_dropout_prob = 0.0  # Default is 0.1
-        # config.attention_probs_dropout_prob = 0.0  # Default is 0.1
-        config.ignore_mismatched_sizes = True
-
-        if dataset_name in ["shakespear", "gutenberg"]:
-            model = AutoModelForPreTraining.from_config(config)  # from scratch
-        else:
-            config.num_labels = 3 if dataset_name == "mnli" else 2
-            model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
-
-        tokenizer.pad_token = tokenizer.eos_token
-        model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
-        model.train()
-        return model, tokenizer
-    else:
-        raise ValueError(f"Model {model_name} not found")
-
-
-def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
-    if dataset_name == "mnist":
-        return MnistDataset()
-    elif dataset_name == "cifar10":
-        return Cifar10Dataset()
-    elif dataset_name == "cifar100":
-        return Cifar100Dataset()
-    elif dataset_name == "shakespear":
-        return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear_")
-    elif dataset_name == "gutenberg":
-        return NextTokenDataloader(tokenizer, T=T, source_file="gutenberg_books_")
-    elif dataset_name == "sst":
-        return SST2Datatset(tokenizer=tokenizer)
-    elif dataset_name == "qqp":
-        return QQPDataset(tokenizer=tokenizer)
-    elif dataset_name == "mnli":
-        return MNLIDataset(tokenizer=tokenizer)
-    elif dataset_name == "mmlu":
-        return MMLUDataset(tokenizer=tokenizer)
 
 
 # -----------------------------------------------------------------------------
@@ -368,19 +299,19 @@ def main():
 if __name__ == "__main__":
     # We should always observe the same results from:
     #   1) python train.py --baseline --seed 1
-    #   2) python train.py --overshoot_factor 1 --seed 1
+    #   2) python train.py --overshoot_factor 0 --seed 1
     # Sadly deterministic have to use 32-bit precision because of bug in pl.
 
     # We should observe the same results for:
     #  1)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_nesterov --baseline
-    #  2)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_overshoot --baseline --overshoot_factor 1.9
-    #  3)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_momentum --overshoot_factor 1.9
+    #  2)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_overshoot --baseline --overshoot_factor 0.9
+    #  3)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_momentum --overshoot_factor 0.9
     # For sanity check always use accelerator='cpu' !!!
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment_name", type=str, default="test", help="Folder name to store experiment results")
     parser.add_argument("--job_name", type=str, default="test", help="Sub-folder name to store experiment results")
-    parser.add_argument("--overshoot_factor", type=float, help="Factor to multiply base lr")
+    parser.add_argument("--overshoot_factor", type=float, help="Look-ahead factor when computng gradients")
     parser.add_argument(
         "--model",
         type=str,
