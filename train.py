@@ -208,7 +208,7 @@ class OvershootTrainer(pl.LightningModule):
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
-                    betas=self.config.adam_betas,
+                    betas=(self.config.adam_beta1, self.config.adam_beta2),
                     momentum_decay=0,
                     foreach=False
                 )
@@ -216,18 +216,17 @@ class OvershootTrainer(pl.LightningModule):
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
-                    betas=self.config.adam_betas,
+                    betas=(self.config.adam_beta1, self.config.adam_beta2),
                     weight_decay=self.config.weight_decay,
                     overshoot=args.overshoot_factor - 1,
                     foreach=True,
                 )
             elif "adam" in args.opt_name:
-                if "zero" in args.opt_name:
-                    self.config.adam_betas = 0, self.config.adam_betas[1]
+                self.config.adam_beta1 *= ("zero" not in args.opt_name)
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
-                    betas=self.config.adam_betas,
+                    betas=(self.config.adam_beta1, self.config.adam_beta2),
                     weight_decay=self.config.weight_decay,
                     foreach=True,
                 )
@@ -251,7 +250,7 @@ class OvershootTrainer(pl.LightningModule):
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
-                    alpha=self.config.adam_betas[1],
+                    alpha=self.config.adam_beta2,
                     foreach=False
                 )
                 
@@ -338,18 +337,15 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
 def main():
     model, tokenizer = init_model(args.model, args.dataset)
     dataset = init_dataset(args.dataset, tokenizer, 512 if args.model in ["xlm_roberta_hf", "roberta_hf", "bert_hf"] else 1024)
-    trainer_config = TrainerConfig()
-    print(model, flush=True)
+    trainer_config = TrainerConfig(args.config_override)
+    print(f"Model: {model}")
+    print(f"Config: {trainer_config}")
     
     # Doesn't work inside devana slurn job
     # model = torch.compile(model)
 
     if not args.baseline:
         trainer_config.lr_overshoot = trainer_config.lr_base * args.overshoot_factor
-    if args.adaptive_adam_beta and args.overshoot_factor and args.overshoot_factor > 1:
-        beta1 = 1 - 1 / (2 * (args.overshoot_factor - 1))
-        trainer_config.adam_betas = beta1, trainer_config.adam_betas[1]
-        print(f"Using adam beta1={beta1}.")
 
     trainer = OvershootTrainer(model, dataset, trainer_config)
     pl_trainer_args = argparse.Namespace(
@@ -363,6 +359,7 @@ def main():
         devices=trainer_config.n_gpu if trainer_config.n_gpu > 1 else "auto",
         strategy="deepspeed_stage_2" if trainer_config.n_gpu > 1 else "auto",
     )
+    print("Starting training")
     pl.Trainer(**vars(pl_trainer_args)).fit(trainer)
 
 
@@ -413,21 +410,21 @@ if __name__ == "__main__":
         help="Compute cosine similarity between successive vectors.",
     )
     parser.add_argument(
-        "--adaptive_adam_beta",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-    )
-    parser.add_argument(
         "--opt_name",
         type=str,
         default='adam',
+    )
+    parser.add_argument(
+        "--config_override",
+        type=str,
+        nargs='+',
+        default=None,
+        help="Sequence of key-value pairs to override config. E.g. --config_override lr_base=0.01",
     )
     args = parser.parse_args()
     assert (
         args.overshoot_factor or args.baseline
     ), "Overshoot factor or baseline needs to be set. See python train.py --help"
-    if args.adaptive_adam_beta and ((not args.overshoot_factor) or args.overshoot_factor <=1):
-        print("Warning: Adaptive adam beta only works with overshoot factor > 1.", flush=True)
     if args.seed:
         pl.seed_everything(args.seed)
     main()

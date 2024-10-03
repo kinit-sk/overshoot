@@ -1,6 +1,6 @@
 import torch
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Sequence, get_type_hints, get_args
 
 
 # Optimal LR: Roberta, sst, 3e-5 0.00003
@@ -18,7 +18,30 @@ class TrainerConfig:
     epochs: int = 15
     max_steps: Optional[int] = None
     decay_lr: bool = False
-    use_16_bit_precision: bool = True
-    adam_betas: Tuple[float, float] = 0.9, 0.999
+    use_16_bit_precision: bool = False
+    adam_beta1: float = 0.9
+    adam_beta2: float = 0.999
     sgd_momentum: float = 0.9
     weight_decay: float = 0.0
+    
+    def __init__(self, override: Optional[Sequence[str]] = None) -> None:
+        if override is None:
+            return
+            
+        for key_value in override:
+            key, value = key_value.split("=")
+            if hasattr(self, key) == False:
+                continue
+            override_type = get_type_hints(self)[key]
+            args = get_args(override_type)
+            if len(args):
+                override_type = args[0]
+            if override_type is bool:
+                if value == 'True':
+                    setattr(self, key, True)
+                elif value == 'False':
+                    setattr(self, key, False)
+            else:
+                setattr(self, key, override_type(value))
+
+
