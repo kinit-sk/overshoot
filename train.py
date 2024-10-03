@@ -1,7 +1,6 @@
 import argparse
 import copy
 import os
-import time
 
 import pytorch_lightning as pl
 import torch
@@ -13,7 +12,7 @@ from custom_optimizers_adamw_overshoot import AdamW as OvershootAdamW
 from custom_optimizers_adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
 from custom_optimizers_sgd import SGD as OvershootSGD
-from misc import init_dataset, init_model
+from misc import init_dataset, init_model, get_gpu_stats
 from trainer_configs import *
 
 # ------------------------------------------------------------------------------
@@ -36,7 +35,6 @@ class OvershootTrainer(pl.LightningModule):
         if config.max_steps:
             self.steps = min(self.steps, config.max_steps)
         self.config = config
-        self.start_time = time.time()
         self.current_step = 0
         # Cosine gradient statistics
         self.previous_grads = None
@@ -45,17 +43,39 @@ class OvershootTrainer(pl.LightningModule):
         self.grad_cosine_sim = 0
         self.update_cosine_sim = 0
 
-    def _baseline_training_step(self, batch):
+    def _cosine_similarity(self):
+        grads = torch.cat(
+            [p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None]
+        )
+        params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
+        if self.previous_grads is not None:
+            sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
+            if not torch.isnan(sim).item():
+                self.grad_cosine_sim = 0.9 * self.grad_cosine_sim + 0.1 * sim.item()
+        if self.previous_params is not None:
+            update = params - self.previous_params
+            if self.last_update is not None:
+                sim = F.cosine_similarity(self.last_update, update, dim=0)
+                if not torch.isnan(sim).item():
+                    self.update_cosine_sim = 0.9 * self.update_cosine_sim + 0.1 * sim.item()
+            self.last_update = update
+        self.previous_grads = grads
+        self.previous_params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])
+
+    def _baseline_training_step(self, batch, batch_idx):
+        # TODO: How to compute base loss when having only overshoot models
+        if hasattr(self.optimizers(), "move_to_base"):
+            with torch.no_grad():
+                self.optimizers().move_to_base()
+                base_loss = self.base_model.forward(**batch)["loss"]
+                self.optimizers().move_to_overshoot()
         output = self.base_model.forward(**batch)
         if self.config.decay_lr:
             self.base_scheduler.step()
-        return output["loss"], output["loss"], output["logits"]
+        base_loss = base_loss if 'base_loss' in locals() else output["loss"]
+        return base_loss, output["loss"], output["logits"]
 
     def _overshoot_training_step(self, batch, batch_idx):
-        if batch_idx == 0:  # Most likely this is not needed
-            for opt in self.optimizers():
-                opt.zero_grad()
-
         output_overshoot = self.overshoot_model.forward(**batch)
         with torch.no_grad():
             output_base = self.base_model.forward(**batch)  # only to log base loss
@@ -64,43 +84,24 @@ class OvershootTrainer(pl.LightningModule):
         if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
 
             # 1) Gradients OVERSHOOT -> BASE
-            for (name1, param1), (name2, param2) in zip(
-                self.overshoot_model.named_parameters(), self.base_model.named_parameters()
-            ):
+            for param1, param2 in zip(self.overshoot_model.parameters(), self.base_model.parameters()):
                 if param1.grad is not None:
-                    assert name1 == name2, "Parameter names do not match between models."
                     param2.grad = param1.grad.clone()
 
+            # 2) (Optional) Compute cosine stats
             if args.compute_cosine:
-                grads = torch.cat(
-                    [p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None]
-                )
-                params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
-                if self.previous_grads is not None:
-                    sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
-                    if not torch.isnan(sim).item():
-                        self.grad_cosine_sim = 0.9 * self.grad_cosine_sim + 0.1 * sim.item()
-                if self.previous_params is not None:
-                    update = params - self.previous_params
-                    if self.last_update is not None:
-                        sim = F.cosine_similarity(self.last_update, update, dim=0)
-                        if not torch.isnan(sim).item():
-                            self.update_cosine_sim = 0.9 * self.update_cosine_sim + 0.1 * sim.item()
-                    self.last_update = update
-                self.previous_grads = grads
+                self._cosine_similarity()
 
-            # 2) Weights BASE -> OVERSHOOT
+            # 3) Weights BASE -> OVERSHOOT
             for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
                 param2.data = param1.data.clone()
 
-            self.previous_params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
-
-            # (Optional) 3) Update learning rates
+            # 4) (Optional) Update learning rates
             if self.config.decay_lr:
                 self.base_scheduler.step()
                 self.overshoot_scheduler.step()
 
-            # 4) Update models based on gradients
+            # 5) Update models based on gradients
             for opt in self.optimizers():
                 opt.step()
                 opt.zero_grad()
@@ -108,70 +109,25 @@ class OvershootTrainer(pl.LightningModule):
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
     def training_step(self, batch, batch_idx):
-        self.trainer.should_stop = self.current_step >= self.steps
-
-        if self.automatic_optimization:
-            # TODO: How to compute base loss when having only overshoot models
-            # if hasattr(self.optimizers(), "move_to_base"):
-            #     with torch.no_grad():
-            #         self.optimizers().move_to_base()
-            #         base_output_dict = self.base_model.forward(**batch)
-            #         loss_base = base_output_dict["loss"]
-            #         output_base = base_output_dict["logits"]
-            #         self.optimizers().move_to_overshoot()
-            #     _, loss_overshoot, _ = self._baseline_training_step(batch)
-            # else:
-            #     loss_base, loss_overshoot, output_base = self._baseline_training_step(batch)
-            loss_base, loss_overshoot, output_base = self._baseline_training_step(batch)
-
-        else:
-            loss_base, loss_overshoot, output_base = self._overshoot_training_step(batch, batch_idx)
-
-        for device_id in range(self.config.n_gpu):
-            torch.cuda.synchronize(device_id)  # wait for the GPUs to finish work
-
-        now = time.time()
-        dt = now - self.start_time  # time difference in seconds
-        self.start_time = now
-
-        if args.dataset in ["shakespear", "gutenberg"] and "gpt" in args.model:
-            accuracy = (
-                100 * torch.mean(output_base.argmax(dim=-1)[:, :-1] == batch["labels"][:, 1:], dtype=float).item()
-            )
-        else:
-            accuracy = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
-
-        lr_base = self.base_scheduler.get_last_lr()[-1]
-        if hasattr(self, "overshoot_scheduler"):
-            lr_overshoot = self.overshoot_scheduler.get_last_lr()[-1]
-        else:
-            lr_overshoot = lr_base
+        train_fn = self._baseline_training_step if self.automatic_optimization else self._overshoot_training_step
+        loss_base, loss_overshoot, output_base = train_fn(batch, batch_idx)
 
         if batch_idx % self.config.log_every_n_steps == 0:
-            gpu_info = ""
-            if self.config.log_gpu and self.config.n_gpu > 0:
-                for gpu_index in range(self.config.n_gpu):
-                    max_vram = torch.cuda.memory_reserved(gpu_index) / (1024 * 1024 * 1024)
-                    utilization = torch.cuda.utilization(gpu_index)
-                    gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
-            print(
-                f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | lr_overshoot: {lr_overshoot:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f} | grad_cosine_sim: {self.grad_cosine_sim:.5f} | update_cosine_sim: {self.update_cosine_sim:.5f} | accuracy: {accuracy:.2f} | dt: {dt*1000:.2f}ms{gpu_info}",
-                flush=True,
-                # f"epoch: {self.current_epoch} | step {batch_idx:4d} | lr_base: {lr_base:.4f} | loss_base: {loss_base.item():.6f} | loss_overshoot: {loss_overshoot.item():.6f}", flush=True
-            )
-
-        if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
             stats = {
-                "step": self.current_step,
-                "base_lr": lr_base,
-                "overshoot_lr": lr_overshoot,
+                "epoch": self.current_epoch,
+                "step": batch_idx,
+                "base_lr": self.base_scheduler.get_last_lr()[-1],
+                "overshoot_lr": self.base_scheduler.get_last_lr()[-1] if self.automatic_optimization else self.overshoot_scheduler.get_last_lr()[-1],
                 "base_loss": loss_base.item(),
                 "overshoot_loss": loss_overshoot.item(),
                 "grads_cosine_similarity": self.grad_cosine_sim,
                 "update_cosine_similarity": self.update_cosine_sim,
-                "accuracy": accuracy,
+                "accuracy": torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item(),
             }
             self.log_dict(stats)
+            print_base = ' | '.join([f'{k}: {round(v, 4) if type(v) == float else v}' for k, v in stats.items()])
+            print(print_base + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''))
+        self.trainer.should_stop = self.current_step >= self.steps
         self.current_step += 1
         return loss_overshoot
 
@@ -325,7 +281,7 @@ if __name__ == "__main__":
         help="""Dataset to use. Options: 
                                    a) vision: `mnist`, `cifar10`, `cifar100`
                                    b) next-token-prediction: `shakespear`, `gutenberg`,
-                                   c) text-classification: `qqp`, `mnli`, `mmlu`""",
+                                   c) text-classification: `qqp`, `mnli`, `sst`""",
     )
     parser.add_argument(
         "--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default adam optimization process"
@@ -356,7 +312,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     assert (
-        args.overshoot_factor or args.baseline
+        (args.overshoot_factor is not None) or args.baseline
     ), "Overshoot factor or baseline needs to be set. See python train.py --help"
     if args.seed:
         pl.seed_everything(args.seed)

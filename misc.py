@@ -71,3 +71,11 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
         return MNLIDataset(tokenizer=tokenizer)
     elif dataset_name == "mmlu":
         return MMLUDataset(tokenizer=tokenizer)
+
+def get_gpu_stats(n_gpus: int = 0):
+    gpu_info = ""
+    for gpu_index in range(n_gpus):
+        max_vram = torch.cuda.memory_reserved(gpu_index) / (1024 * 1024 * 1024)
+        utilization = torch.cuda.utilization(gpu_index)
+        gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
+    return gpu_info
