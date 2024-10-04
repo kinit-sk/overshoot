@@ -139,7 +139,7 @@ class GPT(nn.Module):
             # loss = F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1))
 
         # Shift output logits to right so it's similar to HF models
-        logits = torch.cat([torch.tensor([0]), logits[:-1]])
+        logits = torch.roll(logits, 1, 1)
         return {'loss': loss, 'logits': logits}
         
     def from_pretrained(cls, model_type):
