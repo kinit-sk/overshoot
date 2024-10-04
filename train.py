@@ -67,13 +67,15 @@ class OvershootTrainer(pl.LightningModule):
         if hasattr(self.optimizers(), "move_to_base"):
             with torch.no_grad():
                 self.optimizers().move_to_base()
-                base_loss = self.base_model.forward(**batch)["loss"] # only to log base loss
+                base_output = self.base_model.forward(**batch) # only to log base loss
                 self.optimizers().move_to_overshoot()
         output = self.base_model.forward(**batch)
         if self.config.decay_lr:
             self.base_scheduler.step()
-        base_loss = base_loss if 'base_loss' in locals() else output["loss"]
-        return base_loss, output["loss"], output["logits"]
+        if hasattr(self.optimizers(), "move_to_base"):
+            return base_output["loss"], output["loss"], base_output["logits"]
+        else:
+            return output["loss"], output["loss"], output["logits"]
 
     def _overshoot_training_step(self, batch, batch_idx):
         output_overshoot = self.overshoot_model.forward(**batch)
@@ -120,10 +122,11 @@ class OvershootTrainer(pl.LightningModule):
                 "overshoot_lr": self.base_scheduler.get_last_lr()[-1] if self.automatic_optimization else self.overshoot_scheduler.get_last_lr()[-1],
                 "base_loss": loss_base.item(),
                 "overshoot_loss": loss_overshoot.item(),
-                "grads_cosine_similarity": self.grad_cosine_sim,
-                "update_cosine_similarity": self.update_cosine_sim,
                 "accuracy": torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item(),
             }
+            if args.compute_cosine:
+                stats["grads_cosine_similarity"] = self.grad_cosine_sim
+                stats["update_cosine_similarity"] = self.update_cosine_sim
             self.log_dict(stats)
             print_base = ' | '.join([f'{k}: {round(v, 4) if type(v) == float else v}' for k, v in stats.items()])
             print(print_base + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''))
