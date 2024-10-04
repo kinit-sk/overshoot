@@ -44,9 +44,7 @@ class OvershootTrainer(pl.LightningModule):
         self.update_cosine_sim = 0
 
     def _cosine_similarity(self):
-        grads = torch.cat(
-            [p.grad.view(-1) for _, p in self.overshoot_model.named_parameters() if p.grad is not None]
-        )
+        grads = torch.cat([p.grad.view(-1) for p in self.overshoot_model.parameters() if p.grad is not None])
         params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
         if self.previous_grads is not None:
             sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
