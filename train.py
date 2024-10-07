@@ -240,6 +240,7 @@ def main():
     pl_trainer_args = argparse.Namespace(
         max_epochs=trainer_config.epochs,
         enable_progress_bar=False,
+        enable_checkpointing=False,
         log_every_n_steps=trainer_config.log_every_n_steps,
         accumulate_grad_batches=trainer_config.accumulate_grad_batches if args.baseline else 1,
         logger=TensorBoardLogger(save_dir=os.path.join("lightning_logs", args.experiment_name), name=args.job_name),
