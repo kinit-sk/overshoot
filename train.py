@@ -78,9 +78,9 @@ class OvershootTrainer(pl.LightningModule):
             return output["loss"], output["loss"], output["logits"]
 
     def _overshoot_training_step(self, batch, batch_idx):
-        output_overshoot = self.overshoot_model.forward(**batch)
         with torch.no_grad():
             output_base = self.base_model.forward(**batch)  # only to log base loss
+        output_overshoot = self.overshoot_model.forward(**batch)
         self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
 
         if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
@@ -131,8 +131,8 @@ class OvershootTrainer(pl.LightningModule):
             self.log_dict(stats)
             print_base = ' | '.join([f'{k}: {round(v, 4) if type(v) == float else v}' for k, v in stats.items()])
             print(print_base + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
-        self.trainer.should_stop = self.current_step >= self.steps
         self.current_step += 1
+        self.trainer.should_stop = self.current_step >= self.steps
         return loss_overshoot
 
     def configure_optimizers(self):
