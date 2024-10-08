@@ -7,7 +7,7 @@ from cnn import CNN, ResNet
 from custom_datasets import (Cifar10Dataset, Cifar100Dataset, MMLUDataset,
                              MnistDataset, MNLIDataset, NextTokenDataloader,
                              QQPDataset, SST2Datatset)
-from gpt import GPT, GPTConfig
+from gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
 
@@ -25,11 +25,15 @@ def init_model(model_name, dataset_name):
     if model_name == "gpt":
         tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"])  # use tokenizer from HF
         tokenizer.pad_token = tokenizer.eos_token
-        return GPT(GPTConfig(vocab_size=50304)), tokenizer
+        return GPT(GPTConfig(vocab_size=50304)), tokenizer, 1024
+    if model_name == "gpt_tiny":
+        tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"])  # use tokenizer from HF
+        tokenizer.pad_token = tokenizer.eos_token
+        return GPT(GPTTinyConfig(vocab_size=50304)), tokenizer, 256
     elif model_name == "cnn":
-        return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None
+        return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None, None
     elif model_name.startswith("resnet"):
-        return ResNet(dataset_to_shape[dataset_name][1], type=model_name), None
+        return ResNet(dataset_to_shape[dataset_name][1], type=model_name), None, None
     elif model_name in model_map:
         model_name = model_map[model_name]
         config = AutoConfig.from_pretrained(model_name)
@@ -47,7 +51,7 @@ def init_model(model_name, dataset_name):
         tokenizer.pad_token = tokenizer.eos_token
         model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
         model.train()
-        return model, tokenizer
+        return model, tokenizer, 512
     else:
         raise ValueError(f"Model {model_name} not found")
 
@@ -60,7 +64,8 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
     elif dataset_name == "cifar100":
         return Cifar100Dataset()
     elif dataset_name == "shakespear":
-        return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear_")
+        # return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear_")
+        return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear.txt")
     elif dataset_name == "gutenberg":
         return NextTokenDataloader(tokenizer, T=T, source_file="gutenberg_books_")
     elif dataset_name == "sst":

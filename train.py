@@ -65,7 +65,8 @@ class OvershootTrainer(pl.LightningModule):
         if hasattr(self.optimizers(), "move_to_base"):
             with torch.no_grad():
                 self.optimizers().move_to_base()
-                base_output = self.base_model.forward(**batch) # only to log base loss
+                # !!! For some reason when performing the inference on base_model, training breaks
+                base_output = copy.deepcopy(self.base_model).forward(**batch)
                 self.optimizers().move_to_overshoot()
         output = self.base_model.forward(**batch)
         if self.config.decay_lr:
@@ -227,8 +228,8 @@ class OvershootTrainer(pl.LightningModule):
 
 # -----------------------------------------------------------------------------
 def main():
-    model, tokenizer = init_model(args.model, args.dataset)
-    dataset = init_dataset(args.dataset, tokenizer, 512 if args.model in ["xlm_roberta_hf", "roberta_hf", "bert_hf"] else 1024)
+    model, tokenizer, context_size = init_model(args.model, args.dataset)
+    dataset = init_dataset(args.dataset, tokenizer, context_size)
     trainer_config = TrainerConfig(args.config_override)
     print(f"Model: {model}")
     print(f"Config: {trainer_config}")

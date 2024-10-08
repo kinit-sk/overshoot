@@ -82,6 +82,15 @@ class GPTConfig:
     n_layer: int = 12 # number of layers
     n_head: int = 12 # number of heads
     n_embd: int = 768 # embedding dimension
+    
+@dataclass
+class GPTTinyConfig:
+    T: int = 256 # context size
+    block_size: int = 256 # max sequence length
+    vocab_size: int = 50257 # number of tokens: 50,000 BPE merges + 256 bytes tokens + 1 <|endoftext|> token
+    n_layer: int = 6 # number of layers
+    n_head: int = 6 # number of heads
+    n_embd: int = 300 # embedding dimension
 
 class GPT(nn.Module):
 
