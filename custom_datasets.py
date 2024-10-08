@@ -34,15 +34,14 @@ class NextTokenDataloader:
         self._current_shred = 0
         self._shred_offset = 0
         self._length = 0
+        modulo = 0
         for i, s in enumerate(self._sherds):
             tokens = self.__tokenize_file(s)
-            self._length += tokens.shape[0] // self.T
+            self._length += (modulo + tokens.shape[0]) // self.T
+            modulo = (modulo + tokens.shape[0]) % self.T
             print(f"Loading shred: {i}/{len(self._sherds)}, size: {tokens.shape[0] // self.T}", flush=True)
             if i == 0:
                 self._tokens = tokens
-
-        
-        
         # enc = tiktoken.get_encoding('gpt2')
         # tokens = enc.encode(text)
         # self.tokens = torch.tensor(tokens)
@@ -55,17 +54,17 @@ class NextTokenDataloader:
             return self._tokenizer(text, return_tensors="pt")['input_ids'].view(-1)
 
     def __getitem__(self, index):
-        
+        index_with_offset = index - self._shred_offset
         if len(self._sherds):
             if index == 0:
                 self._current_shred = 0
                 self._shred_offset = 0
                 self._tokens = self.__tokenize_file(self._sherds[self._current_shred])
-            elif index - self._shred_offset >= self._tokens.shape[0] // self.T:
+            elif index_with_offset >= self._tokens.shape[0] // self.T:
                 self._current_shred += 1
-                assert self._current_shred < len(self._sherds), "Reached end of sherd list"
+                assert self._current_shred < len(self._sherds), "Out of shreds index."
                 self._shred_offset += self._tokens.shape[0] // self.T
-                self._tokens = self.__tokenize_file(self._sherds[self._current_shred])
+                self._tokens = torch.cat([self._tokens[index_with_offset * self.T:], self.__tokenize_file(self._sherds[self._current_shred])])
 
         # buf = self.tokens[index * self.T : (index + 1) * self.T + 1]
         # x = buf[:-1] # inputs

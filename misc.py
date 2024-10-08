@@ -64,8 +64,8 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
     elif dataset_name == "cifar100":
         return Cifar100Dataset()
     elif dataset_name == "shakespear":
-        # return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear_")
-        return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear.txt")
+        return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear_")
+        # return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear.txt")
     elif dataset_name == "gutenberg":
         return NextTokenDataloader(tokenizer, T=T, source_file="gutenberg_books_")
     elif dataset_name == "sst":
