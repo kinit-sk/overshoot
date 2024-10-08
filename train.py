@@ -66,6 +66,7 @@ class OvershootTrainer(pl.LightningModule):
             with torch.no_grad():
                 self.optimizers().move_to_base()
                 # !!! For some reason when performing the inference on base_model, training breaks
+                # This deep copy is only needed when using GPT with 16-bit precision
                 base_output = copy.deepcopy(self.base_model).forward(**batch)
                 self.optimizers().move_to_overshoot()
         output = self.base_model.forward(**batch)
@@ -171,7 +172,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=getattr(self.config, f"lr_{model_name}"),
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
                     momentum_decay=0,
-                    foreach=False,
+                    foreach=True,
                 )
             elif args.opt_name.startswith("adamW_overshoot"):
                 opt = opt_map[args.opt_name](
@@ -212,7 +213,7 @@ class OvershootTrainer(pl.LightningModule):
                     optim_groups,
                     lr=getattr(self.config, f"lr_{model_name}"),
                     alpha=self.config.adam_beta2,
-                    foreach=False,
+                    foreach=True,
                 )
 
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=self.steps)
