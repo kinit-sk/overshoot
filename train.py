@@ -114,21 +114,22 @@ class OvershootTrainer(pl.LightningModule):
         train_fn = self._baseline_training_step if self.automatic_optimization else self._overshoot_training_step
         loss_base, loss_overshoot, output_base = train_fn(batch, batch_idx)
 
+        stats = {
+            "step": self.current_step,
+            "epoch": self.current_epoch,
+            "batch_step": batch_idx,
+            "base_lr": self.base_scheduler.get_last_lr()[-1],
+            "overshoot_lr": self.base_scheduler.get_last_lr()[-1] if self.automatic_optimization else self.overshoot_scheduler.get_last_lr()[-1],
+            "base_loss": loss_base.item(),
+            "overshoot_loss": loss_overshoot.item(),
+            "accuracy": 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item(),
+        }
+        if args.compute_cosine:
+            stats["grads_cosine_similarity"] = self.grad_cosine_sim
+            stats["update_cosine_similarity"] = self.update_cosine_sim
+        self.log_dict(stats)
+         
         if batch_idx % self.config.log_every_n_steps == 0:
-            stats = {
-                "step": self.current_step,
-                "epoch": self.current_epoch,
-                "batch_step": batch_idx,
-                "base_lr": self.base_scheduler.get_last_lr()[-1],
-                "overshoot_lr": self.base_scheduler.get_last_lr()[-1] if self.automatic_optimization else self.overshoot_scheduler.get_last_lr()[-1],
-                "base_loss": loss_base.item(),
-                "overshoot_loss": loss_overshoot.item(),
-                "accuracy": 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item(),
-            }
-            if args.compute_cosine:
-                stats["grads_cosine_similarity"] = self.grad_cosine_sim
-                stats["update_cosine_similarity"] = self.update_cosine_sim
-            self.log_dict(stats)
             print_base = ' | '.join([f'{k}: {round(v, 4) if type(v) == float else v}' for k, v in stats.items()])
             print(print_base + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
         self.current_step += 1

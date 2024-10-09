@@ -26,14 +26,22 @@ class NextTokenDataloader:
             import gdown
             gdown.download(download_links[source_file], file_path, quiet=False)
 
-        if source_file.endswith("_"):
-            self._sherds = [os.path.join(cache_dir, f) for f in os.listdir(cache_dir) if f.startswith(source_file)]
-        else:
-            self._sherds = [file_path]
-            
         self._current_shred = 0
         self._shred_offset = 0
         self._length = 0
+        if source_file.endswith("_"):
+            self._sherds = [os.path.join(cache_dir, f) for f in os.listdir(cache_dir) if f.startswith(source_file) and 'split' in f]
+            if os.path.exists(os.path.join(cache_dir, f"{source_file}meta.yaml")):
+                import yaml
+                # meta_data = yaml.safe_load(os.path.join(cache_dir, f"{source_file}meta.yaml"))
+                with open(os.path.join(cache_dir, f"{source_file}meta.yaml"), 'r') as f:
+                    meta_data = yaml.safe_load(f)
+                self._length = sum([int(x) for x in meta_data['sizes'].split(' ')])
+                print(f"Loaded {self._length} tokens")
+                return
+        else:
+            self._sherds = [file_path]
+            
         modulo = 0
         for i, s in enumerate(self._sherds):
             tokens = self.__tokenize_file(s)
