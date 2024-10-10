@@ -15,15 +15,11 @@ class MLP(nn.Module):
         self.relu = nn.ReLU()
         self.loss_fn = nn.CrossEntropyLoss()
         
-    def forward(self, x, labels=None):
+    def forward(self, x, labels = None):
         x = torch.flatten(x, 1)
         for layer in self.layers[:-1]:
             x = layer(x)
             x = self.relu(x)
-        x = self.layers[-1](x)
-        
-        loss = None
-        if labels is not None:
-            loss = self.loss_fn(x, labels)
-        return {'loss': loss, 'logits': x}
-
+        logits = self.layers[-1](x)
+        loss = None if labels is None else self.loss_fn(logits, labels)
+        return {'loss': loss, 'logits': logits}
