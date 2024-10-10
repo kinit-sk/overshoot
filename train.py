@@ -225,8 +225,10 @@ class OvershootTrainer(pl.LightningModule):
 
     def train_dataloader(self):
         print("Total Steps: ", self.steps)
-        return DataLoader(self.dataset, batch_size=self.config.B)
-
+        if hasattr(self.dataset, "batching"):
+            return DataLoader(self.dataset, batch_size=self.config.B, collate_fn=self.dataset.batching)
+        else:
+            return DataLoader(self.dataset, batch_size=self.config.B)
 
 # -----------------------------------------------------------------------------
 def main():

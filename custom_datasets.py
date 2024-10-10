@@ -141,15 +141,17 @@ class SST2Datatset:
         self.tokenizer = tokenizer
 
     def __getitem__(self, index):
-        inpts = self.tokenizer([self.data[index]['sentence']],  padding="max_length", truncation=True, max_length=512, return_tensors="pt")
-        input_ids = inpts['input_ids'][0]
-        attention_mask = inpts['attention_mask'][0]
-        outputs = self.data[index]['label']
-        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
-
+        return index
+        
     def __len__(self):
         return len(self.data)
-        
+    
+    def batching(self, x):
+        inpts = self.tokenizer([self.data[index]['sentence'] for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+        input_ids = inpts['input_ids']
+        attention_mask = inpts['attention_mask']
+        outputs = torch.tensor([self.data[index]['label'] for index in x])
+        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
         
 class QQPDataset:
@@ -158,14 +160,17 @@ class QQPDataset:
         self.tokenizer = tokenizer
 
     def __getitem__(self, index):
-        inpts = self.tokenizer([f"{self.data[index]['question1']}  {self.data[index]['question2']}"],  padding="max_length", truncation=True, max_length=512, return_tensors="pt")
-        input_ids = inpts['input_ids'][0]
-        attention_mask = inpts['attention_mask'][0]
-        outputs = self.data[index]['label']
-        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
+        return index
 
     def __len__(self):
         return len(self.data)
+        
+    def batching(self, x):
+        inpts = self.tokenizer([f"{self.data[index]['question1']}  {self.data[index]['question2']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+        input_ids = inpts['input_ids']
+        attention_mask = inpts['attention_mask']
+        outputs = torch.tensor([self.data[index]['label'] for index in x])
+        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
 class MNLIDataset:
     def __init__(self, tokenizer: str) -> None:
@@ -173,25 +178,34 @@ class MNLIDataset:
         self.tokenizer = tokenizer
 
     def __getitem__(self, index):
-        inpts = self.tokenizer([f"{self.data[index]['premise']}  {self.data[index]['hypothesis']}"],  padding="max_length", truncation=True, max_length=512, return_tensors="pt")
-        input_ids = inpts['input_ids'][0]
-        attention_mask = inpts['attention_mask'][0]
-        outputs = self.data[index]['label']
-        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
+        return index
 
     def __len__(self):
         return len(self.data)
         
+    def batching(self, x):
+        inpts = self.tokenizer([f"{self.data[index]['premise']}  {self.data[index]['hypothesis']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+        input_ids = inpts['input_ids']
+        attention_mask = inpts['attention_mask']
+        outputs = torch.tensor([self.data[index]['label'] for index in x])
+        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
+        
 class MMLUDataset:
     def __init__(self, tokenizer) -> None:
-        data = load_dataset("lighteval/mmlu", "college_mathematics")['auxiliary_train']
-        inpts = tokenizer([f"{d['question']}  {d['choices']}" for d in data],  padding="longest", truncation=True, max_length=1024, return_tensors="pt")
-        self.input_ids = inpts['input_ids']
-        self.attention_mask = inpts['attention_mask']
-        self.outputs = [d['answer'] for d in data]
+        self.data = load_dataset("lighteval/mmlu", "college_mathematics")['auxiliary_train']
+        self.tokenizer = tokenizer
 
     def __getitem__(self, index):
-        return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
+        return index
+    # def __getitem__(self, index):
+    #     return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
 
     def __len__(self):
-        return len(self.input_ids)
+        return len(self.data)
+        
+    def batching(self, x):
+        inpts = self.tokenizer([f"{self.data[index]['question']}  {self.data[index]['choices']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+        input_ids = inpts['input_ids']
+        attention_mask = inpts['attention_mask']
+        outputs = torch.tensor([self.data[index]['answer'] for index in x])
+        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}

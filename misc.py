@@ -79,6 +79,8 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
         return MNLIDataset(tokenizer=tokenizer)
     elif dataset_name == "mmlu":
         return MMLUDataset(tokenizer=tokenizer)
+    else:
+        raise ValueError(f"Dataset {dataset_name} not found")
 
 def get_gpu_stats(n_gpus: int = 0):
     gpu_info = ""
