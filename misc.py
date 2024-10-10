@@ -4,6 +4,7 @@ from transformers import (AutoConfig, AutoModelForPreTraining,
                           AutoModelForSequenceClassification, AutoTokenizer)
 
 from cnn import CNN, ResNet
+from mlp import MLP
 from custom_datasets import (Cifar10Dataset, Cifar100Dataset, MMLUDataset,
                              MnistDataset, MNLIDataset, NextTokenDataloader,
                              QQPDataset, SST2Datatset)
@@ -30,6 +31,8 @@ def init_model(model_name, dataset_name):
         tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"])  # use tokenizer from HF
         tokenizer.pad_token = tokenizer.eos_token
         return GPT(GPTTinyConfig(vocab_size=50304)), tokenizer, 256
+    elif model_name == "mlp":
+        return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None, None
     elif model_name == "cnn":
         return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None, None
     elif model_name.startswith("resnet"):
