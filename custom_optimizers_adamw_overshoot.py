@@ -270,7 +270,6 @@ class AdamW(Optimizer):
                     continue
                 if len(self.state[param]) == 0:
                     return
-                # import code; code.interact(local=locals())
                 last_step = self.state[param]["last_steps"]
                 param.add_(last_step, alpha=-group["overshoot"])
                 

@@ -2,6 +2,7 @@ import os
 import tiktoken
 import torch
 from torchvision import datasets, transforms
+from sklearn.datasets import fetch_california_housing
 from datasets import load_dataset
 
 
@@ -209,3 +210,18 @@ class MMLUDataset:
         attention_mask = inpts['attention_mask']
         outputs = torch.tensor([self.data[index]['answer'] for index in x])
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
+
+
+class CaliforniaHousingDataset:
+
+    def __init__(self):
+        dataset = fetch_california_housing()
+        self.X = torch.tensor(dataset.data, dtype=torch.float32)
+        self.labels = torch.tensor(dataset.target, dtype=torch.float32)
+
+    def __len__(self):
+        return self.X.shape[0]
+        
+    def __getitem__(self, index):
+        return {"x": self.X[index], "labels": self.labels[index]}
+        

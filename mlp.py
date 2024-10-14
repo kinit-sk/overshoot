@@ -13,7 +13,7 @@ class MLP(nn.Module):
             [nn.Linear(before, after) for before, after in zip(sizes[:-1], sizes[1:])]
         )
         self.relu = nn.ReLU()
-        self.loss_fn = nn.CrossEntropyLoss()
+        self.loss_fn = nn.MSELoss() if output_shape == 1 else nn.CrossEntropyLoss()
         
     def forward(self, x, labels = None):
         x = torch.flatten(x, 1)
