@@ -53,6 +53,7 @@ PyYAML==6.0.1
 regex==2024.7.24
 requests==2.32.3
 safetensors==0.4.4
+scikit-learn==1.5.2
 setuptools==72.1.0
 six==1.16.0
 soupsieve==2.5
