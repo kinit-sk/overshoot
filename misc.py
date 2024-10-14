@@ -7,7 +7,7 @@ from cnn import CNN, ResNet
 from mlp import MLP
 from custom_datasets import (Cifar10Dataset, Cifar100Dataset, MMLUDataset,
                              MnistDataset, MNLIDataset, NextTokenDataloader,
-                             QQPDataset, SST2Datatset, CaliforniaHousingDataset)
+                             QQPDataset, SST2Datatset, CaliforniaHousingDataset, DiabetesDataset)
 from gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
@@ -21,7 +21,13 @@ def init_model(model_name, dataset_name):
         "mdeberta_hf": "microsoft/mdeberta-v3-base",
         "t5_hf": "google-t5/t5-base",
     }
-    dataset_to_shape = {"mnist": ((28, 28, 3), 10), "cifar10": ((32, 32, 3), 10), "cifar100": ((32, 32, 3), 100), "housing": ((8,), 1)}
+    dataset_to_shape = {
+        "mnist": ((28, 28, 3), 10),
+        "cifar10": ((32, 32, 3), 10),
+        "cifar100": ((32, 32, 3), 100),
+        "housing": ((8,), 1),
+        "diabetes": ((10,), 1),
+    }
 
     if model_name == "gpt":
         tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"])  # use tokenizer from HF
@@ -81,6 +87,8 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
         return MMLUDataset(tokenizer=tokenizer)
     elif dataset_name == "housing":
         return CaliforniaHousingDataset()
+    elif dataset_name == "diabetes":
+        return DiabetesDataset()
     else:
         raise ValueError(f"Dataset {dataset_name} not found")
 
