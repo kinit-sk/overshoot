@@ -7,7 +7,7 @@ from cnn import CNN, ResNet
 from mlp import MLP
 from custom_datasets import (Cifar10Dataset, Cifar100Dataset, MMLUDataset,
                              MnistDataset, MNLIDataset, NextTokenDataloader,
-                             QQPDataset, SST2Datatset, CaliforniaHousingDataset, DiabetesDataset)
+                             QQPDataset, SST2Datatset, CaliforniaHousingDataset, DiabetesDataset, EnergyDataset)
 from gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
@@ -27,6 +27,7 @@ def init_model(model_name, dataset_name):
         "cifar100": ((32, 32, 3), 100),
         "housing": ((8,), 1),
         "diabetes": ((10,), 1),
+        "energy": ((8,), 2),
     }
 
     if model_name == "gpt":
@@ -89,6 +90,8 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
         return CaliforniaHousingDataset()
     elif dataset_name == "diabetes":
         return DiabetesDataset()
+    elif dataset_name == "energy":
+        return EnergyDataset()
     else:
         raise ValueError(f"Dataset {dataset_name} not found")
 

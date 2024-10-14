@@ -1,6 +1,7 @@
 import os
 import tiktoken
 import torch
+import pandas as pd
 from torchvision import datasets, transforms
 from sklearn.datasets import fetch_california_housing, load_diabetes
 from sklearn.preprocessing import StandardScaler
@@ -236,6 +237,21 @@ class DiabetesDataset:
         X_train = scaler.fit_transform(dataset.data)
         self.X = torch.tensor(X_train, dtype=torch.float32)
         self.labels = torch.tensor(dataset.target, dtype=torch.float32)
+
+    def __len__(self):
+        return self.X.shape[0]
+        
+    def __getitem__(self, index):
+        return {"x": self.X[index], "labels": self.labels[index]}
+        
+        
+class EnergyDataset:
+
+    def __init__(self, file=".datasets/energy_efficiency_data.csv"):
+        data = pd.read_csv(file)
+        scaler = StandardScaler()
+        self.X = torch.tensor(scaler.fit_transform(data.iloc[:, :-2].values), dtype=torch.float32)
+        self.labels = torch.tensor(data.iloc[:, -2:].values, dtype=torch.float32)
 
     def __len__(self):
         return self.X.shape[0]
