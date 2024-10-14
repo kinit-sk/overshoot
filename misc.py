@@ -22,12 +22,12 @@ def init_model(model_name, dataset_name):
         "t5_hf": "google-t5/t5-base",
     }
     dataset_to_shape = {
-        "mnist": ((28, 28, 3), 10),
-        "cifar10": ((32, 32, 3), 10),
-        "cifar100": ((32, 32, 3), 100),
-        "housing": ((8,), 1),
-        "diabetes": ((10,), 1),
-        "energy": ((8,), 2),
+        "mnist": ((28, 28, 3), 10, True),
+        "cifar10": ((32, 32, 3), 10, True),
+        "cifar100": ((32, 32, 3), 100, True),
+        "housing": ((8,), 1, False),
+        "diabetes": ((10,), 1, False),
+        "energy": ((8,), 2, False),
     }
 
     if model_name == "gpt":
@@ -39,7 +39,7 @@ def init_model(model_name, dataset_name):
         tokenizer.pad_token = tokenizer.eos_token
         return GPT(GPTTinyConfig(vocab_size=50304)), tokenizer, 256
     elif model_name == "mlp":
-        return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None, None
+        return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2]), None, None
     elif model_name == "cnn":
         return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None, None
     elif model_name.startswith("resnet"):

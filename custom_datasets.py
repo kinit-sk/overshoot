@@ -87,6 +87,9 @@ class NextTokenDataloader:
     def __len__(self):
         return self._length
         
+    def is_classification(self):
+        return True
+        
         
         
 class MnistDataset:
@@ -105,6 +108,8 @@ class MnistDataset:
     def __len__(self):
         return len(self.dataset)
         
+    def is_classification(self):
+        return True
 
 class Cifar100Dataset:
     def __init__(self) -> None:
@@ -121,6 +126,9 @@ class Cifar100Dataset:
     def __len__(self):
         return len(self.dataset)
         
+    def is_classification(self):
+        return True
+        
 class Cifar10Dataset:
     def __init__(self) -> None:
         transform = transforms.Compose([
@@ -135,6 +143,9 @@ class Cifar10Dataset:
 
     def __len__(self):
         return len(self.dataset)
+        
+    def is_classification(self):
+        return True
         
         
 
@@ -156,6 +167,9 @@ class SST2Datatset:
         outputs = torch.tensor([self.data[index]['label'] for index in x])
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
+    def is_classification(self):
+        return True
+        
         
 class QQPDataset:
     def __init__(self, tokenizer: str) -> None:
@@ -175,6 +189,9 @@ class QQPDataset:
         outputs = torch.tensor([self.data[index]['label'] for index in x])
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
+    def is_classification(self):
+        return True
+        
 class MNLIDataset:
     def __init__(self, tokenizer: str) -> None:
         self.data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
@@ -192,6 +209,9 @@ class MNLIDataset:
         attention_mask = inpts['attention_mask']
         outputs = torch.tensor([self.data[index]['label'] for index in x])
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
+        
+    def is_classification(self):
+        return True
         
 class MMLUDataset:
     def __init__(self, tokenizer) -> None:
@@ -212,6 +232,9 @@ class MMLUDataset:
         attention_mask = inpts['attention_mask']
         outputs = torch.tensor([self.data[index]['answer'] for index in x])
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
+        
+    def is_classification(self):
+        return True
 
 
 class CaliforniaHousingDataset:
@@ -229,6 +252,9 @@ class CaliforniaHousingDataset:
     def __getitem__(self, index):
         return {"x": self.X[index], "labels": self.labels[index]}
         
+    def is_classification(self):
+        return False
+        
 class DiabetesDataset:
 
     def __init__(self):
@@ -244,6 +270,9 @@ class DiabetesDataset:
     def __getitem__(self, index):
         return {"x": self.X[index], "labels": self.labels[index]}
         
+    def is_classification(self):
+        return False
+        
         
 class EnergyDataset:
 
@@ -258,3 +287,6 @@ class EnergyDataset:
         
     def __getitem__(self, index):
         return {"x": self.X[index], "labels": self.labels[index]}
+
+    def is_classification(self):
+        return False

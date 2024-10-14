@@ -122,8 +122,10 @@ class OvershootTrainer(pl.LightningModule):
             "overshoot_lr": self.base_scheduler.get_last_lr()[-1] if self.automatic_optimization else self.overshoot_scheduler.get_last_lr()[-1],
             "base_loss": loss_base.item(),
             "overshoot_loss": loss_overshoot.item(),
-            # "accuracy": 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item(),
         }
+        if self.dataset.is_classification():
+            stats["accuracy"] = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
+
         if args.compute_cosine:
             stats["grads_cosine_similarity"] = self.grad_cosine_sim
             stats["update_cosine_similarity"] = self.update_cosine_sim

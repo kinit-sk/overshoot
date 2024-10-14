@@ -2,17 +2,18 @@ import math
 
 import torch
 import torch.nn as nn
+from typing import Sequence
 
 class MLP(nn.Module):
-    def __init__(self, inpt_shape, output_shape, hidden_layers = [50]):
+    def __init__(self, inpt_shape, output_size: int, is_classification: bool, hidden_layers: Sequence[int] = [50]):
         super().__init__()
 
-        sizes = [math.prod(inpt_shape)] + hidden_layers + [output_shape]
+        sizes = [math.prod(inpt_shape)] + hidden_layers + [output_size]
         self.layers = nn.ModuleList(
             [nn.Linear(before, after) for before, after in zip(sizes[:-1], sizes[1:])]
         )
         self.relu = nn.ReLU()
-        self.loss_fn = nn.MSELoss() if output_shape < 3 else nn.CrossEntropyLoss()
+        self.loss_fn = nn.CrossEntropyLoss() if is_classification else nn.MSELoss()
         
     def forward(self, x, labels = None):
         x = torch.flatten(x, 1)
