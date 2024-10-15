@@ -1,6 +1,7 @@
 
 lightning_logs/
 lightning_logs2/
+lightning_logs_backup/
 .next-token-dataloader
 __pycache__
 .mnist_data
