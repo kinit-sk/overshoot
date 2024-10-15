@@ -3,7 +3,7 @@ import tiktoken
 import torch
 import pandas as pd
 from torchvision import datasets, transforms
-from sklearn.datasets import fetch_california_housing, load_diabetes
+from sklearn.datasets import fetch_california_housing
 from sklearn.preprocessing import StandardScaler
 from datasets import load_dataset
 
@@ -241,24 +241,6 @@ class CaliforniaHousingDataset:
 
     def __init__(self):
         dataset = fetch_california_housing()
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(dataset.data)
-        self.X = torch.tensor(X_train, dtype=torch.float32)
-        self.labels = torch.tensor(dataset.target, dtype=torch.float32)
-
-    def __len__(self):
-        return self.X.shape[0]
-        
-    def __getitem__(self, index):
-        return {"x": self.X[index], "labels": self.labels[index]}
-        
-    def is_classification(self):
-        return False
-        
-class DiabetesDataset:
-
-    def __init__(self):
-        dataset = load_diabetes()
         scaler = StandardScaler()
         X_train = scaler.fit_transform(dataset.data)
         self.X = torch.tensor(X_train, dtype=torch.float32)
