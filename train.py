@@ -244,9 +244,9 @@ class OvershootTrainer(pl.LightningModule):
 
 # -----------------------------------------------------------------------------
 def main():
-    model, tokenizer, context_size = init_model(args.model, args.dataset)
-    dataset = init_dataset(args.dataset, tokenizer, context_size)
     trainer_config = get_trainer_config(args.model, args.dataset, args.config_override)
+    model, tokenizer, context_size = init_model(args.model, args.dataset, trainer_config)
+    dataset = init_dataset(args.dataset, tokenizer, context_size)
     print(f"Model: {model}")
     print(f"Config: {trainer_config}")
 

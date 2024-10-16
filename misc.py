@@ -12,7 +12,7 @@ from gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
 
-def init_model(model_name, dataset_name):
+def init_model(model_name, dataset_name, trainer_config):
     model_map = {
         "gpt_hf": "openai-community/gpt2",
         "roberta_hf": "FacebookAI/roberta-base",
@@ -38,7 +38,10 @@ def init_model(model_name, dataset_name):
         tokenizer.pad_token = tokenizer.eos_token
         return GPT(GPTTinyConfig(vocab_size=50304)), tokenizer, 256
     elif model_name == "mlp":
-        return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2]), None, None
+        if hasattr(trainer_config, "mlp_hidden_size"):
+            return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2], hidden_layers=trainer_config.mlp_hidden_size), None, None
+        else:
+            return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2]), None, None
     elif model_name == "cnn":
         return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None, None
     elif model_name.startswith("resnet"):

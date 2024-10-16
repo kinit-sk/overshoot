@@ -12,6 +12,8 @@ from typing import Optional, Sequence, get_type_hints, get_args
 def get_trainer_config(model_name: str, dataset_name: str, override: Optional[Sequence[str]] = None):
     if model_name == "mlp" and dataset_name == "housing":
         return HousingConfig(override)
+    if model_name == "mlp" and dataset_name == "energy":
+        return EnergyConfig2(override)
 
     return DefaultConfig(override)
 
@@ -23,7 +25,6 @@ class DefaultConfig:
     # lr: float =  3e-4
     # lr: float =  1e-5 # For LLM classification finetuning
     lr: float = 0.001 # For CV
-    # lr_overshoot: Optional[float] = None
     epochs: int = 15
     max_steps: Optional[int] = None
     decay_lr: bool = False
@@ -62,5 +63,33 @@ class DefaultConfig:
 class HousingConfig(DefaultConfig):
     B: int = 64
     lr: float = 0.001
+    max_steps: int = 2000
+    log_every_n_steps: int = 10
+    mlp_hidden_size  = [50]
+    
+    def __init__(self, override: Optional[Sequence[str]] = None) -> None:
+        super().__init__(override=override)
+        
+@dataclass
+class EnergyConfig(DefaultConfig):
+    B: int = 32
+    lr: float = 0.001
+    epochs: int = 50
+    log_every_n_steps: int = 10
+    mlp_hidden_size = [8]
+    def __init__(self, override: Optional[Sequence[str]] = None) -> None:
+        super().__init__(override=override)
+        
+
+
+# Using this config to overfit the energy dataset
+@dataclass
+class EnergyConfig2(DefaultConfig):
+    B: int = 64
+    lr: float = 0.001
+    max_steps: int = 5000
+    epochs: int = 999999 # inf
+    log_every_n_steps: int = 50
+    mlp_hidden_size = [50]
     def __init__(self, override: Optional[Sequence[str]] = None) -> None:
         super().__init__(override=override)

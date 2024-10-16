@@ -34,7 +34,9 @@ cp sequential.sh "lightning_logs/${EXPERIMENT_NAME}/"
 
 
 # 3) Prepare output directory
-CONFIG="--config_override epochs=1500 max_steps=5000 log_every_n_steps=10"
+# CONFIG="--config_override epochs=1500 max_steps=5000 log_every_n_steps=10"
+CONFIG=""
+
 LRS=(0.0005 0.001 0.002 0.004 0.008 0.016)
 
 for SEED in "${SEEDS[@]}"; do
