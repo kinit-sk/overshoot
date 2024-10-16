@@ -297,7 +297,7 @@ if __name__ == "__main__":
     parser.add_argument("--overshoot_factor", type=float, help="Look-ahead factor when computng gradients")
     parser.add_argument("--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default process")
     parser.add_argument("--seed", type=int, required=False, help="If specified, use this seed for reproducibility.")
-    parser.add_argument("--opt_name", type=str, default="adamW")
+    parser.add_argument("--opt_name", type=str, required=True)
     parser.add_argument(
         "--model",
         type=str,
