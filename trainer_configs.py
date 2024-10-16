@@ -14,17 +14,19 @@ def get_trainer_config(model_name: str, dataset_name: str, override: Optional[Se
         return HousingConfig(override)
     if model_name == "mlp" and dataset_name == "energy":
         return EnergyConfig2(override)
+    if model_name == "mlp" and dataset_name == "mnist":
+        return MlpMnistConfig(override)
 
     return DefaultConfig(override)
 
 
 @dataclass
 class DefaultConfig:
-    B: int = 16
+    B: int = 64
     accumulate_grad_batches: int = 1
+    lr: float = 0.001
     # lr: float =  3e-4
     # lr: float =  1e-5 # For LLM classification finetuning
-    lr: float = 0.001 # For CV
     epochs: int = 15
     max_steps: Optional[int] = None
     decay_lr: bool = False
@@ -61,8 +63,6 @@ class DefaultConfig:
 
 @dataclass
 class HousingConfig(DefaultConfig):
-    B: int = 64
-    lr: float = 0.001
     max_steps: int = 2000
     log_every_n_steps: int = 10
     mlp_hidden_size  = [50]
@@ -85,11 +85,17 @@ class EnergyConfig(DefaultConfig):
 # Using this config to overfit the energy dataset
 @dataclass
 class EnergyConfig2(DefaultConfig):
-    B: int = 64
-    lr: float = 0.001
     max_steps: int = 5000
     epochs: int = 999999 # inf
     log_every_n_steps: int = 50
     mlp_hidden_size = [50]
+    def __init__(self, override: Optional[Sequence[str]] = None) -> None:
+        super().__init__(override=override)
+        
+        
+@dataclass
+class MlpMnistConfig(DefaultConfig):
+    epochs: int = 10
+    mlp_hidden_size = [512, 256]
     def __init__(self, override: Optional[Sequence[str]] = None) -> None:
         super().__init__(override=override)
