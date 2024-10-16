@@ -50,7 +50,7 @@ class DefaultConfig:
     
     def override(self, override: Optional[Sequence[str]] = None) -> None:
         if override is None:
-            return
+            return self
             
         for key_value in override:
             key, value = key_value.split("=")
