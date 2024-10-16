@@ -30,22 +30,18 @@ def init_model(model_name, dataset_name, trainer_config):
     }
 
     if model_name == "gpt":
-        tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"])  # use tokenizer from HF
-        tokenizer.pad_token = tokenizer.eos_token
-        return GPT(GPTConfig(vocab_size=50304)), tokenizer, 1024
+        return GPT(GPTConfig(vocab_size=50304))
     if model_name == "gpt_tiny":
-        tokenizer = AutoTokenizer.from_pretrained(model_map["gpt_hf"])  # use tokenizer from HF
-        tokenizer.pad_token = tokenizer.eos_token
-        return GPT(GPTTinyConfig(vocab_size=50304)), tokenizer, 256
+        return GPT(GPTTinyConfig(vocab_size=50304))
     elif model_name == "mlp":
         if hasattr(trainer_config, "mlp_hidden_size"):
-            return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2], hidden_layers=trainer_config.mlp_hidden_size), None, None
+            return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2], hidden_layers=trainer_config.mlp_hidden_size)
         else:
-            return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2]), None, None
+            return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2])
     elif model_name == "cnn":
-        return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1]), None, None
+        return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1])
     elif model_name.startswith("resnet"):
-        return ResNet(dataset_to_shape[dataset_name][1], type=model_name), None, None
+        return ResNet(dataset_to_shape[dataset_name][1], type=model_name)
     elif model_name in model_map:
         model_name = model_map[model_name]
         config = AutoConfig.from_pretrained(model_name)
@@ -63,23 +59,52 @@ def init_model(model_name, dataset_name, trainer_config):
         tokenizer.pad_token = tokenizer.eos_token
         model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
         model.train()
-        return model, tokenizer, 512
+        return model
     else:
         raise ValueError(f"Model {model_name} not found")
 
 
-def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
+def init_dataset(dataset_name, model_name: Optional[str]):
     if dataset_name == "mnist":
         return MnistDataset()
     elif dataset_name == "cifar10":
         return Cifar10Dataset()
     elif dataset_name == "cifar100":
         return Cifar100Dataset()
-    elif dataset_name == "shakespear":
-        return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear_")
+    elif dataset_name == "housing":
+        return CaliforniaHousingDataset()
+    elif dataset_name == "energy":
+        return EnergyDataset()
+        
+    assert model_name
+    model_map = {
+        "gpt_hf": "openai-community/gpt2",
+        "gpt": "openai-community/gpt2",
+        "gpt_tiny": "openai-community/gpt2",
+        "roberta_hf": "FacebookAI/roberta-base",
+        "xlm_roberta_hf": "FacebookAI/xlm-roberta-base",
+        "bloom_hf": "bigscience/bloom-560m",
+        "mdeberta_hf": "microsoft/mdeberta-v3-base",
+        "t5_hf": "google-t5/t5-base",
+    }
+    context_map = {
+        "gpt_hf": 1024,
+        "gpt": 1024,
+        "gpt_tiny": 256,
+        "roberta_hf": 512,
+        "xlm_roberta_hf": 512,
+        "bloom_hf": 512,
+        "mdeberta_hf": 512,
+        "t5_hf": 512,
+    }
+    tokenizer = AutoTokenizer.from_pretrained(model_map[model_name])
+    tokenizer.pad_token = tokenizer.eos_token
+        
+    if dataset_name == "shakespear":
+        return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="tiny_shakespear_")
         # return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear.txt")
     elif dataset_name == "gutenberg":
-        return NextTokenDataloader(tokenizer, T=T, source_file="gutenberg_books_")
+        return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="gutenberg_books_")
     elif dataset_name == "sst":
         return SST2Datatset(tokenizer=tokenizer)
     elif dataset_name == "qqp":
@@ -88,10 +113,6 @@ def init_dataset(dataset_name, tokenizer: Optional = None, T: Optional = None):
         return MNLIDataset(tokenizer=tokenizer)
     elif dataset_name == "mmlu":
         return MMLUDataset(tokenizer=tokenizer)
-    elif dataset_name == "housing":
-        return CaliforniaHousingDataset()
-    elif dataset_name == "energy":
-        return EnergyDataset()
     else:
         raise ValueError(f"Dataset {dataset_name} not found")
 
