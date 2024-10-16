@@ -12,56 +12,6 @@ from gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
 
-def init_model(model_name, dataset_name, trainer_config):
-    model_map = {
-        "gpt_hf": "openai-community/gpt2",
-        "roberta_hf": "FacebookAI/roberta-base",
-        "xlm_roberta_hf": "FacebookAI/xlm-roberta-base",
-        "bloom_hf": "bigscience/bloom-560m",
-        "mdeberta_hf": "microsoft/mdeberta-v3-base",
-        "t5_hf": "google-t5/t5-base",
-    }
-    dataset_to_shape = {
-        "mnist": ((28, 28, 3), 10, True),
-        "cifar10": ((32, 32, 3), 10, True),
-        "cifar100": ((32, 32, 3), 100, True),
-        "housing": ((8,), 1, False),
-        "energy": ((8,), 2, False),
-    }
-
-    if model_name == "gpt":
-        return GPT(GPTConfig(vocab_size=50304))
-    if model_name == "gpt_tiny":
-        return GPT(GPTTinyConfig(vocab_size=50304))
-    elif model_name == "mlp":
-        if hasattr(trainer_config, "mlp_hidden_size"):
-            return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2], hidden_layers=trainer_config.mlp_hidden_size)
-        else:
-            return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2])
-    elif model_name == "cnn":
-        return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1])
-    elif model_name.startswith("resnet"):
-        return ResNet(dataset_to_shape[dataset_name][1], type=model_name)
-    elif model_name in model_map:
-        model_name = model_map[model_name]
-        config = AutoConfig.from_pretrained(model_name)
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        # config.hidden_dropout_prob = 0.0  # Default is 0.1
-        # config.attention_probs_dropout_prob = 0.0  # Default is 0.1
-        config.ignore_mismatched_sizes = True
-
-        if dataset_name in ["shakespear", "gutenberg"]:
-            model = AutoModelForPreTraining.from_config(config)  # from scratch
-        else:
-            config.num_labels = 3 if dataset_name == "mnli" else 2
-            model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
-
-        tokenizer.pad_token = tokenizer.eos_token
-        model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
-        model.train()
-        return model
-    else:
-        raise ValueError(f"Model {model_name} not found")
 
 
 def init_dataset(dataset_name, model_name: Optional[str]):
@@ -115,6 +65,58 @@ def init_dataset(dataset_name, model_name: Optional[str]):
         return MMLUDataset(tokenizer=tokenizer)
     else:
         raise ValueError(f"Dataset {dataset_name} not found")
+        
+        
+def init_model(model_name, dataset_name, trainer_config):
+    model_map = {
+        "gpt_hf": "openai-community/gpt2",
+        "roberta_hf": "FacebookAI/roberta-base",
+        "xlm_roberta_hf": "FacebookAI/xlm-roberta-base",
+        "bloom_hf": "bigscience/bloom-560m",
+        "mdeberta_hf": "microsoft/mdeberta-v3-base",
+        "t5_hf": "google-t5/t5-base",
+    }
+    dataset_to_shape = {
+        "mnist": ((28, 28, 3), 10, True),
+        "cifar10": ((32, 32, 3), 10, True),
+        "cifar100": ((32, 32, 3), 100, True),
+        "housing": ((8,), 1, False),
+        "energy": ((8,), 2, False),
+    }
+
+    if model_name == "gpt":
+        return GPT(GPTConfig(vocab_size=50304))
+    if model_name == "gpt_tiny":
+        return GPT(GPTTinyConfig(vocab_size=50304))
+    elif model_name == "mlp":
+        if hasattr(trainer_config, "mlp_hidden_size"):
+            return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2], hidden_layers=trainer_config.mlp_hidden_size)
+        else:
+            return MLP(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1], dataset_to_shape[dataset_name][2])
+    elif model_name == "cnn":
+        return CNN(dataset_to_shape[dataset_name][0], dataset_to_shape[dataset_name][1])
+    elif model_name.startswith("resnet"):
+        return ResNet(dataset_to_shape[dataset_name][1], type=model_name)
+    elif model_name in model_map:
+        model_name = model_map[model_name]
+        config = AutoConfig.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        # config.hidden_dropout_prob = 0.0  # Default is 0.1
+        # config.attention_probs_dropout_prob = 0.0  # Default is 0.1
+        config.ignore_mismatched_sizes = True
+
+        if dataset_name in ["shakespear", "gutenberg"]:
+            model = AutoModelForPreTraining.from_config(config)  # from scratch
+        else:
+            config.num_labels = 3 if dataset_name == "mnli" else 2
+            model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
+
+        tokenizer.pad_token = tokenizer.eos_token
+        model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
+        model.train()
+        return model
+    else:
+        raise ValueError(f"Model {model_name} not found")
 
 def get_gpu_stats(n_gpus: int = 0):
     gpu_info = ""
