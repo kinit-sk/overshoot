@@ -14,7 +14,7 @@ from custom_optimizers_adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
 from custom_optimizers_sgd import SGD as OvershootSGD
 from misc import init_dataset, init_model, get_gpu_stats
-from trainer_configs import TrainerConfig
+from trainer_configs import get_trainer_config
 
 # ------------------------------------------------------------------------------
 torch.cuda.empty_cache()
@@ -30,7 +30,6 @@ class OvershootTrainer(pl.LightningModule):
         self.base_model = model
         if not args.baseline:
             self.overshoot_model = copy.deepcopy(model)
-            config.lr_overshoot = config.lr_base * (args.overshoot_factor + 1)
         self.dataset = dataset
         self.steps = int(round(config.B + config.epochs * len(dataset) // config.B // max(1, config.n_gpu)))
         if config.max_steps:
@@ -164,6 +163,7 @@ class OvershootTrainer(pl.LightningModule):
             num_nodecay_params = sum(p.numel() for p in nodecay_params)
             print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
             print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
+            lr = self.config.lr * (args.overshoot_factor + 1) if model_name == "overshoot" else self.config.lr
             opt_map = {
                 "adam": torch.optim.Adam,
                 "adamW": torch.optim.AdamW,
@@ -182,7 +182,7 @@ class OvershootTrainer(pl.LightningModule):
             if args.opt_name == "nadam":
                 opt = opt_map[args.opt_name](
                     optim_groups,
-                    lr=getattr(self.config, f"lr_{model_name}"),
+                    lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
                     momentum_decay=0,
                     foreach=True,
@@ -190,7 +190,7 @@ class OvershootTrainer(pl.LightningModule):
             elif args.opt_name.startswith("adamW_overshoot"):
                 opt = opt_map[args.opt_name](
                     optim_groups,
-                    lr=getattr(self.config, f"lr_{model_name}"),
+                    lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
                     weight_decay=self.config.weight_decay,
                     overshoot=args.overshoot_factor,
@@ -200,7 +200,7 @@ class OvershootTrainer(pl.LightningModule):
                 self.config.adam_beta1 *= "zero" not in args.opt_name
                 opt = opt_map[args.opt_name](
                     optim_groups,
-                    lr=getattr(self.config, f"lr_{model_name}"),
+                    lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
                     weight_decay=self.config.weight_decay,
                     foreach=True,
@@ -208,7 +208,7 @@ class OvershootTrainer(pl.LightningModule):
             elif args.opt_name == "sgd_overshoot":
                 opt = opt_map[args.opt_name](
                     optim_groups,
-                    lr=getattr(self.config, f"lr_{model_name}"),
+                    lr=lr,
                     momentum=self.config.sgd_momentum,
                     overshoot=args.overshoot_factor,
                     foreach=True,
@@ -216,7 +216,7 @@ class OvershootTrainer(pl.LightningModule):
             elif "sgd" in args.opt_name:
                 opt = opt_map[args.opt_name](
                     optim_groups,
-                    lr=getattr(self.config, f"lr_{model_name}"),
+                    lr=lr,
                     momentum=0 if args.opt_name == "sgd" else self.config.sgd_momentum,
                     nesterov="nesterov" in args.opt_name,
                     foreach=True,
@@ -224,7 +224,7 @@ class OvershootTrainer(pl.LightningModule):
             else:
                 opt = opt_map[args.opt_name](
                     optim_groups,
-                    lr=getattr(self.config, f"lr_{model_name}"),
+                    lr=lr,
                     alpha=self.config.adam_beta2,
                     foreach=True,
                 )
@@ -246,7 +246,7 @@ class OvershootTrainer(pl.LightningModule):
 def main():
     model, tokenizer, context_size = init_model(args.model, args.dataset)
     dataset = init_dataset(args.dataset, tokenizer, context_size)
-    trainer_config = TrainerConfig(args.config_override)
+    trainer_config = get_trainer_config(args.model, args.dataset, args.config_override)
     print(f"Model: {model}")
     print(f"Config: {trainer_config}")
 
@@ -315,7 +315,7 @@ if __name__ == "__main__":
         type=str,
         nargs="+",
         default=None,
-        help="Sequence of key-value pairs to override config. E.g. --config_override lr_base=0.01",
+        help="Sequence of key-value pairs to override config. E.g. --config_override lr=0.01",
     )
     args = parser.parse_args()
     assert (

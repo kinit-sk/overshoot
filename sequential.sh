@@ -39,7 +39,7 @@ LRS=(0.0005 0.001 0.002 0.004 0.008 0.016)
 
 for SEED in "${SEEDS[@]}"; do
     # for LR in "${LRS[@]}"; do
-    #     CONFIG_FINAL="${CONFIG} lr_base=${LR}"
+    #     CONFIG_FINAL="${CONFIG} lr=${LR}"
     #     python train.py ${PYTHON_ARGS_BASE} --job_name "lr_${LR}" --opt_name sgd_momentum --baseline --seed ${SEED} ${CONFIG_FINAL}
     # done
         
