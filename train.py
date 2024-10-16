@@ -62,7 +62,7 @@ class OvershootTrainer(pl.LightningModule):
         self.previous_params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])
 
     def _baseline_training_step(self, batch, batch_idx):
-        # TODO: How to compute base loss when having only overshoot models
+        # Compute base loss when having only overshoot models (slow).
         if hasattr(self.optimizers(), "move_to_base"):
             with torch.no_grad():
                 self.optimizers().move_to_base()
@@ -127,10 +127,10 @@ class OvershootTrainer(pl.LightningModule):
             "overshoot_lr": self.base_scheduler.get_last_lr()[-1] if self.automatic_optimization else self.overshoot_scheduler.get_last_lr()[-1],
             "base_loss": self.losses[-1],
             "overshoot_loss": loss_overshoot.item(),
-            "base_loss_10": np.mean(self.losses[-10:]),
-            "base_loss_20": np.mean(self.losses[-20:]),
-            "base_loss_50": np.mean(self.losses[-50:]),
-            "base_loss_100": np.mean(self.losses[-100:]),
+            "base_loss_10": float(np.mean(self.losses[-10:])),
+            "base_loss_20": float(np.mean(self.losses[-20:])),
+            "base_loss_50": float(np.mean(self.losses[-50:])),
+            "base_loss_100": float(np.mean(self.losses[-100:])),
         }
         if self.dataset.is_classification():
             stats["accuracy"] = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
@@ -246,7 +246,7 @@ class OvershootTrainer(pl.LightningModule):
 def main():
     
     # 1) Create config
-    trainer_config = get_trainer_config(args.model, args.dataset, args.config_override)
+    trainer_config = get_trainer_config(args.model, args.dataset, args.opt_name, args.config_override)
     print("-------------------------------")
     print(f"Config: {trainer_config}")
     

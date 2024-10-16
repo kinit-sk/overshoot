@@ -9,15 +9,25 @@ from typing import Optional, Sequence, get_type_hints, get_args
 #             MLP housing task 0.002 for batch = 64
 
 
-def get_trainer_config(model_name: str, dataset_name: str, override: Optional[Sequence[str]] = None):
+def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, override: Optional[Sequence[str]] = None):
     if model_name == "mlp" and dataset_name == "housing":
-        return HousingConfig(override)
-    if model_name == "mlp" and dataset_name == "energy":
-        return EnergyConfig2(override)
-    if model_name == "mlp" and dataset_name == "mnist":
-        return MlpMnistConfig(override)
+        cfg = HousingConfig()
+    elif model_name == "mlp" and dataset_name == "energy":
+        cfg = EnergyConfig2()
+    elif model_name == "mlp" and dataset_name == "mnist":
+        cfg = MlpMnistConfig()
+    elif model_name == "cnn" and dataset_name == "mnist" and "sgd" in opt_name:
+        cfg = CnnMnistSgdConfig()
+    elif model_name == "cnn" and dataset_name == "mnist" and "adam" in opt_name:
+        cfg = CnnMnistAdamConfig()
+    elif "gpt" in model_name and dataset_name == "shakespear":
+        cfg = GptShakespearConfig()
+    elif "gpt" in model_name and dataset_name == "gutenberg":
+        cfg = GptGutenbergConfig()
+    else:
+        cfg = DefaultConfig()
 
-    return DefaultConfig(override)
+    return cfg.override(override)
 
 
 @dataclass
@@ -25,7 +35,6 @@ class DefaultConfig:
     B: int = 64
     accumulate_grad_batches: int = 1
     lr: float = 0.001
-    # lr: float =  3e-4
     # lr: float =  1e-5 # For LLM classification finetuning
     epochs: int = 15
     max_steps: Optional[int] = None
@@ -39,7 +48,7 @@ class DefaultConfig:
     use_16_bit_precision: bool = torch.cuda.device_count() > 0
     log_gpu: bool = False
     
-    def __init__(self, override: Optional[Sequence[str]] = None) -> None:
+    def override(self, override: Optional[Sequence[str]] = None) -> None:
         if override is None:
             return
             
@@ -58,6 +67,7 @@ class DefaultConfig:
                     setattr(self, key, False)
             else:
                 setattr(self, key, override_type(value))
+        return self
 
 
 
@@ -65,10 +75,7 @@ class DefaultConfig:
 class HousingConfig(DefaultConfig):
     max_steps: int = 2000
     log_every_n_steps: int = 10
-    mlp_hidden_size  = [50]
-    
-    def __init__(self, override: Optional[Sequence[str]] = None) -> None:
-        super().__init__(override=override)
+    mlp_hidden_size = [50]
         
 @dataclass
 class EnergyConfig(DefaultConfig):
@@ -77,10 +84,7 @@ class EnergyConfig(DefaultConfig):
     epochs: int = 50
     log_every_n_steps: int = 10
     mlp_hidden_size = [8]
-    def __init__(self, override: Optional[Sequence[str]] = None) -> None:
-        super().__init__(override=override)
         
-
 
 # Using this config to overfit the energy dataset
 @dataclass
@@ -89,13 +93,32 @@ class EnergyConfig2(DefaultConfig):
     epochs: int = 999999 # inf
     log_every_n_steps: int = 50
     mlp_hidden_size = [50]
-    def __init__(self, override: Optional[Sequence[str]] = None) -> None:
-        super().__init__(override=override)
         
         
 @dataclass
 class MlpMnistConfig(DefaultConfig):
     epochs: int = 10
     mlp_hidden_size = [512, 256]
-    def __init__(self, override: Optional[Sequence[str]] = None) -> None:
-        super().__init__(override=override)
+        
+@dataclass
+class CnnMnistSgdConfig(DefaultConfig):
+    lr: float = 0.01
+    epochs: int = 10
+        
+@dataclass
+class CnnMnistAdamConfig(DefaultConfig):
+    epochs: int = 10
+        
+@dataclass
+class GptShakespearConfig(DefaultConfig):
+    B: int = 16
+    accumulate_grad_batches: int = 2
+    epochs: int = 100
+    lr: float = 3e-4
+        
+@dataclass
+class GptGutenbergConfig(DefaultConfig):
+    B: int = 16
+    accumulate_grad_batches: int = 4
+    epochs: int = 2
+    lr: float = 3e-4
