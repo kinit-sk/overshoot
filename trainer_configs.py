@@ -15,20 +15,17 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
 
     for x in ["sgd", "adam"]:
         if x in opt_name:
-            opt_type = x
-            break
+            return defaultdict(lambda: DefaultConfig, {
+                ("mlp", "housing"): HousingConfig,
+                ("mlp", "energy"): EnergyConfig,
+                ("mlp", "mnist"): MlpMnistConfig,
+                ("cnn", "mnist", "sgd"): CnnMnistSgdConfig,
+                ("cnn", "mnist", "adam"): CnnMnistAdamConfig,
+                ("gpt", "shakespear"): GptShakespearConfig,
+                ("gpt", "gutenberg"): GptShakespearConfig,
+            })[model_name, dataset_name, x]().override(override)
     else:
         raise ValueError(f"Unsupported opt type: {opt_name}")
-    
-    return defaultdict(lambda: DefaultConfig, {
-        ("mlp", "housing"): HousingConfig,
-        ("mlp", "energy"): EnergyConfig,
-        ("mlp", "mnist"): MlpMnistConfig,
-        ("cnn", "mnist", "sgd"): CnnMnistSgdConfig,
-        ("cnn", "mnist", "adam"): CnnMnistAdamConfig,
-        ("gpt", "shakespear"): GptShakespearConfig,
-        ("gpt", "gutenberg"): GptShakespearConfig,
-    })[model_name, dataset_name, opt_type]().override(override)
 
 
 @dataclass
