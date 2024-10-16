@@ -3,6 +3,7 @@ import copy
 import os
 
 import pytorch_lightning as pl
+import numpy as np
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
@@ -36,6 +37,7 @@ class OvershootTrainer(pl.LightningModule):
             self.steps = min(self.steps, config.max_steps)
         self.config = config
         self.current_step = 0
+        self.losses = []
         # Cosine gradient statistics
         self.previous_grads = None
         self.previous_params = None
@@ -114,14 +116,22 @@ class OvershootTrainer(pl.LightningModule):
         train_fn = self._baseline_training_step if self.automatic_optimization else self._overshoot_training_step
         loss_base, loss_overshoot, output_base = train_fn(batch, batch_idx)
 
+        self.losses.append(loss_base.item())
+        if len(self.losses) > 100:
+            self.losses.pop(0)
+            
         stats = {
             "step": self.current_step,
             "epoch": self.current_epoch,
             "batch_step": batch_idx,
             "base_lr": self.base_scheduler.get_last_lr()[-1],
             "overshoot_lr": self.base_scheduler.get_last_lr()[-1] if self.automatic_optimization else self.overshoot_scheduler.get_last_lr()[-1],
-            "base_loss": loss_base.item(),
+            "base_loss": self.losses[-1],
             "overshoot_loss": loss_overshoot.item(),
+            "base_loss_10": np.mean(self.losses[-10:]),
+            "base_loss_20": np.mean(self.losses[-20:]),
+            "base_loss_50": np.mean(self.losses[-50:]),
+            "base_loss_100": np.mean(self.losses[-100:]),
         }
         if self.dataset.is_classification():
             stats["accuracy"] = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()

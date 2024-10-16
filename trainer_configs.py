@@ -5,6 +5,8 @@ from typing import Optional, Sequence, get_type_hints, get_args
 
 # Optimal LR: Roberta, sst, 3e-5 0.00003
 #             CV tasks 0.001
+#             MLP housing task 0.001 for batch = 16
+#             MLP housing task 0.002 for batch = 64
 
 @dataclass
 class TrainerConfig:
