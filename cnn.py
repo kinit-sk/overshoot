@@ -12,11 +12,11 @@ class CNN(nn.Module):
                 # nn.Conv2d(32, 64, 3, padding='same'),
                 # nn.Conv2d(64, 128, 3, padding='same'),
                 
-                nn.Conv2d(inpt_shape[-1], 32, 3, padding='same'),
+                nn.Conv2d(inpt_shape[0], 32, 3, padding='same'),
                 nn.Conv2d(32, 64, 3, padding='same'),
             ]
         )
-        self.fc1 = nn.Linear(round(inpt_shape[0] / 2**len(self.convs))**2 * 64, 50)
+        self.fc1 = nn.Linear(round(inpt_shape[-1] / 2**len(self.convs))**2 * 64, 50)
         self.fc2 = nn.Linear(50, output_shape)
         # self.dropout = nn.Dropout(0.5)
         

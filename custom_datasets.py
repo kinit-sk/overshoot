@@ -110,6 +110,9 @@ class MnistDataset:
         
     def is_classification(self):
         return True
+    
+    def n_outputs(self):
+        return 10
 
 class Cifar100Dataset:
     def __init__(self) -> None:
@@ -129,6 +132,9 @@ class Cifar100Dataset:
     def is_classification(self):
         return True
         
+    def n_outputs(self):
+        return 100
+        
 class Cifar10Dataset:
     def __init__(self) -> None:
         transform = transforms.Compose([
@@ -146,6 +152,9 @@ class Cifar10Dataset:
         
     def is_classification(self):
         return True
+        
+    def n_outputs(self):
+        return 10
         
         
 
@@ -170,6 +179,9 @@ class SST2Datatset:
     def is_classification(self):
         return True
         
+    def n_outputs(self):
+        return 2
+        
         
 class QQPDataset:
     def __init__(self, tokenizer: str) -> None:
@@ -192,6 +204,9 @@ class QQPDataset:
     def is_classification(self):
         return True
         
+    def n_outputs(self):
+        return 2
+        
 class MNLIDataset:
     def __init__(self, tokenizer: str) -> None:
         self.data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
@@ -212,6 +227,9 @@ class MNLIDataset:
         
     def is_classification(self):
         return True
+        
+    def n_outputs(self):
+        return 3
         
 class MMLUDataset:
     def __init__(self, tokenizer) -> None:
@@ -235,6 +253,10 @@ class MMLUDataset:
         
     def is_classification(self):
         return True
+        
+    # TODO: Check if this is correct
+    def n_outputs(self):
+        return 4
 
 
 class CaliforniaHousingDataset:
@@ -255,6 +277,9 @@ class CaliforniaHousingDataset:
     def is_classification(self):
         return False
         
+    def n_outputs(self):
+        return 1
+        
         
 class EnergyDataset:
 
@@ -272,3 +297,6 @@ class EnergyDataset:
 
     def is_classification(self):
         return False
+        
+    def n_outputs(self):
+        return 2

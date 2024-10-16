@@ -244,15 +244,24 @@ class OvershootTrainer(pl.LightningModule):
 
 # -----------------------------------------------------------------------------
 def main():
+    
+    # 1) Create config
     trainer_config = get_trainer_config(args.model, args.dataset, args.config_override)
-    dataset = init_dataset(args.dataset, args.model)
-    model = init_model(args.model, args.dataset, trainer_config)
-    print(f"Model: {model}")
+    print("-------------------------------")
     print(f"Config: {trainer_config}")
+    
+    # 2) Create datatset
+    dataset = init_dataset(args.dataset, args.model)
+    
+    # 3) Create model
+    model = init_model(args.model, dataset, trainer_config)
+        # Doesn't work inside devana slurn job
+        # model = torch.compile(model)
+    print("-------------------------------")
+    print(f"Model: {model}")
 
-    # Doesn't work inside devana slurn job
-    # model = torch.compile(model)
 
+    # 4) Launch trainer
     trainer = OvershootTrainer(model, dataset, trainer_config)
     pl_trainer_args = argparse.Namespace(
         max_epochs=trainer_config.epochs,
