@@ -1,33 +1,34 @@
 import torch
 from dataclasses import dataclass
 from typing import Optional, Sequence, get_type_hints, get_args
+from collections import defaultdict
 
 
 # Optimal LR: Roberta, sst, 3e-5 0.00003
 #             CV tasks 0.001
 #             MLP housing task 0.001 for batch = 16
 #             MLP housing task 0.002 for batch = 64
+# lr: float =  1e-5 # For LLM classification finetuning
 
 
 def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, override: Optional[Sequence[str]] = None):
-    if model_name == "mlp" and dataset_name == "housing":
-        cfg = HousingConfig()
-    elif model_name == "mlp" and dataset_name == "energy":
-        cfg = EnergyConfig2()
-    elif model_name == "mlp" and dataset_name == "mnist":
-        cfg = MlpMnistConfig()
-    elif model_name == "cnn" and dataset_name == "mnist" and "sgd" in opt_name:
-        cfg = CnnMnistSgdConfig()
-    elif model_name == "cnn" and dataset_name == "mnist" and "adam" in opt_name:
-        cfg = CnnMnistAdamConfig()
-    elif "gpt" in model_name and dataset_name == "shakespear":
-        cfg = GptShakespearConfig()
-    elif "gpt" in model_name and dataset_name == "gutenberg":
-        cfg = GptGutenbergConfig()
-    else:
-        cfg = DefaultConfig()
 
-    return cfg.override(override)
+    for x in ["sgd", "adam"]:
+        if x in opt_name:
+            opt_type = x
+            break
+    else:
+        raise ValueError(f"Unsupported opt type: {opt_name}")
+    
+    return defaultdict(lambda: DefaultConfig, {
+        ("mlp", "housing"): HousingConfig,
+        ("mlp", "energy"): EnergyConfig,
+        ("mlp", "mnist"): MlpMnistConfig,
+        ("cnn", "mnist", "sgd"): CnnMnistSgdConfig,
+        ("cnn", "mnist", "adam"): CnnMnistAdamConfig,
+        ("gpt", "shakespear"): GptShakespearConfig,
+        ("gpt", "gutenberg"): GptShakespearConfig,
+    })[model_name, dataset_name, opt_type]().override(override)
 
 
 @dataclass
@@ -35,7 +36,6 @@ class DefaultConfig:
     B: int = 64
     accumulate_grad_batches: int = 1
     lr: float = 0.001
-    # lr: float =  1e-5 # For LLM classification finetuning
     epochs: int = 15
     max_steps: Optional[int] = None
     decay_lr: bool = False
@@ -90,7 +90,7 @@ class EnergyConfig(DefaultConfig):
 @dataclass
 class EnergyConfig2(DefaultConfig):
     max_steps: int = 5000
-    epochs: int = 999999 # inf
+    epochs: int = 999999
     log_every_n_steps: int = 50
     mlp_hidden_size = [50]
         
