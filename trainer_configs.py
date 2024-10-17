@@ -21,6 +21,7 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
                 ("mlp", "mnist"): MlpMnistConfig,
                 ("cnn", "mnist", "sgd"): CnnMnistSgdConfig,
                 ("cnn", "mnist", "adam"): CnnMnistAdamConfig,
+                ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
                 ("gpt", "shakespear"): GptShakespearConfig,
                 ("gpt", "gutenberg"): GptShakespearConfig,
             })[model_name, dataset_name, x]().override(override)
@@ -67,6 +68,9 @@ class DefaultConfig:
         return self
 
 
+################################################################################
+############################# MLP regression tasks #############################
+################################################################################
 
 @dataclass
 class HousingConfig(DefaultConfig):
@@ -92,6 +96,10 @@ class EnergyConfig2(DefaultConfig):
     mlp_hidden_size = [50]
         
         
+################################################################################
+############################# Computer vision tasks ############################
+################################################################################
+
 @dataclass
 class MlpMnistConfig(DefaultConfig):
     epochs: int = 10
@@ -105,7 +113,26 @@ class CnnMnistSgdConfig(DefaultConfig):
 @dataclass
 class CnnMnistAdamConfig(DefaultConfig):
     epochs: int = 10
+    
+    
+@dataclass
+class ResnetMnistSgdConfig(DefaultConfig):
+    lr: float = 2e-3
+    epochs: int = 5
         
+    
+    
+    
+################################################################################
+########################### LLM classification tasks ###########################
+################################################################################
+
+
+################################################################################
+########################## Next token prediction tasks #########################
+################################################################################
+
+
 @dataclass
 class GptShakespearConfig(DefaultConfig):
     B: int = 16
