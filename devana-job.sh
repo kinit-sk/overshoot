@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=p365-23-1
+#SBATCH --account=p904-24-3
 #SBATCH --mail-user=<jakub.kopal@kinit.sk>
 #SBATCH --time=01:00:00 # Estimate to increase job priority
 
