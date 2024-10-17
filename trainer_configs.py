@@ -13,20 +13,21 @@ from collections import defaultdict
 
 def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, override: Optional[Sequence[str]] = None):
 
-    for x in ["sgd", "adam"]:
-        if x in opt_name:
-            return defaultdict(lambda: DefaultConfig, {
-                ("mlp", "housing"): HousingConfig,
-                ("mlp", "energy"): EnergyConfig,
-                ("mlp", "mnist"): MlpMnistConfig,
-                ("cnn", "mnist", "sgd"): CnnMnistSgdConfig,
-                ("cnn", "mnist", "adam"): CnnMnistAdamConfig,
-                ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
-                ("gpt", "shakespear"): GptShakespearConfig,
-                ("gpt", "gutenberg"): GptShakespearConfig,
-            })[model_name, dataset_name, x]().override(override)
-    else:
-        raise ValueError(f"Unsupported opt type: {opt_name}")
+    reduce = lambda x, substring: substring if substring in x else x
+    model_name = reduce(model_name, "resnet")
+    opt_name = reduce(opt_name, "sgd")
+    opt_name = reduce(opt_name, "adam")
+        
+    return defaultdict(lambda: DefaultConfig, {
+        ("mlp", "housing"): HousingConfig,
+        ("mlp", "energy"): EnergyConfig,
+        ("mlp", "mnist"): MlpMnistConfig,
+        ("cnn", "mnist", "sgd"): CnnMnistSgdConfig,
+        ("cnn", "mnist", "adam"): CnnMnistAdamConfig,
+        ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
+        ("gpt", "shakespear"): GptShakespearConfig,
+        ("gpt", "gutenberg"): GptShakespearConfig,
+    })[model_name, dataset_name, opt_name]().override(override)
 
 
 @dataclass
