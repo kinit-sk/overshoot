@@ -5,7 +5,7 @@ import torch.nn as nn
 from typing import Sequence
 
 class MLP(nn.Module):
-    def __init__(self, inpt_shape, output_size: int, is_classification: bool, hidden_layers: Sequence[int] = [50]):
+    def __init__(self, inpt_shape, output_size: int, is_classification: bool, hidden_layers: Sequence[int]):
         super().__init__()
 
         sizes = [math.prod(inpt_shape)] + hidden_layers + [output_size]

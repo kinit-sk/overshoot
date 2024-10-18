@@ -118,8 +118,8 @@ class Cifar100Dataset:
     def __init__(self) -> None:
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,)),  # Normalize with mean and std deviation for MNIST
-            # transforms.RandomRotation(10),
+            transforms.Normalize((0.1307,), (0.3081,)),
+            transforms.RandomRotation(10),
         ])
         self.dataset = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=transform)
         
@@ -140,7 +140,7 @@ class Cifar10Dataset:
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,)),  # Normalize with mean and std deviation for MNIST
-            # transforms.RandomRotation(10),
+            transforms.RandomRotation(10),
         ])
         self.dataset = datasets.CIFAR10(root='./.cifar_data_10', train=True, download=True, transform=transform)
         

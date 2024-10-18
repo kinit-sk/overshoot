@@ -84,10 +84,7 @@ def init_model(model_name, datatset, trainer_config):
         return GPT(GPTTinyConfig(vocab_size=50304))
     elif model_name == "mlp":
         inpt_shape = datatset[0]["x"].shape
-        if hasattr(trainer_config, "mlp_hidden_size"):
-            return MLP(inpt_shape, n_outputs, datatset.is_classification(), hidden_layers=trainer_config.mlp_hidden_size)
-        else:
-            return MLP(inpt_shape, n_outputs, datatset.is_classification())
+        return MLP(inpt_shape, n_outputs, datatset.is_classification(), hidden_layers=trainer_config.mlp_hidden_size)
     elif model_name == "cnn":
         inpt_shape = datatset[0]["x"].shape
         return CNN(inpt_shape, n_outputs)
