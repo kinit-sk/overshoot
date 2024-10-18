@@ -17,13 +17,18 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
     model_name = reduce(model_name, "resnet")
     opt_name = reduce(opt_name, "sgd")
     opt_name = reduce(opt_name, "adam")
+    dataset_name = reduce(dataset_name, "cifar")
         
     return defaultdict(lambda: DefaultConfig, {
         ("mlp", "housing"): HousingConfig,
         ("mlp", "energy"): EnergyConfig,
-        ("mlp", "mnist"): MlpMnistConfig,
+        ("mlp", "mnist", "sgd"): MlpMnistConfig,
+        ("mlp", "mnist", "adam"): MlpMnistConfig, # TODO
+        ("mlp", "cifar", "sgd"): MlpCifarSgdConfig,
+        ("mlp", "cifar", "adam"): MlpCifarSgdConfig, # TODO
         ("cnn", "mnist", "sgd"): CnnMnistSgdConfig,
         ("cnn", "mnist", "adam"): CnnMnistAdamConfig,
+        ("cnn", "cifar", "sgd"): CnnCifarSgdConfig,
         ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
         ("gpt", "shakespear"): GptShakespearConfig,
         ("gpt", "gutenberg"): GptShakespearConfig,
@@ -105,6 +110,13 @@ class EnergyConfig2(DefaultConfig):
 class MlpMnistConfig(DefaultConfig):
     epochs: int = 10
     mlp_hidden_size = [512, 256]
+    
+@dataclass
+class MlpCifarSgdConfig(DefaultConfig):
+    lr: float = 5e-3
+    epochs: int = 5
+    mlp_hidden_size = [512, 256]
+    
         
 @dataclass
 class CnnMnistSgdConfig(DefaultConfig):
@@ -115,12 +127,15 @@ class CnnMnistSgdConfig(DefaultConfig):
 class CnnMnistAdamConfig(DefaultConfig):
     epochs: int = 10
     
+@dataclass
+class CnnCifarSgdConfig(DefaultConfig):
+    epochs: int = 15
+    
     
 @dataclass
 class ResnetMnistSgdConfig(DefaultConfig):
     lr: float = 2e-3
     epochs: int = 5
-        
     
     
     
