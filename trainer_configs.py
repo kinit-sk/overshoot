@@ -32,6 +32,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
         ("cnn", "cifar", "adam"): CnnCifarAdamConfig,
         ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
         ("resnet", "mnist", "adam"): ResnetMnistAdamConfig,
+        ("resnet", "cifar", "sgd"): ResnetCifartSgdConfig,
+        ("resnet", "cifar", "adam"): ResnetCifartAdamConfig,
         ("gpt", "shakespear"): GptShakespearConfig,
         ("gpt", "gutenberg"): GptShakespearConfig,
     })[model_name, dataset_name, opt_name]().override(override)
@@ -148,6 +150,13 @@ class ResnetMnistAdamConfig(DefaultConfig):
     lr: float = 5e-4
     epochs: int = 2
     
+class ResnetCifartSgdConfig(DefaultConfig):
+    lr: float = 2e-4 # 4e-3 for cira100
+    epochs: int = 20 # 20 for cira100
+    
+class ResnetCifartAdamConfig(DefaultConfig):
+    lr: float = 2e-4
+    epochs: int = 20
     
     
 ################################################################################
