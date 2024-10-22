@@ -37,7 +37,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
         ("gpt_hf", "sst", "adam"): GptSstAdamConfig,
         ("roberta_hf", "sst", "adam"): RobertaSstAdamConfig,
         ("bloom_hf", "sst", "adam"): BloomSstAdamConfig,
-        ("gpt", "qqp", "adam"): GptQqpAdamConfig,
+        ("gpt_hf", "qqp", "adam"): GptQqpAdamConfig,
+        ("roberta_hf", "qqp", "adam"): RobertaQqpAdamConfig,
         ("gpt", "shakespear"): GptShakespearConfig,
         ("gpt", "gutenberg"): GptShakespearConfig,
     })[model_name, dataset_name, opt_name]().override(override)
@@ -194,6 +195,12 @@ class BloomSstAdamConfig(DefaultConfig):
 class GptQqpAdamConfig(DefaultConfig):
     lr: float = 5e-5
     epochs: int = 3
+    log_every_n_steps: int = 5
+    
+@dataclass
+class RobertaQqpAdamConfig(DefaultConfig):
+    lr: float = 2e-5
+    epochs: int = 2
     log_every_n_steps: int = 5
 
 
