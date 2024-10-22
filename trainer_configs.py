@@ -34,6 +34,10 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
         ("resnet", "mnist", "adam"): ResnetMnistAdamConfig,
         ("resnet", "cifar", "sgd"): ResnetCifartSgdConfig,
         ("resnet", "cifar", "adam"): ResnetCifartAdamConfig,
+        ("gpt_hf", "sst", "adam"): GptSstAdamConfig,
+        ("roberta_hf", "sst", "adam"): RobertaSstAdamConfig,
+        ("bloom_hf", "sst", "adam"): BloomSstAdamConfig,
+        ("gpt", "qqp", "adam"): GptQqpAdamConfig,
         ("gpt", "shakespear"): GptShakespearConfig,
         ("gpt", "gutenberg"): GptShakespearConfig,
     })[model_name, dataset_name, opt_name]().override(override)
@@ -146,14 +150,17 @@ class ResnetMnistSgdConfig(DefaultConfig):
     lr: float = 2e-3
     epochs: int = 2
     
+@dataclass
 class ResnetMnistAdamConfig(DefaultConfig):
     lr: float = 5e-4
     epochs: int = 2
     
+@dataclass
 class ResnetCifartSgdConfig(DefaultConfig):
     lr: float = 2e-4 # 4e-3 for cira100
     epochs: int = 20 # 20 for cira100
     
+@dataclass
 class ResnetCifartAdamConfig(DefaultConfig):
     lr: float = 2e-4
     epochs: int = 20
@@ -162,6 +169,32 @@ class ResnetCifartAdamConfig(DefaultConfig):
 ################################################################################
 ########################### LLM classification tasks ###########################
 ################################################################################
+
+
+@dataclass
+class GptSstAdamConfig(DefaultConfig):
+    lr: float = 5e-5
+    epochs: int = 3
+    log_every_n_steps: int = 5
+    
+@dataclass
+class RobertaSstAdamConfig(DefaultConfig):
+    lr: float = 2e-5
+    epochs: int = 2
+    log_every_n_steps: int = 5
+    
+@dataclass
+class BloomSstAdamConfig(DefaultConfig):
+    lr: float = 2e-5
+    epochs: int = 2
+    log_every_n_steps: int = 5
+    
+    
+@dataclass
+class GptQqpAdamConfig(DefaultConfig):
+    lr: float = 5e-5
+    epochs: int = 3
+    log_every_n_steps: int = 5
 
 
 ################################################################################
