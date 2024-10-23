@@ -20,8 +20,10 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
     dataset_name = reduce(dataset_name, "cifar")
         
     return defaultdict(lambda: DefaultConfig, {
-        ("mlp", "housing"): HousingConfig,
-        ("mlp", "energy"): EnergyConfig,
+        ("mlp", "housing", "sgd"): HousingConfig,
+        ("mlp", "housing", "sgd"): HousingConfig,
+        ("mlp", "energy", "sgd"): EnergyConfig,
+        ("mlp", "energy", "adam"): EnergyConfig,
         ("mlp", "mnist", "sgd"): MlpMnistConfig,
         ("mlp", "mnist", "adam"): MlpMnistConfig, # TODO
         ("mlp", "cifar", "sgd"): MlpCifarSgdConfig,
