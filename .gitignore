@@ -10,3 +10,5 @@ __pycache__
 slurm_logs/
 tmp.ipynb
 coco
+distances/raw_distances
+distances/processed_distances
