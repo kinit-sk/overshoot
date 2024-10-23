@@ -37,6 +37,8 @@ class OvershootTrainer(pl.LightningModule):
         self.config = config
         self.current_step = 0
         self.losses = []
+        self.all_params_base = []
+        self.all_params_overshoot = []
         # Cosine gradient statistics
         self.previous_grads = None
         self.previous_params = None
@@ -112,6 +114,11 @@ class OvershootTrainer(pl.LightningModule):
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
     def training_step(self, batch, batch_idx):
+
+        if args.save_all_models:
+            self.all_params_base.append(torch.cat([p.data.view(-1) for p in self.base_model.parameters()]))
+            if self.automatic_optimization == False:
+                self.all_params_overshoot.append(torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()]))
         train_fn = self._baseline_training_step if self.automatic_optimization else self._overshoot_training_step
         loss_base, loss_overshoot, output_base = train_fn(batch, batch_idx)
 
@@ -242,6 +249,18 @@ class OvershootTrainer(pl.LightningModule):
         else:
             return DataLoader(self.dataset, batch_size=self.config.B)
 
+    def on_train_end(self):
+        if not args.save_all_models:
+            return
+        print("Saving models")
+        if self.automatic_optimization:
+            with open(f'distances/raw_distances/baseline_base_models_{args.model}_{args.dataset}_baseline_{args.seed}.npy', 'wb') as f:
+                np.save(f, self.all_params_base)
+        else:
+            with open(f'distances/raw_distances/overshoot_base_models_{args.model}_{args.dataset}_{args.overshoot_factor}_{args.seed}.npy', 'wb') as f:
+                np.save(f, self.all_params_base)
+            with open(f'distances/raw_distances/overshoot_overshoot_models_{args.model}_{args.dataset}_{args.overshoot_factor}_{args.seed}.npy', 'wb') as f:
+                np.save(f, self.all_params_overshoot)
 # -----------------------------------------------------------------------------
 def main():
     
@@ -298,6 +317,7 @@ if __name__ == "__main__":
     parser.add_argument("--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default process")
     parser.add_argument("--seed", type=int, required=False, help="If specified, use this seed for reproducibility.")
     parser.add_argument("--opt_name", type=str, required=True)
+    parser.add_argument("--save_all_models", type=argparse.BooleanOptionalAction, required=False)
     parser.add_argument(
         "--model",
         type=str,
