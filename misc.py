@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import Optional, List
+import numpy as np
 
 from transformers import (AutoConfig, AutoModelForPreTraining,
                           AutoModelForSequenceClassification, AutoTokenizer)
@@ -118,3 +119,7 @@ def get_gpu_stats(n_gpus: int = 0):
         utilization = torch.cuda.utilization(gpu_index)
         gpu_info += f" | vram{gpu_index} {max_vram:.2f}GB | util{gpu_index} {utilization:.2f}%"
     return gpu_info
+
+
+def compute_model_distance(ref_model: torch.Tensor, gradient_models: List[torch.Tensor], m: float):
+    return sum([np.linalg.norm(ref_model - g_m) * m**i for i, g_m in enumerate(reversed(gradient_models))])

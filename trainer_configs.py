@@ -21,7 +21,7 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
         
     return defaultdict(lambda: DefaultConfig, {
         ("mlp", "housing", "sgd"): HousingConfig,
-        ("mlp", "housing", "sgd"): HousingConfig,
+        ("mlp", "housing", "adam"): HousingConfig,
         ("mlp", "energy", "sgd"): EnergyConfig,
         ("mlp", "energy", "adam"): EnergyConfig,
         ("mlp", "mnist", "sgd"): MlpMnistConfig,

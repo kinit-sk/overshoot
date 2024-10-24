@@ -4,6 +4,7 @@ import os
 
 import pytorch_lightning as pl
 import numpy as np
+import pandas as pd
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
@@ -13,7 +14,7 @@ from custom_optimizers_adamw_overshoot import AdamW as OvershootAdamW
 from custom_optimizers_adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
 from custom_optimizers_sgd import SGD as OvershootSGD
-from misc import init_dataset, init_model, get_gpu_stats
+from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance
 from trainer_configs import get_trainer_config
 
 # ------------------------------------------------------------------------------
@@ -35,10 +36,12 @@ class OvershootTrainer(pl.LightningModule):
         if config.max_steps:
             self.steps = min(self.steps, config.max_steps)
         self.config = config
+        self.all_stats = []
         self.current_step = 0
         self.losses = []
         self.all_params_base = []
         self.all_params_overshoot = []
+        self.distances = []
         # Cosine gradient statistics
         self.previous_grads = None
         self.previous_params = None
@@ -46,6 +49,20 @@ class OvershootTrainer(pl.LightningModule):
         self.grad_cosine_sim = 0
         self.update_cosine_sim = 0
 
+    def _compute_model_distance(self):
+        momentum = self.config.sgd_momentum if "sgd" in args.opt_name else self.config.adam_beta1
+        self.all_params_base.append(torch.cat([p.data.view(-1).cpu() for p in self.base_model.parameters()]))
+        if len(self.all_params_base) > 50:
+            self.all_params_base.pop(0)
+            
+        if self.automatic_optimization:
+            return compute_model_distance(self.all_params_base[-1], self.all_params_base, momentum)
+        else:
+            self.all_params_overshoot.append(torch.cat([p.data.view(-1).cpu() for p in self.overshoot_model.parameters()]))
+            if len(self.all_params_overshoot) > 50:
+                self.all_params_overshoot.pop(0)
+            return compute_model_distance(self.all_params_base[-1], self.all_params_overshoot, momentum)
+            
     def _cosine_similarity(self):
         grads = torch.cat([p.grad.view(-1) for p in self.overshoot_model.parameters() if p.grad is not None])
         params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
@@ -115,10 +132,10 @@ class OvershootTrainer(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
 
-        if args.save_all_models:
-            self.all_params_base.append(torch.cat([p.data.view(-1) for p in self.base_model.parameters()]))
-            if self.automatic_optimization == False:
-                self.all_params_overshoot.append(torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()]))
+        # We compute model distances before model update to have the same behaviour for baseline and overshoot
+        if args.compute_model_distance:
+            model_distance = self._compute_model_distance()
+            
         train_fn = self._baseline_training_step if self.automatic_optimization else self._overshoot_training_step
         loss_base, loss_overshoot, output_base = train_fn(batch, batch_idx)
 
@@ -145,7 +162,12 @@ class OvershootTrainer(pl.LightningModule):
         if args.compute_cosine:
             stats["grads_cosine_similarity"] = self.grad_cosine_sim
             stats["update_cosine_similarity"] = self.update_cosine_sim
+            
+        if args.compute_model_distance:
+            stats["model_distance"] = model_distance
+            
         self.log_dict(stats)
+        self.all_stats.append(stats)
          
         if batch_idx % self.config.log_every_n_steps == 0:
             print_base = ' | '.join([f'{k}: {round(v, 4) if type(v) == float else v}' for k, v in stats.items()])
@@ -250,17 +272,10 @@ class OvershootTrainer(pl.LightningModule):
             return DataLoader(self.dataset, batch_size=self.config.B)
 
     def on_train_end(self):
-        if not args.save_all_models:
-            return
-        print("Saving models")
-        if self.automatic_optimization:
-            with open(f'distances/raw_distances/baseline_base_models_{args.model}_{args.dataset}_baseline_{args.seed}.npy', 'wb') as f:
-                np.save(f, self.all_params_base)
-        else:
-            with open(f'distances/raw_distances/overshoot_base_models_{args.model}_{args.dataset}_{args.overshoot_factor}_{args.seed}.npy', 'wb') as f:
-                np.save(f, self.all_params_base)
-            with open(f'distances/raw_distances/overshoot_overshoot_models_{args.model}_{args.dataset}_{args.overshoot_factor}_{args.seed}.npy', 'wb') as f:
-                np.save(f, self.all_params_overshoot)
+        dst_dir = os.path.join("lightning_logs", args.experiment_name, args.job_name)
+        version = f"version_{len(next(os.walk(dst_dir))[1]) - 1}"
+        pd.DataFrame(self.all_stats).to_csv(os.path.join(dst_dir, version, "training_stats.csv"), index=False)
+        
 # -----------------------------------------------------------------------------
 def main():
     
@@ -317,7 +332,7 @@ if __name__ == "__main__":
     parser.add_argument("--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default process")
     parser.add_argument("--seed", type=int, required=False, help="If specified, use this seed for reproducibility.")
     parser.add_argument("--opt_name", type=str, required=True)
-    parser.add_argument("--save_all_models", type=argparse.BooleanOptionalAction, required=False)
+    parser.add_argument("--compute_model_distance", action=argparse.BooleanOptionalAction, required=False)
     parser.add_argument(
         "--model",
         type=str,

@@ -11,7 +11,7 @@ def compute_distance(models_a, models_b, momentum = 0.9):
     steps = models_a.shape[0]
     summ = 0
     for i in range(steps):
-        for j in range(i):
+        for j in range(i + 1):
             summ += np.linalg.norm(models_a[i] - models_b[j]) * (momentum**(i - j))
 
     return (summ / steps).item()
