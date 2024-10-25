@@ -13,8 +13,7 @@ SEEDS=()
 for ((i=1; i<=${N_RUNS}; i++)); do
     SEEDS+=(${RANDOM})
 done
-# SEEDS="${SEEDS[@]}"
-PYTHON_ARGS_BASE="--experiment_name ${EXPERIMENT_NAME} --model ${MODEL} --dataset ${DATASET}"
+PYTHON_ARGS_BASE="--experiment_name ${EXPERIMENT_NAME} --model ${MODEL} --dataset ${DATASET} --compute_model_distance"
 
 
 # 3) Prepare output directory
@@ -33,37 +32,12 @@ cp gpt.py "lightning_logs/${EXPERIMENT_NAME}/"
 cp sequential.sh "lightning_logs/${EXPERIMENT_NAME}/"
 
 
-# 3) Prepare output directory
-# CONFIG="--config_override epochs=1500 max_steps=5000 log_every_n_steps=10"
-CONFIG=""
-
-LRS=(0.0005 0.001 0.002 0.004 0.008 0.016)
+OVERSHOOT=(0.9 3 5 7 9 11)
 
 for SEED in "${SEEDS[@]}"; do
-    # for LR in "${LRS[@]}"; do
-    #     CONFIG_FINAL="${CONFIG} lr=${LR}"
-    #     python train.py ${PYTHON_ARGS_BASE} --job_name "lr_${LR}" --opt_name sgd_momentum --baseline --seed ${SEED} ${CONFIG_FINAL}
-    # done
-        
-     
-    python train.py ${PYTHON_ARGS_BASE} --job_name "baseline" --opt_name sgd_momentum --baseline --seed ${SEED} ${CONFIG}
-    python train.py ${PYTHON_ARGS_BASE} --job_name "nesterov" --opt_name sgd_nesterov --baseline --seed ${SEED} ${CONFIG}
-    
-    
-    OVERSHOOT="0.9"
-    python train.py ${PYTHON_ARGS_BASE} --job_name "overshoot_${OVERSHOOT}_fast" --opt_name sgd_overshoot --overshoot_factor ${OVERSHOOT} --baseline --seed ${SEED} ${CONFIG}
-    
-    OVERSHOOT="3"
-    python train.py ${PYTHON_ARGS_BASE} --job_name "overshoot_${OVERSHOOT}_fast" --opt_name sgd_overshoot --overshoot_factor ${OVERSHOOT} --baseline --seed ${SEED} ${CONFIG}
-    
-    OVERSHOOT="5"
-    python train.py ${PYTHON_ARGS_BASE} --job_name "overshoot_${OVERSHOOT}_fast" --opt_name sgd_overshoot --overshoot_factor ${OVERSHOOT} --baseline --seed ${SEED} ${CONFIG}
-    
-    OVERSHOOT="9"
-    python train.py ${PYTHON_ARGS_BASE} --job_name "overshoot_${OVERSHOOT}_fast" --opt_name sgd_overshoot --overshoot_factor ${OVERSHOOT} --baseline --seed ${SEED} ${CONFIG}
-    
-    OVERSHOOT="19"
-    python train.py ${PYTHON_ARGS_BASE} --job_name "overshoot_${OVERSHOOT}_fast" --opt_name sgd_overshoot --overshoot_factor ${OVERSHOOT} --baseline --seed ${SEED} ${CONFIG}
-    
+    python train.py ${PYTHON_ARGS_BASE} --job_name baseline --opt_name sgd_momentum  --seed ${SEED} --baseline
+    for FACTOR in "${OVERSHOOT[@]}"; do
+        python train.py ${PYTHON_ARGS_BASE} --job_name overshoot_${FACTOR} --opt_name sgd_momentum --overshoot_factor ${FACTOR} --seed ${SEED}
+    done
     
 done  
