@@ -7,14 +7,10 @@ import matplotlib.pyplot as plt
 from scipy import stats
 
 
-def plot_loss_graph(data_to_plot):
-    # plt.figure(figsize=(20, 12))
+def plot_loss_graph(data_to_plot, data_type: str):
     plt.figure(figsize=(10, 8))
     for key, values in data_to_plot.items():
         loss_values = values.T
-        # loss_values = loss_values[200:,:]
-        # import code; code.interact(local=locals())
-
         # Calculate mean and standard deviation for each step
         mean_loss = np.mean(loss_values, axis=1)
         std_loss = 2 * np.std(loss_values, axis=1)
@@ -28,7 +24,7 @@ def plot_loss_graph(data_to_plot):
     plt.ylabel('Loss')
     plt.title('Training Loss with Variance')
     plt.legend()
-    plt.savefig(os.path.join(source_dir, f"loss_graph.png"))
+    plt.savefig(os.path.join(source_dir, f"{data_type}.png"))
     plt.clf()
 
 def plot_data(data_to_plot, data_type: str):
@@ -76,28 +72,34 @@ if __name__ == "__main__":
 
     source_dir = os.path.join('lightning_logs', args.experiment_name)
     distance_data = {}
-    loss_data = {}
+    loss_data, loss_data_20, loss_data_100 = {}, {}, {}
     for job_name in sorted(os.listdir(source_dir), key=comp2):
         if not os.path.isdir(os.path.join(source_dir, job_name)):
             continue
         
-        job_distance, job_loss = [], []
+        job_distance, job_loss, job_loss_20, job_loss_100 = [], [], [], []
         for version in os.listdir(os.path.join(source_dir, job_name)):
             if version.startswith('version_'):
                 df = pd.read_csv(os.path.join(source_dir, job_name, version, 'training_stats.csv'))
                 # job_distance.append(np.mean(df['model_distance']).item())
                 # job_loss.append(np.mean(df['base_loss']).item())
                 job_distance.append(df['model_distance'].to_numpy())
-                job_loss.append(df['base_loss_100'].to_numpy())
+                job_loss.append(df['base_loss'].to_numpy())
+                job_loss_20.append(df['base_loss_20'].to_numpy())
+                job_loss_100.append(df['base_loss_100'].to_numpy())
         
         
         job_name = job_name.replace('overshoot_', '')
             
         distance_data[job_name] = np.array(job_distance)
         loss_data[job_name] = np.array(job_loss)
+        loss_data_20[job_name] = np.array(job_loss_20)
+        loss_data_100[job_name] = np.array(job_loss_100)
 
 
     plot_data(distance_data, 'distance')
     plot_data(loss_data, 'loss')
-    plot_loss_graph(loss_data)
+    plot_loss_graph(loss_data, "loss_graph_1")
+    plot_loss_graph(loss_data_20, "loss_graph_20")
+    plot_loss_graph(loss_data_100, "loss_graph_100")
     print(f"Output generated in {source_dir}")
