@@ -354,6 +354,7 @@ def _single_tensor_nadam(
         exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
         denom = exp_avg_sq.div(bias_correction2).sqrt()
 
+        # Original Nadam implementation
         # if differentiable or capturable:
         #     denom = denom.add(eps)
         #     # Make autograd track the operations
@@ -390,12 +391,13 @@ def _single_tensor_nadam(
             param.addcdiv_(
                 grad, denom, value=(-lr * (1.0 - mu) * (overshoot / mu) / (1.0 - _get_value(mu_product)))
             )
+            # In our experiment using at the end mu_product vs mu_product_next makes no measureble difference
+            # Use 
+            #   1) mu_product_next to be eqvivalent to Nadam with overshoot == momentum
+            #   2) mu_product to be eqvivalnt to adam with overshoot == 0 
             param.addcdiv_(
                 exp_avg, denom, value=(-lr * (overshoot - (overshoot / mu_next) + 1)) / (1.0 - mu_product_next)
             )
-            # param.addcdiv_(
-            #     exp_avg, denom, value=(-lr * (overshoot - (overshoot / mu_next) + 1)) / (1.0 - mu_product)
-            # )
 
 
 def _multi_tensor_nadam(

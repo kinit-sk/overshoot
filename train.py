@@ -236,7 +236,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
                     momentum_decay=1000000000000000000000000, # Turn of momentum decay
-                    foreach=True,
+                    foreach=False,
                 )
             elif args.opt_name.startswith("adamW_overshoot"):
                 opt = opt_map[args.opt_name](
