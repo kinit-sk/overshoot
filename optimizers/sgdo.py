@@ -1,5 +1,5 @@
 # mypy: allow-untyped-defs
-from typing import List, Optional
+from typing import cast, List, Optional
 
 import torch
 from torch import Tensor
@@ -15,10 +15,10 @@ from torch.optim.optimizer import (
     Optimizer,
 )
 
-__all__ = ["SGD", "sgd"]
+__all__ = ["SGDO", "sgdo"]
 
 
-class SGD(Optimizer):
+class SGDO(Optimizer):
     def __init__(
         self,
         params,
@@ -27,7 +27,6 @@ class SGD(Optimizer):
         overshoot: float = 0,
         dampening: float = 0,
         weight_decay: float = 0,
-        nesterov=False,
         *,
         maximize: bool = False,
         foreach: Optional[bool] = None,
@@ -47,14 +46,13 @@ class SGD(Optimizer):
             overshoot=overshoot,
             dampening=dampening,
             weight_decay=weight_decay,
-            nesterov=nesterov,
             maximize=maximize,
             foreach=foreach,
             differentiable=differentiable,
             fused=fused,
         )
-        if nesterov and (momentum <= 0 or dampening != 0):
-            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
+        if overshoot > 0 and (momentum <= 0 or dampening != 0):
+            raise ValueError("Overshoot momentum requires a momentum and zero dampening")
         super().__init__(params, defaults)
 
         if fused:
@@ -78,7 +76,6 @@ class SGD(Optimizer):
     def __setstate__(self, state):
         super().__setstate__(state)
         for group in self.param_groups:
-            group.setdefault("nesterov", False)
             group.setdefault("maximize", False)
             group.setdefault("foreach", None)
             group.setdefault("differentiable", False)
@@ -131,7 +128,6 @@ class SGD(Optimizer):
                 momentum=group["momentum"],
                 lr=group["lr"],
                 dampening=group["dampening"],
-                nesterov=group["nesterov"],
                 maximize=group["maximize"],
                 has_sparse_grad=has_sparse_grad,
                 foreach=group["foreach"],
@@ -148,71 +144,37 @@ class SGD(Optimizer):
 
         return loss
         
-    # # TODO: This is only experimental!
-    # def move_to_base(self):
-    #     for group in self.param_groups:
-    #         params: List[Tensor] = []
-    #         grads: List[Tensor] = []
-    #         momentum_buffer_list: List[Optional[Tensor]] = []
-    #         self._init_group(group, params, grads, momentum_buffer_list)
-    #         for i, param in enumerate(group["params"]):
-    #             if len(self.state[param]) == 0:
-    #                 return
-    #             if param.grad is None:
-    #                 continue
-    #             param.add_(momentum_buffer_list[i], alpha=group["lr"] * group["overshoot"])
+    # TODO: This is only experimental!
+    def move_to_base(self):
+        for group in self.param_groups:
+            params: List[Tensor] = []
+            grads: List[Tensor] = []
+            momentum_buffer_list: List[Optional[Tensor]] = []
+            self._init_group(group, params, grads, momentum_buffer_list)
+            for i, param in enumerate(group["params"]):
+                if len(self.state[param]) == 0:
+                    return
+                if param.grad is None:
+                    continue
+                param.add_(momentum_buffer_list[i], alpha=group["lr"] * group["overshoot"])
                 
-    # def move_to_overshoot(self):
-    #     for group in self.param_groups:
-    #         params: List[Tensor] = []
-    #         grads: List[Tensor] = []
-    #         momentum_buffer_list: List[Optional[Tensor]] = []
-    #         self._init_group(group, params, grads, momentum_buffer_list)
-    #         for i, param in enumerate(group["params"]):
-    #             if len(self.state[param]) == 0:
-    #                 return
-    #             if param.grad is None:
-    #                 continue
-    #             param.add_(momentum_buffer_list[i], alpha=-group["lr"] * group["overshoot"])
+    def move_to_overshoot(self):
+        for group in self.param_groups:
+            params: List[Tensor] = []
+            grads: List[Tensor] = []
+            momentum_buffer_list: List[Optional[Tensor]] = []
+            self._init_group(group, params, grads, momentum_buffer_list)
+            for i, param in enumerate(group["params"]):
+                if len(self.state[param]) == 0:
+                    return
+                if param.grad is None:
+                    continue
+                param.add_(momentum_buffer_list[i], alpha=-group["lr"] * group["overshoot"])
 
 
 
-SGD.__doc__ = (
-    r"""Implements stochastic gradient descent (optionally with momentum).
-
-    .. math::
-       \begin{aligned}
-            &\rule{110mm}{0.4pt}                                                                 \\
-            &\textbf{input}      : \gamma \text{ (lr)}, \: \theta_0 \text{ (params)}, \: f(\theta)
-                \text{ (objective)}, \: \lambda \text{ (weight decay)},                          \\
-            &\hspace{13mm} \:\mu \text{ (momentum)}, \:\tau \text{ (dampening)},
-            \:\textit{ nesterov,}\:\textit{ maximize}                                     \\[-1.ex]
-            &\rule{110mm}{0.4pt}                                                                 \\
-            &\textbf{for} \: t=1 \: \textbf{to} \: \ldots \: \textbf{do}                         \\
-            &\hspace{5mm}g_t           \leftarrow   \nabla_{\theta} f_t (\theta_{t-1})           \\
-            &\hspace{5mm}\textbf{if} \: \lambda \neq 0                                           \\
-            &\hspace{10mm} g_t \leftarrow g_t + \lambda  \theta_{t-1}                            \\
-            &\hspace{5mm}\textbf{if} \: \mu \neq 0                                               \\
-            &\hspace{10mm}\textbf{if} \: t > 1                                                   \\
-            &\hspace{15mm} \textbf{b}_t \leftarrow \mu \textbf{b}_{t-1} + (1-\tau) g_t           \\
-            &\hspace{10mm}\textbf{else}                                                          \\
-            &\hspace{15mm} \textbf{b}_t \leftarrow g_t                                           \\
-            &\hspace{10mm}\textbf{if} \: \textit{nesterov}                                       \\
-            &\hspace{15mm} g_t \leftarrow g_{t} + \mu \textbf{b}_t                             \\
-            &\hspace{10mm}\textbf{else}                                                   \\[-1.ex]
-            &\hspace{15mm} g_t  \leftarrow  \textbf{b}_t                                         \\
-            &\hspace{5mm}\textbf{if} \: \textit{maximize}                                          \\
-            &\hspace{10mm}\theta_t \leftarrow \theta_{t-1} + \gamma g_t                   \\[-1.ex]
-            &\hspace{5mm}\textbf{else}                                                    \\[-1.ex]
-            &\hspace{10mm}\theta_t \leftarrow \theta_{t-1} - \gamma g_t                   \\[-1.ex]
-            &\rule{110mm}{0.4pt}                                                          \\[-1.ex]
-            &\bf{return} \:  \theta_t                                                     \\[-1.ex]
-            &\rule{110mm}{0.4pt}                                                          \\[-1.ex]
-       \end{aligned}
-
-    Nesterov momentum is based on the formula from
-    `On the importance of initialization and momentum in deep learning`__.
-    """
+SGDO.__doc__ = (
+    r"""Implements stochastic gradient descent (optionally with overshoot momentum)."""
     + rf"""
     Args:
         params (iterable): iterable of parameters to optimize or dicts defining
@@ -221,53 +183,11 @@ SGD.__doc__ = (
         momentum (float, optional): momentum factor (default: 0)
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
         dampening (float, optional): dampening for momentum (default: 0)
-        nesterov (bool, optional): enables Nesterov momentum (default: False)
+        overshoot (float, optional): overshoot factor (default: 0)
         {_maximize_doc}
         {_foreach_doc}
         {_differentiable_doc}
         {_fused_doc}
-    """
-    + r"""
-
-    Example:
-        >>> # xdoctest: +SKIP
-        >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
-        >>> optimizer.zero_grad()
-        >>> loss_fn(model(input), target).backward()
-        >>> optimizer.step()
-
-    __ http://www.cs.toronto.edu/%7Ehinton/absps/momentum.pdf
-
-    .. note::
-        The implementation of SGD with Momentum/Nesterov subtly differs from
-        Sutskever et al. and implementations in some other frameworks.
-
-        Considering the specific case of Momentum, the update can be written as
-
-        .. math::
-            \begin{aligned}
-                v_{t+1} & = \mu * v_{t} + g_{t+1}, \\
-                p_{t+1} & = p_{t} - \text{lr} * v_{t+1},
-            \end{aligned}
-
-        where :math:`p`, :math:`g`, :math:`v` and :math:`\mu` denote the
-        parameters, gradient, velocity, and momentum respectively.
-
-        This is in contrast to Sutskever et al. and
-        other frameworks which employ an update of the form
-
-        .. math::
-            \begin{aligned}
-                v_{t+1} & = \mu * v_{t} + \text{lr} * g_{t+1}, \\
-                p_{t+1} & = p_{t} - v_{t+1}.
-            \end{aligned}
-
-        The Nesterov version is analogously modified.
-
-        Moreover, the initial value of the momentum buffer is set to the
-        gradient value at the first step. This is in contrast to some other
-        frameworks that initialize it to all zeros.
-
     """
 )
 
@@ -289,7 +209,6 @@ def sgd(
     overshoot: float,
     lr: float,
     dampening: float,
-    nesterov: bool,
     maximize: bool,
 ):
     r"""Functional API that performs SGD algorithm computation.
@@ -337,7 +256,6 @@ def sgd(
         overshoot=overshoot,
         lr=lr,
         dampening=dampening,
-        nesterov=nesterov,
         has_sparse_grad=has_sparse_grad,
         maximize=maximize,
         grad_scale=grad_scale,
@@ -358,7 +276,6 @@ def _single_tensor_sgd(
     overshoot: float,
     lr: float,
     dampening: float,
-    nesterov: bool,
     maximize: bool,
     has_sparse_grad: bool,
 ):
@@ -379,16 +296,14 @@ def _single_tensor_sgd(
             else:
                 buf.mul_(momentum).add_(grad, alpha=1 - dampening)
 
-            if nesterov:
-                grad = grad.add(buf, alpha=momentum)
-            else:
-                # grad = buf
+            if overshoot:
                 grad.mul_(overshoot / momentum).add_(buf, alpha=1 + overshoot - (overshoot / momentum))
+            else:
+                grad = buf
 
         param.add_(grad, alpha=-lr)
 
 
-# TODO !!!!
 def _multi_tensor_sgd(
     params: List[Tensor],
     grads: List[Tensor],
@@ -401,7 +316,6 @@ def _multi_tensor_sgd(
     overshoot: float,
     lr: float,
     dampening: float,
-    nesterov: bool,
     maximize: bool,
     has_sparse_grad: bool,
 ):
@@ -413,15 +327,18 @@ def _multi_tensor_sgd(
     grouped_tensors = Optimizer._group_tensors_by_device_and_dtype(
         [params, grads, momentum_buffer_list], with_indices=True  # type: ignore[list-item]
     )
+
     for (
-        device_params,
-        device_grads,
+        device_params_,
+        device_grads_,
         device_momentum_buffer_list,
     ), indices in grouped_tensors.values():
+        device_params: List[Tensor] = cast(List[Tensor], device_params_)
+        device_grads: List[Tensor] = cast(List[Tensor], device_grads_)
+
         device_has_sparse_grad = has_sparse_grad and any(
             grad.is_sparse for grad in device_grads
         )
-        # device_has_sparse_grad = False
 
         if maximize:
             device_grads = torch._foreach_neg(device_grads)  # type: ignore[assignment]
@@ -434,70 +351,56 @@ def _multi_tensor_sgd(
                 device_grads = torch._foreach_add(  # type: ignore[assignment]
                     device_grads, device_params, alpha=weight_decay
                 )
-                
-        if momentum == 0:
-            if not device_has_sparse_grad:
-                # handle internal item() call if lr is a tensor
-                if isinstance(lr, torch.Tensor) and torch._utils.is_compiling():
-                    grads_x_lr = torch._foreach_mul(device_grads, -lr)
-                    torch._foreach_add_(device_params, grads_x_lr)
-                else:
-                    torch._foreach_add_(device_params, device_grads, alpha=-lr)
-            else:
-                # foreach APIs don't support sparse
-                for i in range(len(device_params)):
-                    device_params[i].add_(device_grads[i], alpha=-lr)
-            return
 
-        bufs = []
-        all_states_with_momentum_buffer = True
-        for i in range(len(device_momentum_buffer_list)):
-            if device_momentum_buffer_list[i] is None:
-                all_states_with_momentum_buffer = False
-                break
-            else:
-                bufs.append(device_momentum_buffer_list[i])
+        if momentum != 0:
+            bufs: List[Tensor] = []
 
-        if all_states_with_momentum_buffer:
-            # Update model params first with old momentum
-            if not device_has_sparse_grad:
-                # handle internal item() call if lr is a tensor
-                if (isinstance(lr, torch.Tensor) and torch._utils.is_compiling()):
-                    bufs_x_lr = torch._foreach_mul(bufs, -lr)
-                    grads_x_lr = torch._foreach_mul(device_grads, -lr)
-                    torch._foreach_add_(device_params, bufs_x_lr, alpha=momentum * overshoot + momentum - overshoot)
-                    torch._foreach_add_(device_params, grads_x_lr, alpha=overshoot + 1)
-                else:
-                    torch._foreach_add_(device_params, bufs, alpha=-lr * (momentum * overshoot + momentum - overshoot))
-                    torch._foreach_add_(device_params, device_grads, alpha=-lr * (overshoot + 1))
-            else:
-                # foreach APIs don't support sparse
-                for i in range(len(device_params)):
-                    device_params[i].add_(bufs[i], alpha=-lr * (momentum * overshoot + momentum - overshoot))
-                    device_params[i].add_(device_grads[i], alpha=-lr * (overshoot + 1))
-            
-            torch._foreach_mul_(bufs, momentum)
-            torch._foreach_add_(bufs, device_grads, alpha=1 - dampening)
-        else:
-            bufs = []
+            all_states_with_momentum_buffer = True
             for i in range(len(device_momentum_buffer_list)):
-                params = device_params[i]
                 if device_momentum_buffer_list[i] is None:
-                    buf = device_momentum_buffer_list[i] = momentum_buffer_list[
-                        indices[i]
-                    ] = torch.clone(device_grads[i]).detach()
-                    params.add_(buf, alpha=-lr * (1 + overshoot))
+                    all_states_with_momentum_buffer = False
+                    break
                 else:
-                    buf = device_momentum_buffer_list[i]
-                    # Update model params first with old momentum
-                    params.add_(buf, alpha=-lr * (momentum * overshoot + momentum - overshoot))
-                    params.add_(device_grads[i], alpha=-lr * (overshoot + 1))
-                    buf.mul_(momentum).add_(device_grads[i], alpha=1 - dampening)
+                    bufs.append(cast(Tensor, device_momentum_buffer_list[i]))
 
-                bufs.append(buf)
+            if all_states_with_momentum_buffer:
+                torch._foreach_mul_(bufs, momentum)
+                torch._foreach_add_(bufs, device_grads, alpha=1 - dampening)
+            else:
+                bufs = []
+                for i in range(len(device_momentum_buffer_list)):
+                    if device_momentum_buffer_list[i] is None:
+                        buf = device_momentum_buffer_list[i] = momentum_buffer_list[
+                            indices[i]
+                        ] = torch.clone(device_grads[i]).detach()
+                    else:
+                        buf = cast(Tensor, device_momentum_buffer_list[i])
+                        buf.mul_(momentum).add_(device_grads[i], alpha=1 - dampening)
+
+                    bufs.append(buf)
+
+            if overshoot:
+                torch._foreach_mul_(device_grads, overshoot / momentum)
+                torch._foreach_add_(device_grads, bufs, alpha=1 + overshoot - (overshoot / momentum))
+            else:
+                device_grads = bufs
+
+        if not device_has_sparse_grad:
+            # handle internal item() call if lr is a tensor
+            if isinstance(lr, torch.Tensor) and torch._utils.is_compiling():
+                grads_x_lr = torch._foreach_mul(device_grads, -lr)
+                torch._foreach_add_(device_params, grads_x_lr)
+            else:
+                torch._foreach_add_(device_params, device_grads, alpha=-lr)
+        else:
+            # foreach APIs don't support sparse
+            for i in range(len(device_params)):
+                device_params[i].add_(device_grads[i], alpha=-lr)
 
 
 
+
+# TODO: Fused in not supported
 def _fused_sgd(
     params: List[Tensor],
     grads: List[Tensor],

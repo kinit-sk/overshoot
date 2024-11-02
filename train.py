@@ -11,12 +11,9 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-from optimizers.sgd import SGD as OvershootSGD
-from optimizers.sgd_v2 import SGD as OvershootSGD_v2
-from optimizers.adamw_overshoot import AdamW as OvershootAdamW
-from optimizers.adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
-from optimizers.nadam import NAdam as CustomNadam
-from optimizers.rmsprop import RMSprop as CustomRMSprop
+from optimizers.sgdo import SGDO
+from optimizers.adamw_overshoot_fast import AdamW as OvershootAdamW_fast
+from optimizers.adamw_overshoot_replicate_general_form import AdamW as OvershootAdamW_replicate
 
 from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance
 from trainer_configs import get_trainer_config
@@ -201,33 +198,19 @@ class OvershootTrainer(pl.LightningModule):
             print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
             lr = self.config.lr * (args.overshoot_factor + 1) if model_name == "overshoot" else self.config.lr
             opt_map = {
+                "nadam": torch.optim.NAdam,
                 "adam": torch.optim.Adam,
                 "adamW": torch.optim.AdamW,
                 "adam_zero": torch.optim.Adam,
                 "adamW_zero": torch.optim.AdamW,
-                "nadam": torch.optim.NAdam,
                 "rmsprop": torch.optim.RMSprop,
-                "rmsprop_custom": CustomRMSprop,  # RMSprop with bias correction term. Equivalent to Adam with beta1=0
-                "sgd": torch.optim.SGD,
                 "sgd_momentum": torch.optim.SGD,
                 "sgd_nesterov": torch.optim.SGD,
-                "sgd_overshoot": OvershootSGD,
-                "sgd_overshoot_v2": OvershootSGD_v2,
-                "adamW_overshoot": OvershootAdamW,
-                "adamW_overshoot_v2": OvershootAdamW_v2,
-                "custom_nadam": CustomNadam,
+                "sgd_overshoot": SGDO,
+                "adamW_overshoot_fast": OvershootAdamW_fast,
+                "adamW_overshoot_replicate": OvershootAdamW_replicate,
             }
-            if "custom_nadam" in args.opt_name:
-                opt = opt_map[args.opt_name](
-                    optim_groups,
-                    lr=lr,
-                    betas=(self.config.adam_beta1, self.config.adam_beta2),
-                    weight_decay=self.config.weight_decay,
-                    momentum_decay=1000000000000000000000000, # Turn of momentum decay
-                    overshoot=args.overshoot_factor,
-                    foreach=False,
-                )
-            elif args.opt_name == "nadam":
+            if args.opt_name == "nadam":
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=lr,
@@ -251,7 +234,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
                     weight_decay=self.config.weight_decay,
-                    foreach=True,
+                    foreach=False,
                 )
             elif "sgd_overshoot" in args.opt_name:
                 opt = opt_map[args.opt_name](
@@ -259,7 +242,6 @@ class OvershootTrainer(pl.LightningModule):
                     lr=lr,
                     momentum=self.config.sgd_momentum,
                     overshoot=args.overshoot_factor,
-                    foreach=False,
                 )
             elif "sgd" in args.opt_name:
                 opt = opt_map[args.opt_name](
@@ -270,12 +252,7 @@ class OvershootTrainer(pl.LightningModule):
                     foreach=True,
                 )
             else:
-                opt = opt_map[args.opt_name](
-                    optim_groups,
-                    lr=lr,
-                    alpha=self.config.adam_beta2,
-                    foreach=True,
-                )
+                raise Exception(f"Optimizer {args.opt_name} not recognized.")
 
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=self.steps)
             optimizers.append(opt)
