@@ -1,6 +1,7 @@
 import argparse
 import copy
 import os
+import re
 
 import pytorch_lightning as pl
 import numpy as np
@@ -42,6 +43,7 @@ class OvershootTrainer(pl.LightningModule):
         self.all_stats = []
         self.current_step = 0
         self.losses = []
+        self.overshoot_losses = []
         self.all_params_base = []
         self.all_params_overshoot = []
         self.distances = []
@@ -100,6 +102,14 @@ class OvershootTrainer(pl.LightningModule):
         else:
             return output["loss"], output["loss"], output["logits"]
 
+
+    # This just prints stats to console. Shouldn't be this complicated
+    def __print_stats(self, stats):
+        if stats["batch_step"] % self.config.log_every_n_steps == 0:
+            k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
+            text = ' | '.join([k_v_to_str(k, v) for k, v in stats.items() if not re.search(r"_loss_[0-9][0-9]+$", k)])
+            print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
+
     def _overshoot_training_step(self, batch, batch_idx):
         with torch.no_grad():
             output_base = self.base_model.forward(**batch)  # only to log base loss
@@ -142,9 +152,10 @@ class OvershootTrainer(pl.LightningModule):
         train_fn = self._baseline_training_step if self.automatic_optimization else self._overshoot_training_step
         loss_base, loss_overshoot, output_base = train_fn(batch, batch_idx)
 
-        self.losses.append(loss_base.item())
-        if len(self.losses) > 100:
-            self.losses.pop(0)
+        for losses, new_loss in [(self.losses, loss_base.item()), (self.overshoot_losses, loss_overshoot.item())]:
+            losses.append(new_loss)
+            if len(losses) > 100:
+                losses.pop(0)
             
         stats = {
             "step": self.current_step,
@@ -152,13 +163,11 @@ class OvershootTrainer(pl.LightningModule):
             "batch_step": batch_idx,
             "base_lr": self.base_scheduler.get_last_lr()[-1],
             "overshoot_lr": self.base_scheduler.get_last_lr()[-1] if self.automatic_optimization else self.overshoot_scheduler.get_last_lr()[-1],
-            "base_loss": self.losses[-1],
-            "overshoot_loss": loss_overshoot.item(),
-            "base_loss_10": float(np.mean(self.losses[-10:])),
-            "base_loss_20": float(np.mean(self.losses[-20:])),
-            "base_loss_50": float(np.mean(self.losses[-50:])),
-            "base_loss_100": float(np.mean(self.losses[-100:])),
         }
+        for avg in [1, 20, 50, 100]:
+            stats[f"base_loss_{avg}"] = float(np.mean(self.losses[-avg:]))
+            stats[f"overshoot_loss_{avg}"] = float(np.mean(self.overshoot_losses[-avg:])) # For baseline same as base loss
+                
         if self.dataset.is_classification():
             stats["accuracy"] = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
 
@@ -169,12 +178,10 @@ class OvershootTrainer(pl.LightningModule):
         if args.compute_model_distance:
             stats["model_distance"] = model_distance
             
+        self.__print_stats(stats)
         self.log_dict(stats)
         self.all_stats.append(stats)
         
-        if batch_idx % self.config.log_every_n_steps == 0:
-            print_base = ' | '.join([f'{k}: {round(v, 4) if type(v) == float else v}' for k, v in stats.items()])
-            print(print_base + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
         self.current_step += 1
         self.trainer.should_stop = self.current_step >= self.steps
         return loss_overshoot
