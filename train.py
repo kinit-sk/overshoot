@@ -55,18 +55,15 @@ class OvershootTrainer(pl.LightningModule):
         self.update_cosine_sim = 0
 
     def _compute_model_distance(self):
-        momentum = self.config.sgd_momentum if "sgd" in args.opt_name else self.config.adam_beta1
-        self.all_params_base.append(torch.cat([p.data.view(-1).cpu() for p in self.base_model.parameters()]))
-        if len(self.all_params_base) > 50:
-            self.all_params_base.pop(0)
-            
+        latest_base_model = torch.cat([p.data.view(-1).cpu() for p in self.base_model.parameters()])
         if self.automatic_optimization:
-            return compute_model_distance(self.all_params_base[-1], self.all_params_base, momentum)
+            self.past_models.append(latest_base_model)
         else:
-            self.all_params_overshoot.append(torch.cat([p.data.view(-1).cpu() for p in self.overshoot_model.parameters()]))
-            if len(self.all_params_overshoot) > 50:
-                self.all_params_overshoot.pop(0)
-            return compute_model_distance(self.all_params_base[-1], self.all_params_overshoot, momentum)
+            self.past_models.append(torch.cat([p.data.view(-1).cpu() for p in self.overshoot_model.parameters()]))
+        if len(self.past_models) > 50:
+            self.past_models.pop(0)
+        momentum = self.config.sgd_momentum if "sgd" in args.opt_name else self.config.adam_beta1
+        return compute_model_distance(latest_base_model, self.past_models, momentum)
             
     def _cosine_similarity(self):
         grads = torch.cat([p.grad.view(-1) for p in self.overshoot_model.parameters() if p.grad is not None])
