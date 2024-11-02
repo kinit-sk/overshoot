@@ -14,6 +14,8 @@ from custom_optimizers_adamw_overshoot import AdamW as OvershootAdamW
 from custom_optimizers_adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
 from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
 from custom_optimizers_sgd import SGD as OvershootSGD
+from custom_optimizers_sgd_v2 import SGD as OvershootSGD_v2
+from custom_optimizers_nadam import NAdam as CustomNadam
 from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance
 from trainer_configs import get_trainer_config
 
@@ -168,7 +170,7 @@ class OvershootTrainer(pl.LightningModule):
             
         self.log_dict(stats)
         self.all_stats.append(stats)
-         
+        
         if batch_idx % self.config.log_every_n_steps == 0:
             print_base = ' | '.join([f'{k}: {round(v, 4) if type(v) == float else v}' for k, v in stats.items()])
             print(print_base + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
@@ -205,15 +207,27 @@ class OvershootTrainer(pl.LightningModule):
                 "sgd_momentum": torch.optim.SGD,
                 "sgd_nesterov": torch.optim.SGD,
                 "sgd_overshoot": OvershootSGD,
+                "sgd_overshoot_v2": OvershootSGD_v2,
                 "adamW_overshoot": OvershootAdamW,
                 "adamW_overshoot_v2": OvershootAdamW_v2,
+                "custom_nadam": CustomNadam,
             }
-            if args.opt_name == "nadam":
+            if "custom_nadam" in args.opt_name:
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
-                    momentum_decay=0,
+                    weight_decay=self.config.weight_decay,
+                    momentum_decay=1000000000000000000000000, # Turn of momentum decay
+                    overshoot=args.overshoot_factor,
+                    foreach=False,
+                )
+            elif args.opt_name == "nadam":
+                opt = opt_map[args.opt_name](
+                    optim_groups,
+                    lr=lr,
+                    betas=(self.config.adam_beta1, self.config.adam_beta2),
+                    momentum_decay=1000000000000000000000000, # Turn of momentum decay
                     foreach=True,
                 )
             elif args.opt_name.startswith("adamW_overshoot"):
@@ -234,13 +248,13 @@ class OvershootTrainer(pl.LightningModule):
                     weight_decay=self.config.weight_decay,
                     foreach=True,
                 )
-            elif args.opt_name == "sgd_overshoot":
+            elif "sgd_overshoot" in args.opt_name:
                 opt = opt_map[args.opt_name](
                     optim_groups,
                     lr=lr,
                     momentum=self.config.sgd_momentum,
                     overshoot=args.overshoot_factor,
-                    foreach=True,
+                    foreach=False,
                 )
             elif "sgd" in args.opt_name:
                 opt = opt_map[args.opt_name](
