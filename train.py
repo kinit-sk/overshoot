@@ -10,12 +10,13 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-from custom_optimizers_adamw_overshoot import AdamW as OvershootAdamW
-from custom_optimizers_adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
-from custom_optimizers_rmsprop import RMSprop as CustomRMSprop
-from custom_optimizers_sgd import SGD as OvershootSGD
-from custom_optimizers_sgd_v2 import SGD as OvershootSGD_v2
-from custom_optimizers_nadam import NAdam as CustomNadam
+from optimizers.sgd import SGD as OvershootSGD
+from optimizers.sgd_v2 import SGD as OvershootSGD_v2
+from optimizers.adamw_overshoot import AdamW as OvershootAdamW
+from optimizers.adamw_overshoot_v2 import AdamW as OvershootAdamW_v2
+from optimizers.nadam import NAdam as CustomNadam
+from optimizers.rmsprop import RMSprop as CustomRMSprop
+
 from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance
 from trainer_configs import get_trainer_config
 
