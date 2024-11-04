@@ -8,10 +8,10 @@ from scipy import stats
 
 
 def plot_loss_graph(data_to_plot, data_type: str):
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(20, 16))
     for key, values in data_to_plot.items():
         loss_values = values.T
-        # Calculate mean and standard deviation for each step
+        loss_values = loss_values[100:, :] # Ignore start of the training to decrease variance
         mean_loss = np.mean(loss_values, axis=1)
         std_loss = 2 * np.std(loss_values, axis=1)
 
@@ -59,6 +59,8 @@ def plot_data(data_to_plot, data_type: str):
 def comp2(file_name):
     if file_name == "baseline":
         return 0
+    if file_name in ["nesterov", "nadam"]:
+        return 0.0001
     if file_name.startswith("overshoot_"):
         return float(file_name.split("_")[-1])
     else:
@@ -79,13 +81,12 @@ if __name__ == "__main__":
         
         job_distance, job_loss, job_loss_20, job_loss_100 = [], [], [], []
         for version in os.listdir(os.path.join(source_dir, job_name)):
-            if version.startswith('version_'):
-                df = pd.read_csv(os.path.join(source_dir, job_name, version, 'training_stats.csv'))
-                # job_distance.append(np.mean(df['model_distance']).item())
-                # job_loss.append(np.mean(df['base_loss']).item())
+            stats_file_path = os.path.join(source_dir, job_name, version, 'training_stats.csv')
+            if os.path.exists(stats_file_path):
+                df = pd.read_csv(stats_file_path)
                 job_distance.append(df['model_distance'].to_numpy())
                 job_loss.append(df['base_loss'].to_numpy())
-                job_loss_20.append(df['base_loss_20'].to_numpy())
+                # job_loss_20.append(df['base_loss_20'].to_numpy())
                 job_loss_100.append(df['base_loss_100'].to_numpy())
         
         
@@ -93,13 +94,11 @@ if __name__ == "__main__":
             
         distance_data[job_name] = np.array(job_distance)
         loss_data[job_name] = np.array(job_loss)
-        loss_data_20[job_name] = np.array(job_loss_20)
+        # loss_data_20[job_name] = np.array(job_loss_20)
         loss_data_100[job_name] = np.array(job_loss_100)
 
 
     plot_data(distance_data, 'distance')
     plot_data(loss_data, 'loss')
-    plot_loss_graph(loss_data, "loss_graph_1")
-    plot_loss_graph(loss_data_20, "loss_graph_20")
     plot_loss_graph(loss_data_100, "loss_graph_100")
     print(f"Output generated in {source_dir}")
