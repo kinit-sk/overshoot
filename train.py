@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from optimizers.sgdo import SGDO
 from optimizers.adamw_overshoot_fast import AdamW as OvershootAdamW_fast
 from optimizers.adamw_overshoot_fast_no_bias_correction import AdamW as OvershootAdamW_fast_no_bias_correction
+from optimizers.adamw_overshoot_fast_my_calculations  import AdamW as OvershootAdamW_fast_my_calculations
 from optimizers.adamw_overshoot_replicate_general_form import AdamW as OvershootAdamW_replicate
 
 from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance
@@ -210,6 +211,7 @@ class OvershootTrainer(pl.LightningModule):
                 "sgd_overshoot": SGDO,
                 "adamW_overshoot_fast": OvershootAdamW_fast,
                 "adamW_overshoot_fast_no_bias_correction": OvershootAdamW_fast_no_bias_correction,
+                "adamW_overshoot_fast_my_calculations": OvershootAdamW_fast_my_calculations,
                 "adamW_overshoot_replicate": OvershootAdamW_replicate,
             }
             if args.opt_name == "nadam":
