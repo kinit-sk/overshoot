@@ -421,10 +421,10 @@ def _single_tensor_adamw(
 
         # Decay the first and second moment running average coefficient
         exp_avg.lerp_(grad, 1 - beta1)
-        exp_avg_sq_old = exp_avg_sq.clone()
-        exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
         if capturable or differentiable:
+            raise Exception("Not implemented")
+            exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
             step = step_t
 
             bias_correction1 = 1 - beta1**step
@@ -465,21 +465,15 @@ def _single_tensor_adamw(
             step_size = lr / bias_correction1
 
             bias_correction2_sqrt = bias_correction2**0.5
-
-            if amsgrad:
-                # Maintains the maximum of all 2nd moment running avg. till now
-                torch.maximum(max_exp_avg_sqs[i], exp_avg_sq, out=max_exp_avg_sqs[i])
-
-                # Use the max. for normalizing running avg. of gradient
-                denom = (max_exp_avg_sqs[i].sqrt() / bias_correction2_sqrt).add_(eps)
-            else:
-                denom = (exp_avg_sq.sqrt() / (1 - beta2**step)**0.5).add_(eps)
-
-            param.addcdiv_(exp_avg, denom, value=-lr * (overshoot + 1) / (1 - beta1**step))
+            
             if step > 1:
-                denom_old = (exp_avg_sq_old.sqrt() / (1 - beta2**(step-1))**0.5).add_(eps)
+                denom_old = (exp_avg_sq.sqrt() / (1 - beta2**(step-1))**0.5).add_(eps)
                 param.addcdiv_(exp_avg, denom_old, value=-lr * (-overshoot) / (beta1 - beta1**step))
                 param.addcdiv_(grad, denom_old, value=-lr * overshoot * (1 - beta1) / (beta1 - beta1**step))
+                
+            exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+            denom = (exp_avg_sq.sqrt() / (1 - beta2**step)**0.5).add_(eps)
+            param.addcdiv_(exp_avg, denom, value=-lr * (overshoot + 1) / (1 - beta1**step))
 
         # Lastly, switch back to complex view
         if amsgrad and torch.is_complex(params[i]):
@@ -510,6 +504,7 @@ def _multi_tensor_adamw(
     differentiable: bool,
     has_complex: bool,
 ):
+    raise Exception("Not implemented")
     if len(params) == 0:
         return
 

@@ -424,6 +424,7 @@ def _single_tensor_adamw(
         exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
         if capturable or differentiable:
+            raise Exception("Not implemented")
             step = step_t
 
             bias_correction1 = 1 - beta1**step
@@ -508,6 +509,7 @@ def _multi_tensor_adamw(
     differentiable: bool,
     has_complex: bool,
 ):
+    raise Exception("Not implemented")
     if len(params) == 0:
         return
 
