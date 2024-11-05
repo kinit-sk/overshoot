@@ -2,6 +2,7 @@ import argparse
 import copy
 import os
 import re
+import time
 
 import pytorch_lightning as pl
 import numpy as np
@@ -46,6 +47,7 @@ class OvershootTrainer(pl.LightningModule):
         self.all_params_base = []
         self.all_params_overshoot = []
         self.distances = []
+        self.last_time = time.time()
         # Cosine gradient statistics
         self.previous_grads = None
         self.previous_params = None
@@ -159,6 +161,7 @@ class OvershootTrainer(pl.LightningModule):
             "batch_step": batch_idx,
             "base_lr": self.base_scheduler.get_last_lr()[-1],
             "overshoot_lr": self.base_scheduler.get_last_lr()[-1] if self.automatic_optimization else self.overshoot_scheduler.get_last_lr()[-1],
+            "td": time.time() - self.last_time,
         }
         for avg in [1, 20, 50, 100]:
             stats[f"base_loss_{avg}"] = float(np.mean(self.losses[-avg:]))
@@ -178,6 +181,7 @@ class OvershootTrainer(pl.LightningModule):
         self.log_dict(stats)
         self.all_stats.append(stats)
         
+        self.last_time = time.time()
         self.current_step += 1
         self.trainer.should_stop = self.current_step >= self.steps
         return loss_overshoot
@@ -273,7 +277,8 @@ class OvershootTrainer(pl.LightningModule):
     def on_train_end(self):
         dst_dir = os.path.join("lightning_logs", args.experiment_name, args.job_name)
         version = f"version_{len(next(os.walk(dst_dir))[1]) - 1}"
-        pd.DataFrame(self.all_stats).to_csv(os.path.join(dst_dir, version, "training_stats.csv"), index=False)
+        df = pd.DataFrame(self.all_stats)
+        df.to_csv(os.path.join(dst_dir, version, "training_stats.csv"), index=False)
         
 # -----------------------------------------------------------------------------
 def main():
