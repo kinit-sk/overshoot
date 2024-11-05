@@ -11,7 +11,7 @@ from collections import defaultdict
 # lr: float =  1e-5 # For LLM classification finetuning
 
 
-def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, override: Optional[Sequence[str]] = None):
+def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_high_precision: bool, override: Optional[Sequence[str]] = None):
 
     reduce = lambda x, substring: substring if substring in x else x
     model_name = reduce(model_name, "resnet")
@@ -19,7 +19,7 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
     opt_name = reduce(opt_name, "adam")
     dataset_name = reduce(dataset_name, "cifar")
         
-    return defaultdict(lambda: DefaultConfig, {
+    cfg = defaultdict(lambda: DefaultConfig, {
         ("mlp", "housing", "sgd"): HousingConfig,
         ("mlp", "housing", "adam"): HousingConfig,
         ("mlp", "energy", "sgd"): EnergyConfig,
@@ -44,6 +44,10 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
         ("gpt", "shakespear"): GptShakespearConfig,
         ("gpt", "gutenberg"): GptShakespearConfig,
     })[model_name, dataset_name, opt_name]().override(override)
+
+    if use_high_precision:
+        cfg.use_16_bit_precision = False
+    return cfg
 
 
 @dataclass

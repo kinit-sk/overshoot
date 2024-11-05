@@ -81,6 +81,13 @@ class OvershootTrainer(pl.LightningModule):
         self.previous_grads = grads
         self.previous_params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])
 
+    # This just prints stats to console. Shouldn't be this complicated
+    def __print_stats(self, stats):
+        if stats["batch_step"] % self.config.log_every_n_steps == 0:
+            k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
+            text = ' | '.join([k_v_to_str(k, v) for k, v in stats.items() if not re.search(r"_loss_[0-9][0-9]+$", k)])
+            print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
+
     def _baseline_training_step(self, batch, batch_idx):
         # Compute base loss when having only overshoot models (slow).
         if hasattr(self.optimizers(), "move_to_base"):
@@ -98,13 +105,6 @@ class OvershootTrainer(pl.LightningModule):
         else:
             return output["loss"], output["loss"], output["logits"]
 
-
-    # This just prints stats to console. Shouldn't be this complicated
-    def __print_stats(self, stats):
-        if stats["batch_step"] % self.config.log_every_n_steps == 0:
-            k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
-            text = ' | '.join([k_v_to_str(k, v) for k, v in stats.items() if not re.search(r"_loss_[0-9][0-9]+$", k)])
-            print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
 
     def _overshoot_training_step(self, batch, batch_idx):
         with torch.no_grad():
@@ -280,7 +280,7 @@ class OvershootTrainer(pl.LightningModule):
 def main():
     
     # 1) Create config
-    trainer_config = get_trainer_config(args.model, args.dataset, args.opt_name, args.config_override)
+    trainer_config = get_trainer_config(args.model, args.dataset, args.opt_name, args.high_precision, args.config_override)
     print("-------------------------------")
     print(f"Config: {trainer_config}")
     
@@ -333,6 +333,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, required=False, help="If specified, use this seed for reproducibility.")
     parser.add_argument("--opt_name", type=str, required=True)
     parser.add_argument("--compute_model_distance", action=argparse.BooleanOptionalAction, required=False)
+    parser.add_argument("--high_precision", action=argparse.BooleanOptionalAction, required=False)
     parser.add_argument(
         "--model",
         type=str,
@@ -367,4 +368,6 @@ if __name__ == "__main__":
     ), "Overshoot factor or baseline needs to be set. See python train.py --help"
     if args.seed:
         pl.seed_everything(args.seed)
+    if args.high_precision:
+        torch.set_default_dtype(torch.float64)
     main()

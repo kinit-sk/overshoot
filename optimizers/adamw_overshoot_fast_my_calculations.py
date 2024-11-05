@@ -263,6 +263,27 @@ class AdamW(Optimizer):
         return loss
 
 
+    # # TODO: This is only experimental!
+    # def move_to_base(self):
+    #     for group in self.param_groups:
+    #         for param in group["params"]:
+    #             if param.grad is None:
+    #                 continue
+    #             if len(self.state[param]) == 0:
+    #                 return
+    #             last_step = self.state[param]["last_steps"]
+    #             param.add_(last_step, alpha=-group["overshoot"])
+                
+    # # TODO: This is only experimental!
+    # def move_to_overshoot(self):
+    #     for group in self.param_groups:
+    #         for param in group["params"]:
+    #             if param.grad is None:
+    #                 continue
+    #             if len(self.state[param]) == 0:
+    #                 return
+    #             last_step = self.state[param]["last_steps"]
+    #             param.add_(last_step, alpha=group["overshoot"])
 
 AdamW.__doc__ = (
     r"""Implements AdamW algorithm.
@@ -394,6 +415,7 @@ def _single_tensor_adamw(
 
         # Decay the first and second moment running average coefficient
         exp_avg.lerp_(grad, 1 - beta1)
+        exp_avg_sq_old = exp_avg_sq.clone()
         exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
         if capturable or differentiable:
@@ -431,8 +453,7 @@ def _single_tensor_adamw(
         else:
             step = _get_value(step_t)
 
-            beta1_to_step = beta1**step
-            bias_correction1 = 1 - beta1_to_step
+            bias_correction1 = 1 - beta1**step
             bias_correction2 = 1 - beta2**step
 
             step_size = lr / bias_correction1
@@ -446,23 +467,20 @@ def _single_tensor_adamw(
                 # Use the max. for normalizing running avg. of gradient
                 denom = (max_exp_avg_sqs[i].sqrt() / bias_correction2_sqrt).add_(eps)
             else:
-                denom = (exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
+                denom = (exp_avg_sq.sqrt() / (1 - beta2**step)**0.5).add_(eps)
 
-            param.addcdiv_(grad, denom, value=-step_size * (overshoot/beta1) * (1 - beta1))
-            # param.addcdiv_(exp_avg, denom, value=-lr / (1 - beta1_to_step * beta1) * (overshoot - overshoot/beta1 + 1))
-            f1 = (overshoot - overshoot/beta1 + 1) / (1 - beta1_to_step * beta1)
-            f2 = (overshoot + 1) / (1 - beta1_to_step * beta1) - overshoot / (beta1 * (1 - beta1_to_step))
-            # f3 = (overshoot + 1) / (1 - beta1_to_step * beta1) - overshoot / (beta1 * (1 - beta1_to_step * beta1))
-            # print("===============")
-            # print(f1)
-            # print(f2)
-            param.addcdiv_(exp_avg, denom, value=-lr * f2)
+            param.addcdiv_(exp_avg, denom, value=-lr * (overshoot + 1) / (1 - beta1**step))
+            if step > 1:
+                denom_old = (exp_avg_sq_old.sqrt() / (1 - beta2**(step-1))**0.5).add_(eps)
+                param.addcdiv_(exp_avg, denom_old, value=-lr * (-overshoot) / (beta1 - beta1**step))
+                param.addcdiv_(grad, denom_old, value=-lr * overshoot * (1 - beta1) / (beta1 - beta1**step))
 
         # Lastly, switch back to complex view
         if amsgrad and torch.is_complex(params[i]):
             max_exp_avg_sqs[i] = torch.view_as_complex(max_exp_avg_sqs[i])
 
 
+# TODO: Not implemented yet
 def _multi_tensor_adamw(
     params: List[Tensor],
     grads: List[Tensor],
