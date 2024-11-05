@@ -43,6 +43,7 @@ class OvershootTrainer(pl.LightningModule):
         self.all_stats = []
         self.current_step = 0
         self.losses = []
+        self.accuracy = []
         self.overshoot_losses = []
         self.all_params_base = []
         self.all_params_overshoot = []
@@ -87,7 +88,7 @@ class OvershootTrainer(pl.LightningModule):
     def __print_stats(self, stats):
         if stats["batch_step"] % self.config.log_every_n_steps == 0:
             k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
-            text = ' | '.join([k_v_to_str(k, v) for k, v in stats.items() if not re.search(r"_loss_[0-9][0-9]+$", k)])
+            text = ' | '.join([k_v_to_str(k, v) for k, v in stats.items() if not re.search(r"(loss|accuracy)_[0-9][0-9]+$", k)])
             print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
 
     def _baseline_training_step(self, batch, batch_idx):
@@ -168,7 +169,11 @@ class OvershootTrainer(pl.LightningModule):
             stats[f"overshoot_loss_{avg}"] = float(np.mean(self.overshoot_losses[-avg:])) # For baseline same as base loss
                 
         if self.dataset.is_classification():
-            stats["accuracy"] = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
+            self.accuracy.append(100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item())
+            if len(self.accuracy) > 100:
+                self.accuracy.pop(0)
+            for avg in [1, 20, 50, 100]:
+                stats[f"accuracy_{avg}"] = float(np.mean(self.accuracy[-avg:]))
 
         if args.compute_cosine:
             stats["grads_cosine_similarity"] = self.grad_cosine_sim
