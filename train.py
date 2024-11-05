@@ -15,7 +15,13 @@ from optimizers.sgdo import SGDO
 from optimizers.adamw_overshoot_fast import AdamW as OvershootAdamW_fast
 from optimizers.adamw_overshoot_fast_no_bias_correction import AdamW as OvershootAdamW_fast_no_bias_correction
 from optimizers.adamw_overshoot_fast_my_calculations  import AdamW as OvershootAdamW_fast_my_calculations
+from optimizers.adamw_overshoot_fast_my_calculations_slow_start  import AdamW as OvershootAdamW_fast_my_calculations_slow_start
 from optimizers.adamw_overshoot_replicate_general_form import AdamW as OvershootAdamW_replicate
+
+
+from optimizers.adamw_overshoot_fast_my_calculations_const_bias  import AdamW as OvershootAdamW_fast_my_calculations_const_bias
+from optimizers.adamw_overshoot_fast_my_calculations_const_denom  import AdamW as OvershootAdamW_fast_my_calculations_const_denom
+from optimizers.adamw_overshoot_fast_my_calculations_const_bias_and_denom  import AdamW as OvershootAdamW_fast_my_calculations_const_bias_and_denom
 
 from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance
 from trainer_configs import get_trainer_config
@@ -212,7 +218,11 @@ class OvershootTrainer(pl.LightningModule):
                 "adamW_overshoot_fast": OvershootAdamW_fast,
                 "adamW_overshoot_fast_no_bias_correction": OvershootAdamW_fast_no_bias_correction,
                 "adamW_overshoot_fast_my_calculations": OvershootAdamW_fast_my_calculations,
+                "adamW_overshoot_fast_my_calculations_slow_start": OvershootAdamW_fast_my_calculations_slow_start,
                 "adamW_overshoot_replicate": OvershootAdamW_replicate,
+                "adamW_overshoot_fast_my_calculations_const_bias": OvershootAdamW_fast_my_calculations_const_bias,
+                "adamW_overshoot_fast_my_calculations_const_denom": OvershootAdamW_fast_my_calculations_const_denom,
+                "adamW_overshoot_fast_my_calculations_const_bias_and_denom": OvershootAdamW_fast_my_calculations_const_bias_and_denom,
             }
             if args.opt_name == "nadam":
                 opt = opt_map[args.opt_name](
