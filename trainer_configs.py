@@ -62,6 +62,7 @@ class DefaultConfig:
     adam_beta2: float = 0.999
     sgd_momentum: float = 0.9
     weight_decay: float = 0.0
+    overshoot_delay: int = 50
     log_every_n_steps: int = 50
     n_gpu: int = torch.cuda.device_count()
     use_16_bit_precision: bool = torch.cuda.device_count() > 0

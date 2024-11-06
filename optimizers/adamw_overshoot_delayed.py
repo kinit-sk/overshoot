@@ -36,6 +36,7 @@ class AdamW(Optimizer):
         eps: float = 1e-8,
         weight_decay: float = 1e-2,
         overshoot: float = 0,
+        overshoot_delay: int = 0,
         amsgrad: bool = False,
         *,
         maximize: bool = False,
@@ -66,6 +67,7 @@ class AdamW(Optimizer):
             eps=eps,
             weight_decay=weight_decay,
             overshoot=overshoot,
+            overshoot_delay=overshoot_delay,
             amsgrad=amsgrad,
             foreach=foreach,
             maximize=maximize,
@@ -249,6 +251,7 @@ class AdamW(Optimizer):
                 lr=group["lr"],
                 weight_decay=group["weight_decay"],
                 overshoot=group["overshoot"],
+                overshoot_delay=group["overshoot_delay"],
                 eps=group["eps"],
                 maximize=group["maximize"],
                 foreach=group["foreach"],
@@ -265,31 +268,29 @@ class AdamW(Optimizer):
 
     # TODO: This is only experimental!
     def move_to_base(self):
+        if len(self.state) == 0:
+            return
+        clamp = lambda x, l, h: max(min(x, h), l)
         for group in self.param_groups:
             beta1, beta2 = cast(Tuple[float, float], group["betas"])
             for param in group["params"]:
-                if param.grad is None:
-                    continue
-                if len(self.state[param]) == 0:
-                    return
-                step_t = self.state[param]["step"]
-                step = _get_value(step_t)
+                step = _get_value(self.state[param]["step"])
+                overshoot = clamp(step - group["overshoot_delay"], 0, group["overshoot"])
                 denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
-                param.addcdiv_(self.state[param]["exp_avg"], denom, value=group["lr"] * group["overshoot"] / (1 - beta1**step))
+                param.addcdiv_(self.state[param]["exp_avg"], denom, value=group["lr"] * overshoot / (1 - beta1**step))
                 
     # TODO: This is only experimental!
     def move_to_overshoot(self):
+        if len(self.state) == 0:
+            return
+        clamp = lambda x, l, h: max(min(x, h), l)
         for group in self.param_groups:
             beta1, beta2 = cast(Tuple[float, float], group["betas"])
             for param in group["params"]:
-                if param.grad is None:
-                    continue
-                if len(self.state[param]) == 0:
-                    return
-                step_t = self.state[param]["step"]
-                step = _get_value(step_t)
+                step = _get_value(self.state[param]["step"])
+                overshoot = clamp(step - group["overshoot_delay"], 0, group["overshoot"])
                 denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
-                param.addcdiv_(self.state[param]["exp_avg"], denom, value=-group["lr"] * group["overshoot"] / (1 - beta1**step))
+                param.addcdiv_(self.state[param]["exp_avg"], denom, value=-group["lr"] * overshoot / (1 - beta1**step))
 
 AdamW.__doc__ = (
     r"""Implements AdamW algorithm.
@@ -377,6 +378,7 @@ def _single_tensor_adamw(
     lr: Union[Tensor, float],
     weight_decay: float,
     overshoot: float,
+    overshoot_delay: int,
     eps: float,
     maximize: bool,
     capturable: bool,
@@ -474,7 +476,11 @@ def _single_tensor_adamw(
             else:
                 denom = (exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
 
-            param.addcdiv_(exp_avg, denom, value=-step_size)
+            clamp = lambda x, l, h: max(min(x, h), l)
+            overshoot_old = clamp(step - 1 - overshoot_delay, 0, overshoot)
+            overshoot_new = clamp(step - overshoot_delay, 0, overshoot)
+            grad.mul_(-step_size * overshoot_old * (1 - beta1) / beta1).add_(exp_avg, alpha=-step_size * (overshoot_new - overshoot_old/beta1 + 1))
+            param.addcdiv_(grad, denom)
 
         # Lastly, switch back to complex view
         if amsgrad and torch.is_complex(params[i]):
@@ -499,6 +505,7 @@ def _multi_tensor_adamw(
     lr: Union[Tensor, float],
     weight_decay: float,
     overshoot: float,
+    overshoot_delay: int,
     eps: float,
     maximize: bool,
     capturable: bool,
@@ -693,6 +700,7 @@ def _fused_adamw(
     lr: Union[Tensor, float],
     weight_decay: float,
     overshoot: float,
+    overshoot_delay: int,
     eps: float,
     maximize: bool,
     capturable: bool,  # Needed for consistency.
@@ -760,6 +768,7 @@ def _fused_adamw(
             beta2=beta2,
             weight_decay=weight_decay,
             overshoot=overshoot,
+            overshoot_delay=overshoot_delay,
             eps=eps,
             maximize=maximize,
             grad_scale=device_grad_scale,
@@ -796,6 +805,7 @@ def adamw(
     lr: Union[float, Tensor],
     weight_decay: float,
     overshoot: float,
+    overshoot_delay: int,
     eps: float,
     maximize: bool,
 ):
@@ -852,6 +862,7 @@ def adamw(
         lr=lr,
         weight_decay=weight_decay,
         overshoot=overshoot,
+        overshoot_delay=overshoot_delay,
         eps=eps,
         maximize=maximize,
         capturable=capturable,
