@@ -95,8 +95,13 @@ def init_model(model_name, datatset, trainer_config):
         model_name = model_map[model_name]
         config = AutoConfig.from_pretrained(model_name)
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        # config.hidden_dropout_prob = 0.0  # Default is 0.1
-        # config.attention_probs_dropout_prob = 0.0  # Default is 0.1
+        if "gpt" in model_name:
+            config.resid_pdrop = 0
+            config.embd_pdrop = 0
+            config.attn_pdrop = 0
+        else:
+            config.hidden_dropout_prob = 0.0  # Default is 0.1
+            config.attention_probs_dropout_prob = 0.0  # Default is 0.1
         config.ignore_mismatched_sizes = True
 
         if isinstance(datatset, NextTokenDataloader):
