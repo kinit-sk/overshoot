@@ -1,8 +1,11 @@
 import os
+from typing import Callable, Optional
+
 import tiktoken
 import torch
 import pandas as pd
 from torchvision import datasets, transforms
+from torch.utils.data import random_split
 from sklearn.datasets import fetch_california_housing
 from sklearn.preprocessing import StandardScaler
 from datasets import load_dataset
@@ -92,71 +95,58 @@ class NextTokenDataloader:
         
         
         
-class MnistDataset:
-    def __init__(self) -> None:
-        transform = transforms.Compose([
-            transforms.Grayscale(num_output_channels=3), 
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,)),  # Normalize with mean and std deviation for MNIST
-            # transforms.RandomRotation(10),
-        ])
-        self.dataset = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
+class UnifiedDatasetInterface:
+    def __init__(self, data, n_ouputs: int, is_classification: bool, batching_fn: Optional[Callable] = None):
+        self.data = data
+        self._n_outputs = n_ouputs
+        self._is_classification = is_classification
+        self._batching_fn = batching_fn
+        self._batching_fn = None
         
     def __getitem__(self, index):
-        return {"x": self.dataset[index][0], "labels": self.dataset[index][1]}
+        return {"x": self.data[index][0], "labels": self.data[index][1]}
 
     def __len__(self):
-        return len(self.dataset)
+        return len(self.data)
         
     def is_classification(self):
-        return True
+        return self._is_classification
     
     def n_outputs(self):
-        return 10
+        return self._n_outputs
 
-class Cifar100Dataset:
-    def __init__(self) -> None:
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,)),
-            transforms.RandomRotation(10),
-        ])
-        self.dataset = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=transform)
-        
-    def __getitem__(self, index):
-        return {"x": self.dataset[index][0], "labels": self.dataset[index][1]}
+    def get_batching_fn(self):
+        return self._batching_fn
 
-    def __len__(self):
-        return len(self.dataset)
-        
-    def is_classification(self):
-        return True
-        
-    def n_outputs(self):
-        return 100
-        
-class Cifar10Dataset:
-    def __init__(self) -> None:
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,)),  # Normalize with mean and std deviation for MNIST
-            transforms.RandomRotation(10),
-        ])
-        self.dataset = datasets.CIFAR10(root='./.cifar_data_10', train=True, download=True, transform=transform)
-        
-    def __getitem__(self, index):
-        return {"x": self.dataset[index][0], "labels": self.dataset[index][1]}
+def create_mnist():
+    transform = transforms.Compose([
+        transforms.Grayscale(num_output_channels=3), 
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,)),  # Normalize with mean and std deviation for MNIST
+    ])
+    train = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
+    val = datasets.MNIST(root='./.mnist_data', train=False, download=True, transform=transform)
+    return UnifiedDatasetInterface(train, 10, True), UnifiedDatasetInterface(val, 10, True)
+    
+    
+    
+def create_cifar(cifar_type: int):
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,)),
+        # transforms.RandomRotation(10),
+    ])
+    if cifar_type == 10:
+        train = datasets.CIFAR10(root='./.cifar_data_10', train=True, download=True, transform=transform)
+        test = datasets.CIFAR10(root='./.cifar_data_10', train=False, download=True, transform=transform)
+    elif cifar_type == 100:
+        train = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=transform)
+        test = datasets.CIFAR100(root='./.cifar_data', train=False, download=True, transform=transform)
+    else:
+        raise Exception(f"Unssuported cifar type: {cifar_type}. Suported are: 10, 100")
+    return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
 
-    def __len__(self):
-        return len(self.dataset)
-        
-    def is_classification(self):
-        return True
-        
-    def n_outputs(self):
-        return 10
-        
-        
+
 
 class SST2Datatset:
     def __init__(self, tokenizer: str) -> None:
@@ -238,8 +228,6 @@ class MMLUDataset:
 
     def __getitem__(self, index):
         return index
-    # def __getitem__(self, index):
-    #     return {"input_ids": self.input_ids[index], "attention_mask": self.attention_mask[index], "labels": self.outputs[index]}
 
     def __len__(self):
         return len(self.data)

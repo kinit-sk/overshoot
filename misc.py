@@ -6,9 +6,8 @@ from transformers import (AutoConfig, AutoModelForPreTraining,
 
 from cnn import CNN, ResNet
 from mlp import MLP
-from custom_datasets import (Cifar10Dataset, Cifar100Dataset, MMLUDataset,
-                             MnistDataset, MNLIDataset, NextTokenDataloader,
-                             QQPDataset, SST2Datatset, CaliforniaHousingDataset, EnergyDataset)
+from custom_datasets import (MMLUDataset, MNLIDataset, NextTokenDataloader,
+                             QQPDataset, SST2Datatset, CaliforniaHousingDataset, EnergyDataset, create_mnist, create_cifar)
 from gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
@@ -17,11 +16,11 @@ from trainer_configs import *
 
 def init_dataset(dataset_name, model_name: Optional[str]):
     if dataset_name == "mnist":
-        return MnistDataset()
+        return create_mnist()
     elif dataset_name == "cifar10":
-        return Cifar10Dataset()
+        return create_cifar(10)
     elif dataset_name == "cifar100":
-        return Cifar100Dataset()
+        return create_cifar(100)
     elif dataset_name == "housing":
         return CaliforniaHousingDataset()
     elif dataset_name == "energy":
@@ -84,7 +83,7 @@ def init_model(model_name, datatset, trainer_config):
     if model_name == "gpt_tiny":
         return GPT(GPTTinyConfig(vocab_size=50304))
     elif model_name == "mlp":
-        inpt_shape = datatset[0]["x"].shape
+        inpt_shape = datatset["x"].shape
         return MLP(inpt_shape, n_outputs, datatset.is_classification(), hidden_layers=trainer_config.mlp_hidden_size)
     elif model_name == "cnn":
         inpt_shape = datatset[0]["x"].shape

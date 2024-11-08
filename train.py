@@ -36,15 +36,16 @@ class OvershootTrainer(pl.LightningModule):
         self.base_model = model
         if not args.baseline:
             self.overshoot_model = copy.deepcopy(model)
-        self.dataset = dataset
-        self.steps = int(round(config.B + config.epochs * len(dataset) // config.B // max(1, config.n_gpu)))
+        self.train_dataset, self.val_dataset = dataset
+        self.steps = int(round(config.B + config.epochs * len(self.train_dataset) // config.B // max(1, config.n_gpu)))
+        print("Total training steps: ", self.steps)
         if config.max_steps:
             self.steps = min(self.steps, config.max_steps)
         self.config = config
-        self.all_stats = []
+        self.train_stats, self.val_stats = [], []
         self.current_step = 0
-        self.losses = []
-        self.accuracy = []
+        self.train_losses, self.train_accuracy = [], []
+        self.val_losses, self.val_accuracy = [], []
         self.overshoot_losses = []
         self.all_params_base = []
         self.all_params_overshoot = []
@@ -152,7 +153,7 @@ class OvershootTrainer(pl.LightningModule):
         train_fn = self._baseline_training_step if self.automatic_optimization else self._overshoot_training_step
         loss_base, loss_overshoot, output_base = train_fn(batch, batch_idx)
 
-        for losses, new_loss in [(self.losses, loss_base.item()), (self.overshoot_losses, loss_overshoot.item())]:
+        for losses, new_loss in [(self.train_losses, loss_base.item()), (self.overshoot_losses, loss_overshoot.item())]:
             losses.append(new_loss)
             if len(losses) > 100:
                 losses.pop(0)
@@ -166,15 +167,15 @@ class OvershootTrainer(pl.LightningModule):
             "td": time.time() - self.last_time,
         }
         for avg in [1, 20, 50, 100]:
-            stats[f"base_loss_{avg}"] = float(np.mean(self.losses[-avg:]))
+            stats[f"base_loss_{avg}"] = float(np.mean(self.train_losses[-avg:]))
             stats[f"overshoot_loss_{avg}"] = float(np.mean(self.overshoot_losses[-avg:])) # For baseline same as base loss
                 
-        if self.dataset.is_classification():
-            self.accuracy.append(100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item())
-            if len(self.accuracy) > 100:
-                self.accuracy.pop(0)
+        if self.train_dataset.is_classification():
+            self.train_accuracy.append(100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item())
+            if len(self.train_accuracy) > 100:
+                self.train_accuracy.pop(0)
             for avg in [1, 20, 50, 100]:
-                stats[f"accuracy_{avg}"] = float(np.mean(self.accuracy[-avg:]))
+                stats[f"accuracy_{avg}"] = float(np.mean(self.train_accuracy[-avg:]))
 
         if args.compute_cosine:
             stats["grads_cosine_similarity"] = self.grad_cosine_sim
@@ -185,12 +186,24 @@ class OvershootTrainer(pl.LightningModule):
             
         self.__print_stats(stats)
         self.log_dict(stats)
-        self.all_stats.append(stats)
+        self.train_stats.append(stats)
         
         self.last_time = time.time()
         self.current_step += 1
         self.trainer.should_stop = self.current_step >= self.steps
         return loss_overshoot
+
+    def validation_step(self, batch, batch_idx):
+        with torch.no_grad():
+            output = self.base_model.forward(**batch)
+        self.val_losses.append(output["loss"].item())
+        self.val_accuracy.append(100 * torch.mean(output["logits"].argmax(dim=-1) == batch["labels"], dtype=float).item())
+        
+    def on_validation_epoch_end(self):
+        s = {"epoch": self.current_epoch, "loss": np.mean(self.val_losses), "accuracy": np.mean(self.val_accuracy)}
+        print(f"===TEST=== Epoch: {s['epoch']}, Loss: {s['loss']:.4f}, Accuracy: {s['accuracy']:.2f}", flush=True)
+        self.val_stats.append(s)
+        self.val_losses, self.val_accuracy = [], []
 
     def configure_optimizers(self):
         optimizers = []
@@ -285,17 +298,17 @@ class OvershootTrainer(pl.LightningModule):
         return optimizers
 
     def train_dataloader(self):
-        print("Total Steps: ", self.steps)
-        if hasattr(self.dataset, "batching"):
-            return DataLoader(self.dataset, batch_size=self.config.B, collate_fn=self.dataset.batching)
-        else:
-            return DataLoader(self.dataset, batch_size=self.config.B)
+        return DataLoader(self.train_dataset, batch_size=self.config.B, collate_fn=self.train_dataset.get_batching_fn())
+
+    def val_dataloader(self):
+        if self.val_dataset is not None:
+            return DataLoader(self.val_dataset, batch_size=self.config.B, collate_fn=self.val_dataset.get_batching_fn())
 
     def on_train_end(self):
         dst_dir = os.path.join("lightning_logs", args.experiment_name, args.job_name)
         version = f"version_{len(next(os.walk(dst_dir))[1]) - 1}"
-        df = pd.DataFrame(self.all_stats)
-        df.to_csv(os.path.join(dst_dir, version, "training_stats.csv"), index=False)
+        pd.DataFrame(self.train_stats).to_csv(os.path.join(dst_dir, version, "training_stats.csv"), index=False)
+        pd.DataFrame(self.val_stats).to_csv(os.path.join(dst_dir, version, "validation_stats.csv"), index=False)
         
 # -----------------------------------------------------------------------------
 def main():
@@ -309,7 +322,7 @@ def main():
     dataset = init_dataset(args.dataset, args.model)
     
     # 3) Create model
-    model = init_model(args.model, dataset, trainer_config)
+    model = init_model(args.model, dataset[0], trainer_config)
         # Doesn't work inside devana slurn job
         # model = torch.compile(model)
     print("-------------------------------")
