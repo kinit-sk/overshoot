@@ -206,8 +206,6 @@ class OvershootTrainer(pl.LightningModule):
             if hasattr(self.optimizers(), "move_to_base"):
                 with torch.no_grad():
                     self.optimizers().move_to_base()
-                    # !!! For some reason when performing the inference on base_model, training breaks
-                    # This deep copy is only needed when using GPT with 16-bit precision
                     self.eval_model = copy.deepcopy(self.base_model)
                     self.optimizers().move_to_overshoot()
             else:
