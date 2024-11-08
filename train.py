@@ -33,6 +33,7 @@ class OvershootTrainer(pl.LightningModule):
         super(OvershootTrainer, self).__init__()
         # Manual optimization: https://lightning.ai/docs/pytorch/stable/common/optimization.html
         self.automatic_optimization = args.baseline
+        self.eval_model = None
         self.base_model = model
         if not args.baseline:
             self.overshoot_model = copy.deepcopy(model)
@@ -201,8 +202,19 @@ class OvershootTrainer(pl.LightningModule):
         return loss_overshoot
 
     def validation_step(self, batch, batch_idx):
+        if self.eval_model is None:
+            if hasattr(self.optimizers(), "move_to_base"):
+                with torch.no_grad():
+                    self.optimizers().move_to_base()
+                    # !!! For some reason when performing the inference on base_model, training breaks
+                    # This deep copy is only needed when using GPT with 16-bit precision
+                    self.eval_model = copy.deepcopy(self.base_model)
+                    self.optimizers().move_to_overshoot()
+            else:
+                self.eval_model = self.base_model
+        
         with torch.no_grad():
-            output = self.base_model.forward(**batch)
+            output = self.eval_model.forward(**batch)
         self.val_losses.append(output["loss"].item())
         if self.val_dataset.is_classification():
             self.val_accuracy.append(100 * torch.mean(output["logits"].argmax(dim=-1) == batch["labels"], dtype=float).item())
@@ -214,7 +226,7 @@ class OvershootTrainer(pl.LightningModule):
         k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
         print(f"===TEST=== " + ' | '.join([k_v_to_str(k, v) for k, v in self.val_stats[-1].items()]), flush=True)
         self.log_dict({f"val_{k}": v for k, v in self.val_stats[-1].items()})
-        self.val_losses, self.val_accuracy = [], []
+        self.val_losses, self.val_accuracy, self.eval_model = [], [], None
 
     def configure_optimizers(self):
         optimizers = []
