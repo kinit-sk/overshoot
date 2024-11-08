@@ -103,10 +103,8 @@ class HousingConfig(DefaultConfig):
 @dataclass
 class EnergyConfig(DefaultConfig):
     B: int = 32
-    lr: float = 0.001
-    epochs: int = 50
-    log_every_n_steps: int = 10
-    mlp_hidden_size = [8]
+    epochs: int = 250
+    mlp_hidden_size = [100, 50]
         
 
 # Using this config to overfit the energy dataset

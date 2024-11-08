@@ -270,46 +270,24 @@ def create_housing_datatset():
     train_dataset = UnifiedDatasetInterface(train_data, 1, False)
     val_dataset = UnifiedDatasetInterface(val_data, 1, False)
     return train_dataset, val_dataset
-
     
-class CaliforniaHousingDataset:
+    
+def create_energy_datatset(file=".datasets/energy_efficiency_data.csv"):
+    data = pd.read_csv(file)
+    scaler = StandardScaler()
+    X = scaler.fit_transform(data.iloc[:, :-2].values)
+    y = data.iloc[:, -2:].values
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+        
+    # Convert to PyTorch tensors
+    X_train_tensor = torch.tensor(X_train, dtype=torch.get_default_dtype())
+    y_train_tensor = torch.tensor(y_train, dtype=torch.get_default_dtype()).view(-1, 1)
+    X_val_tensor = torch.tensor(X_val, dtype=torch.get_default_dtype())
+    y_val_tensor = torch.tensor(y_val, dtype=torch.get_default_dtype()).view(-1, 1)
+    
+    train_data = list(zip(list(torch.unbind(X_train_tensor, dim=0)), list(torch.unbind(y_train_tensor, dim=0))))
+    val_data = list(zip(list(torch.unbind(X_val_tensor, dim=0)), list(torch.unbind(y_val_tensor, dim=0))))
 
-    def __init__(self):
-        dataset = fetch_california_housing()
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(dataset.data)
-        self.X = torch.tensor(X_train, dtype=torch.float32)
-        self.labels = torch.tensor(dataset.target, dtype=torch.float32)
-
-    def __len__(self):
-        return self.X.shape[0]
-        
-    def __getitem__(self, index):
-        return {"x": self.X[index], "labels": self.labels[index]}
-        
-    def is_classification(self):
-        return False
-        
-    def n_outputs(self):
-        return 1
-        
-        
-class EnergyDataset:
-
-    def __init__(self, file=".datasets/energy_efficiency_data.csv"):
-        data = pd.read_csv(file)
-        scaler = StandardScaler()
-        self.X = torch.tensor(scaler.fit_transform(data.iloc[:, :-2].values), dtype=torch.float32)
-        self.labels = torch.tensor(data.iloc[:, -2:].values, dtype=torch.float32)
-
-    def __len__(self):
-        return self.X.shape[0]
-        
-    def __getitem__(self, index):
-        return {"x": self.X[index], "labels": self.labels[index]}
-
-    def is_classification(self):
-        return False
-        
-    def n_outputs(self):
-        return 2
+    train_dataset = UnifiedDatasetInterface(train_data, 2, False)
+    val_dataset = UnifiedDatasetInterface(val_data, 2, False)
+    return train_dataset, val_dataset

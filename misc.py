@@ -7,7 +7,7 @@ from transformers import (AutoConfig, AutoModelForPreTraining,
 from cnn import CNN, ResNet
 from mlp import MLP
 from custom_datasets import (MMLUDataset, MNLIDataset, NextTokenDataloader,
-                             QQPDataset, SST2Datatset, CaliforniaHousingDataset, EnergyDataset, create_mnist, create_cifar, create_housing_datatset)
+                             QQPDataset, SST2Datatset, create_mnist, create_cifar, create_housing_datatset, create_energy_datatset)
 from gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
@@ -24,7 +24,7 @@ def init_dataset(dataset_name, model_name: Optional[str]):
     elif dataset_name == "housing":
         return create_housing_datatset()
     elif dataset_name == "energy":
-        return EnergyDataset()
+        return create_energy_datatset()
         
     assert model_name
     model_map = {
