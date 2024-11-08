@@ -6,8 +6,8 @@ from transformers import (AutoConfig, AutoModelForPreTraining,
 
 from cnn import CNN, ResNet
 from mlp import MLP
-from custom_datasets import (MMLUDataset, MNLIDataset, NextTokenDataloader,
-                             QQPDataset, SST2Datatset, create_mnist, create_cifar, create_housing_datatset, create_energy_datatset)
+from custom_datasets import (NextTokenDataloader,
+                             create_qqp, create_mnist, create_cifar, create_housing_datatset, create_energy_datatset, create_sst)
 from gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
@@ -36,6 +36,7 @@ def init_dataset(dataset_name, model_name: Optional[str]):
         "bloom_hf": "bigscience/bloom-560m",
         "mdeberta_hf": "microsoft/mdeberta-v3-base",
         "t5_hf": "google-t5/t5-base",
+        "minilm": "microsoft/MiniLM-L12-H384-uncased",
     }
     context_map = {
         "gpt_hf": 1024,
@@ -46,9 +47,11 @@ def init_dataset(dataset_name, model_name: Optional[str]):
         "bloom_hf": 512,
         "mdeberta_hf": 512,
         "t5_hf": 512,
+        "minilm": 512,
     }
     tokenizer = AutoTokenizer.from_pretrained(model_map[model_name])
-    tokenizer.pad_token = tokenizer.eos_token
+    if (tokenizer.pad_token is None) and (tokenizer.eos_token is not None):
+        tokenizer.pad_token = tokenizer.eos_token
         
     if dataset_name == "shakespear":
         return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="tiny_shakespear_")
@@ -56,13 +59,14 @@ def init_dataset(dataset_name, model_name: Optional[str]):
     elif dataset_name == "gutenberg":
         return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="gutenberg_books_")
     elif dataset_name == "sst":
-        return SST2Datatset(tokenizer=tokenizer)
+        return create_sst(tokenizer)
     elif dataset_name == "qqp":
-        return QQPDataset(tokenizer=tokenizer)
-    elif dataset_name == "mnli":
-        return MNLIDataset(tokenizer=tokenizer)
-    elif dataset_name == "mmlu":
-        return MMLUDataset(tokenizer=tokenizer)
+        return create_qqp(tokenizer)
+    # TODO:
+    # elif dataset_name == "mnli":
+    #     return MNLIDataset(tokenizer=tokenizer)
+    # elif dataset_name == "mmlu":
+    #     return MMLUDataset(tokenizer=tokenizer)
     else:
         raise ValueError(f"Dataset {dataset_name} not found")
         
@@ -75,6 +79,7 @@ def init_model(model_name, datatset, trainer_config):
         "bloom_hf": "bigscience/bloom-560m",
         "mdeberta_hf": "microsoft/mdeberta-v3-base",
         "t5_hf": "google-t5/t5-base",
+        "minilm": "microsoft/MiniLM-L12-H384-uncased"
     }
     n_outputs = datatset.n_outputs()
 
@@ -109,7 +114,8 @@ def init_model(model_name, datatset, trainer_config):
             config.num_labels = 3 if isinstance(datatset, MNLIDataset) else 2
             model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
 
-        tokenizer.pad_token = tokenizer.eos_token
+        if (tokenizer.pad_token is None) and (tokenizer.eos_token is not None):
+            tokenizer.pad_token = tokenizer.eos_token
         model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
         model.train()
         return model

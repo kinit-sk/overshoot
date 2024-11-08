@@ -1,4 +1,5 @@
 import os
+from functools import partial
 from typing import Callable, Optional
 
 import tiktoken
@@ -102,9 +103,12 @@ class UnifiedDatasetInterface:
         self._n_outputs = n_ouputs
         self._is_classification = is_classification
         self._batching_fn = batching_fn
-        self._batching_fn = None
+        if self._batching_fn is not None:
+            self._batching_fn = partial(self._batching_fn, self)
         
     def __getitem__(self, index):
+        if self._batching_fn is not None:
+            return index
         return {"x": self.data[index][0], "labels": self.data[index][1]}
 
     def __len__(self):
@@ -146,19 +150,10 @@ def create_cifar(cifar_type: int):
     else:
         raise Exception(f"Unssuported cifar type: {cifar_type}. Suported are: 10, 100")
     return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
-
-
-
-class SST2Datatset:
-    def __init__(self, tokenizer: str) -> None:
-        self.data = load_dataset("nyu-mll/glue", "sst2")['train']
-        self.tokenizer = tokenizer
-
-    def __getitem__(self, index):
-        return index
-        
-    def __len__(self):
-        return len(self.data)
+    
+def create_sst(tokenizer):
+    train_data = load_dataset("nyu-mll/glue", "sst2")['train']
+    validation_data = load_dataset("nyu-mll/glue", "sst2")['validation']
     
     def batching(self, x):
         inpts = self.tokenizer([self.data[index]['sentence'] for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
@@ -167,24 +162,17 @@ class SST2Datatset:
         outputs = torch.tensor([self.data[index]['label'] for index in x])
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
-    def is_classification(self):
-        return True
-        
-    def n_outputs(self):
-        return 2
-        
-        
-class QQPDataset:
-    def __init__(self, tokenizer: str) -> None:
-        self.data = load_dataset("nyu-mll/glue", "qqp")['train']
-        self.tokenizer = tokenizer
+    train_dataset = UnifiedDatasetInterface(train_data, 2, True, batching_fn=batching)
+    train_dataset.tokenizer = tokenizer
+    val_dataset =UnifiedDatasetInterface(validation_data, 2, True, batching_fn=batching)
+    val_dataset.tokenizer = tokenizer
+    return train_dataset, val_dataset
 
-    def __getitem__(self, index):
-        return index
 
-    def __len__(self):
-        return len(self.data)
-        
+def create_qqp(tokenizer):
+    train_data = load_dataset("nyu-mll/glue", "qqp")['train']
+    validation_data = load_dataset("nyu-mll/glue", "qqp")['train']
+    
     def batching(self, x):
         inpts = self.tokenizer([f"{self.data[index]['question1']}  {self.data[index]['question2']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
         input_ids = inpts['input_ids']
@@ -192,60 +180,61 @@ class QQPDataset:
         outputs = torch.tensor([self.data[index]['label'] for index in x])
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
-    def is_classification(self):
-        return True
+    train_dataset = UnifiedDatasetInterface(train_data, 2, True, batching_fn=batching)
+    train_dataset.tokenizer = tokenizer
+    val_dataset =UnifiedDatasetInterface(validation_data, 2, True, batching_fn=batching)
+    val_dataset.tokenizer = tokenizer
+    return train_dataset, val_dataset
         
-    def n_outputs(self):
-        return 2
         
-class MNLIDataset:
-    def __init__(self, tokenizer: str) -> None:
-        self.data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
-        self.tokenizer = tokenizer
+# class MNLIDataset:
+#     def __init__(self, tokenizer: str) -> None:
+#         self.data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
+#         self.tokenizer = tokenizer
 
-    def __getitem__(self, index):
-        return index
+#     def __getitem__(self, index):
+#         return index
 
-    def __len__(self):
-        return len(self.data)
+#     def __len__(self):
+#         return len(self.data)
         
-    def batching(self, x):
-        inpts = self.tokenizer([f"{self.data[index]['premise']}  {self.data[index]['hypothesis']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
-        input_ids = inpts['input_ids']
-        attention_mask = inpts['attention_mask']
-        outputs = torch.tensor([self.data[index]['label'] for index in x])
-        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
+#     def batching(self, x):
+#         inpts = self.tokenizer([f"{self.data[index]['premise']}  {self.data[index]['hypothesis']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+#         input_ids = inpts['input_ids']
+#         attention_mask = inpts['attention_mask']
+#         outputs = torch.tensor([self.data[index]['label'] for index in x])
+#         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
-    def is_classification(self):
-        return True
+#     def is_classification(self):
+#         return True
         
-    def n_outputs(self):
-        return 3
+#     def n_outputs(self):
+#         return 3
         
-class MMLUDataset:
-    def __init__(self, tokenizer) -> None:
-        self.data = load_dataset("lighteval/mmlu", "college_mathematics")['auxiliary_train']
-        self.tokenizer = tokenizer
+# class MMLUDataset:
+#     def __init__(self, tokenizer) -> None:
+#         self.data = load_dataset("lighteval/mmlu", "college_mathematics")['auxiliary_train']
+#         self.tokenizer = tokenizer
 
-    def __getitem__(self, index):
-        return index
+#     def __getitem__(self, index):
+#         return index
 
-    def __len__(self):
-        return len(self.data)
+#     def __len__(self):
+#         return len(self.data)
         
-    def batching(self, x):
-        inpts = self.tokenizer([f"{self.data[index]['question']}  {self.data[index]['choices']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
-        input_ids = inpts['input_ids']
-        attention_mask = inpts['attention_mask']
-        outputs = torch.tensor([self.data[index]['answer'] for index in x])
-        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
+#     def batching(self, x):
+#         inpts = self.tokenizer([f"{self.data[index]['question']}  {self.data[index]['choices']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+#         input_ids = inpts['input_ids']
+#         attention_mask = inpts['attention_mask']
+#         outputs = torch.tensor([self.data[index]['answer'] for index in x])
+#         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
-    def is_classification(self):
-        return True
+#     def is_classification(self):
+#         return True
         
-    # TODO: Check if this is correct
-    def n_outputs(self):
-        return 4
+#     # TODO: Check if this is correct
+#     def n_outputs(self):
+#         return 4
 
 
 def create_housing_datatset():
