@@ -197,12 +197,16 @@ class OvershootTrainer(pl.LightningModule):
         with torch.no_grad():
             output = self.base_model.forward(**batch)
         self.val_losses.append(output["loss"].item())
-        self.val_accuracy.append(100 * torch.mean(output["logits"].argmax(dim=-1) == batch["labels"], dtype=float).item())
+        if self.val_dataset.is_classification():
+            self.val_accuracy.append(100 * torch.mean(output["logits"].argmax(dim=-1) == batch["labels"], dtype=float).item())
         
     def on_validation_epoch_end(self):
-        s = {"epoch": self.current_epoch, "loss": np.mean(self.val_losses), "accuracy": np.mean(self.val_accuracy)}
-        print(f"===TEST=== Epoch: {s['epoch']}, Loss: {s['loss']:.4f}, Accuracy: {s['accuracy']:.2f}", flush=True)
-        self.val_stats.append(s)
+        self.val_stats.append({"epoch": self.current_epoch, "loss": float(np.mean(self.val_losses))})
+        if self.val_dataset.is_classification():
+            self.val_stats[-1]["accuracy"] = float(np.mean(self.val_accuracy))
+        k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
+        print(f"===TEST=== " + ' | '.join([k_v_to_str(k, v) for k, v in self.val_stats[-1].items()]), flush=True)
+        self.log_dict({f"val_{k}": v for k, v in self.val_stats[-1].items()})
         self.val_losses, self.val_accuracy = [], []
 
     def configure_optimizers(self):

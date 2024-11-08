@@ -8,6 +8,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import random_split
 from sklearn.datasets import fetch_california_housing
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 from datasets import load_dataset
 
 
@@ -247,6 +248,30 @@ class MMLUDataset:
         return 4
 
 
+def create_housing_datatset():
+    data = fetch_california_housing()
+    X, y = data.data, data.target
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # Normalize the data
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_val = scaler.transform(X_val)
+
+    # Convert to PyTorch tensors
+    X_train_tensor = torch.tensor(X_train, dtype=torch.get_default_dtype())
+    y_train_tensor = torch.tensor(y_train, dtype=torch.get_default_dtype()).view(-1, 1)
+    X_val_tensor = torch.tensor(X_val, dtype=torch.get_default_dtype())
+    y_val_tensor = torch.tensor(y_val, dtype=torch.get_default_dtype()).view(-1, 1)
+    
+    train_data = list(zip(list(torch.unbind(X_train_tensor, dim=0)), list(torch.unbind(y_train_tensor, dim=0))))
+    val_data = list(zip(list(torch.unbind(X_val_tensor, dim=0)), list(torch.unbind(y_val_tensor, dim=0))))
+
+    train_dataset = UnifiedDatasetInterface(train_data, 1, False)
+    val_dataset = UnifiedDatasetInterface(val_data, 1, False)
+    return train_dataset, val_dataset
+
+    
 class CaliforniaHousingDataset:
 
     def __init__(self):

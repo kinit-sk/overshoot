@@ -96,9 +96,9 @@ class DefaultConfig:
 
 @dataclass
 class HousingConfig(DefaultConfig):
-    max_steps: int = 2000
-    log_every_n_steps: int = 10
-    mlp_hidden_size = [50]
+    epochs: int = 200
+    log_every_n_steps: int = 50
+    mlp_hidden_size = [200, 150]
         
 @dataclass
 class EnergyConfig(DefaultConfig):
