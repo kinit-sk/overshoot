@@ -199,7 +199,7 @@ class BloomSstAdamConfig(DefaultConfig):
 @dataclass
 class MinilmSstAdamConfig(DefaultConfig):
     lr: float = 2e-5
-    epochs: int = 20
+    epochs: int = 6
     
     
 @dataclass
