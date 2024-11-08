@@ -41,8 +41,10 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("bloom_hf", "sst", "adam"): BloomSstAdamConfig,
         ("gpt_hf", "qqp", "adam"): GptQqpAdamConfig,
         ("roberta_hf", "qqp", "adam"): RobertaQqpAdamConfig,
-        ("gpt", "shakespear"): GptShakespearConfig,
-        ("gpt", "gutenberg"): GptShakespearConfig,
+        ("gpt", "shakespear", "sgd"): GptShakespearConfig, # TODO
+        ("gpt", "shakespear", "adam"): GptShakespearConfig,
+        ("gpt", "gutenberg", "sgd"): GptGutenbergConfig, # TODO
+        ("gpt", "gutenberg", "adam"): GptGutenbergConfig,
     })[model_name, dataset_name, opt_name]().override(override)
 
     if use_high_precision:
@@ -163,7 +165,7 @@ class ResnetMnistAdamConfig(DefaultConfig):
     
 @dataclass
 class ResnetCifartSgdConfig(DefaultConfig):
-    lr: float = 2e-4 # 4e-3 for cira100
+    lr: float = 2e-3 # 4e-3 for cira100
     epochs: int = 20 # 20 for cira100
     
 @dataclass
@@ -227,3 +229,4 @@ class GptGutenbergConfig(DefaultConfig):
     accumulate_grad_batches: int = 4
     epochs: int = 2
     lr: float = 3e-4
+    max_steps: int  = 6000

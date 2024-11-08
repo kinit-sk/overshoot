@@ -1,6 +1,7 @@
 
 lightning_logs/
 lightning_logs2/
+lightning_logs_v1/
 lightning_logs_backup/
 .next-token-dataloader
 __pycache__
@@ -9,6 +10,8 @@ __pycache__
 .cifar_data_10
 slurm_logs/
 tmp.ipynb
-coco
 distances/raw_distances
 distances/processed_distances
+sequential.sh
+sequential2.sh
+devana-batch-jobs.sh
