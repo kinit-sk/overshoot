@@ -40,6 +40,8 @@ class OvershootTrainer(pl.LightningModule):
         self.steps = int(round(config.B + config.epochs * len(self.train_dataset) // config.B // max(1, config.n_gpu)))
         print("-----------------------------------------------")
         print("Total training steps: ", self.steps)
+        print(f"Epoch steps: {len(self.train_dataset) // (config.B * max(1, config.n_gpu))}")
+        print("--")
         print(f"Train dataset size: {len(self.train_dataset)}")
         if self.val_dataset:
             print(f"Valid dataset size: {len(self.val_dataset)}")

@@ -111,7 +111,8 @@ def init_model(model_name, datatset, trainer_config):
         if isinstance(datatset, NextTokenDataloader):
             model = AutoModelForPreTraining.from_config(config)  # from scratch
         else:
-            config.num_labels = 3 if isinstance(datatset, MNLIDataset) else 2
+            # config.num_labels = 3 if isinstance(datatset, MNLIDataset) else 2
+            config.num_labels = 2
             model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
 
         if (tokenizer.pad_token is None) and (tokenizer.eos_token is not None):

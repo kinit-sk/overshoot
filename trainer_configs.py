@@ -38,6 +38,7 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("resnet", "cifar", "adam"): ResnetCifartAdamConfig,
         ("gpt_hf", "sst", "adam"): GptSstAdamConfig,
         ("roberta_hf", "sst", "adam"): RobertaSstAdamConfig,
+        ("minilm", "sst", "adam"): MinilmSstAdamConfig,
         ("bloom_hf", "sst", "adam"): BloomSstAdamConfig,
         ("gpt_hf", "qqp", "adam"): GptQqpAdamConfig,
         ("roberta_hf", "qqp", "adam"): RobertaQqpAdamConfig,
@@ -188,14 +189,17 @@ class GptSstAdamConfig(DefaultConfig):
 @dataclass
 class RobertaSstAdamConfig(DefaultConfig):
     lr: float = 2e-5
-    epochs: int = 2
-    log_every_n_steps: int = 5
+    epochs: int = 10
     
 @dataclass
 class BloomSstAdamConfig(DefaultConfig):
     lr: float = 2e-5
     epochs: int = 2
-    log_every_n_steps: int = 5
+    
+@dataclass
+class MinilmSstAdamConfig(DefaultConfig):
+    lr: float = 2e-5
+    epochs: int = 20
     
     
 @dataclass
