@@ -300,6 +300,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=lr,
                     momentum=self.config.sgd_momentum,
                     overshoot=args.overshoot_factor,
+                    foreach=False,
                 )
             elif "sgd" in args.opt_name:
                 opt = opt_map[args.opt_name](

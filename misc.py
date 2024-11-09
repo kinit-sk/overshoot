@@ -6,8 +6,9 @@ from transformers import (AutoConfig, AutoModelForPreTraining,
 
 from cnn import CNN, ResNet
 from mlp import MLP
+from vae import VAE
 from custom_datasets import (NextTokenDataloader,
-                             create_qqp, create_mnist, create_cifar, create_housing_datatset, create_energy_datatset, create_sst)
+                             create_qqp, create_mnist, create_cifar, create_housing_datatset, create_energy_datatset, create_sst, create_fasion_mnist)
 from gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
@@ -25,6 +26,8 @@ def init_dataset(dataset_name, model_name: Optional[str]):
         return create_housing_datatset()
     elif dataset_name == "energy":
         return create_energy_datatset()
+    elif dataset_name == "fashion":
+        return create_fasion_mnist()
         
     assert model_name
     model_map = {
@@ -95,6 +98,8 @@ def init_model(model_name, datatset, trainer_config):
         return CNN(inpt_shape, n_outputs)
     elif model_name.startswith("resnet"):
         return ResNet(n_outputs, type=model_name)
+    elif model_name == "vae":
+        return VAE()
     elif model_name in model_map:
         model_name = model_map[model_name]
         config = AutoConfig.from_pretrained(model_name)

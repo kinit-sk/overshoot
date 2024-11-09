@@ -280,3 +280,12 @@ def create_energy_datatset(file=".datasets/energy_efficiency_data.csv"):
     train_dataset = UnifiedDatasetInterface(train_data, 2, False)
     val_dataset = UnifiedDatasetInterface(val_data, 2, False)
     return train_dataset, val_dataset
+
+
+def create_fasion_mnist():
+    # transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
+    transform = transforms.Compose([transforms.ToTensor()])
+    # transform = transforms.Compose([transforms.ToTensor(), transforms.ConvertImageDtype(torch.float16)])
+    train = datasets.FashionMNIST(root="./.fashion_mnist", train=True, download=True, transform=transform)
+    val = datasets.FashionMNIST(root="./.fashion_mnist", train=False, download=True, transform=transform)
+    return UnifiedDatasetInterface(train, 1, False), UnifiedDatasetInterface(val, 1, False)

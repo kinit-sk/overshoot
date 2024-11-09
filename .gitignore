@@ -8,6 +8,7 @@ __pycache__
 .mnist_data
 .cifar_data
 .cifar_data_10
+.fashion_mnist
 slurm_logs/
 tmp.ipynb
 distances/raw_distances
