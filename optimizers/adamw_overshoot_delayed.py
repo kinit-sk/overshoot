@@ -129,7 +129,6 @@ class AdamW(Optimizer):
         amsgrad,
         exp_avgs,
         exp_avg_sqs,
-        last_steps,
         max_exp_avg_sqs,
         state_steps,
     ):
@@ -166,9 +165,6 @@ class AdamW(Optimizer):
                 state["exp_avg_sq"] = torch.zeros_like(
                     p, memory_format=torch.preserve_format
                 )
-                state["last_steps"] = torch.zeros_like(
-                    p, memory_format=torch.preserve_format
-                )
                 if amsgrad:
                     # Maintains max of all exp. moving avg. of sq. grad. values
                     state["max_exp_avg_sq"] = torch.zeros_like(
@@ -177,7 +173,6 @@ class AdamW(Optimizer):
 
             exp_avgs.append(state["exp_avg"])
             exp_avg_sqs.append(state["exp_avg_sq"])
-            last_steps.append(state["last_steps"])
 
             if group["amsgrad"]:
                 max_exp_avg_sqs.append(state["max_exp_avg_sq"])
@@ -219,7 +214,6 @@ class AdamW(Optimizer):
             grads: List[Tensor] = []
             exp_avgs: List[Tensor] = []
             exp_avg_sqs: List[Tensor] = []
-            last_steps: List[Tensor] = []
             max_exp_avg_sqs: List[Tensor] = []
             state_steps: List[Tensor] = []
             amsgrad: bool = group["amsgrad"]
@@ -232,7 +226,6 @@ class AdamW(Optimizer):
                 amsgrad,
                 exp_avgs,
                 exp_avg_sqs,
-                last_steps,
                 max_exp_avg_sqs,
                 state_steps,
             )
@@ -242,7 +235,6 @@ class AdamW(Optimizer):
                 grads,
                 exp_avgs,
                 exp_avg_sqs,
-                last_steps,
                 max_exp_avg_sqs,
                 state_steps,
                 amsgrad=amsgrad,
@@ -366,7 +358,6 @@ def _single_tensor_adamw(
     grads: List[Tensor],
     exp_avgs: List[Tensor],
     exp_avg_sqs: List[Tensor],
-    last_steps: List[Tensor],
     max_exp_avg_sqs: List[Tensor],
     state_steps: List[Tensor],
     grad_scale: Optional[Tensor],
@@ -493,7 +484,6 @@ def _multi_tensor_adamw(
     grads: List[Tensor],
     exp_avgs: List[Tensor],
     exp_avg_sqs: List[Tensor],
-    last_steps: List[Tensor],
     max_exp_avg_sqs: List[Tensor],
     state_steps: List[Tensor],
     grad_scale: Optional[Tensor],
@@ -688,7 +678,6 @@ def _fused_adamw(
     grads: List[Tensor],
     exp_avgs: List[Tensor],
     exp_avg_sqs: List[Tensor],
-    last_steps: List[Tensor],
     max_exp_avg_sqs: List[Tensor],
     state_steps: List[Tensor],
     grad_scale: Optional[Tensor],
@@ -726,7 +715,7 @@ def _fused_adamw(
     )
 
     grouped_tensors = Optimizer._group_tensors_by_device_and_dtype(
-        [params, grads, exp_avgs, exp_avg_sqs, last_steps, max_exp_avg_sqs, state_steps]
+        [params, grads, exp_avgs, exp_avg_sqs, max_exp_avg_sqs, state_steps]
     )
     for (device, _), (
         (
@@ -734,7 +723,6 @@ def _fused_adamw(
             device_grads,
             device_exp_avgs,
             device_exp_avg_sqs,
-            device_last_steps,
             device_max_exp_avg_sqs,
             device_state_steps,
         ),
@@ -759,7 +747,6 @@ def _fused_adamw(
             device_grads,
             device_exp_avgs,
             device_exp_avg_sqs,
-            device_last_steps,
             device_max_exp_avg_sqs,
             device_state_steps,
             amsgrad=amsgrad,
@@ -786,7 +773,6 @@ def adamw(
     grads: List[Tensor],
     exp_avgs: List[Tensor],
     exp_avg_sqs: List[Tensor],
-    last_steps: List[Tensor],
     max_exp_avg_sqs: List[Tensor],
     state_steps: List[Tensor],
     # kwonly args with defaults are not supported by functions compiled with torchscript issue #70627
@@ -853,7 +839,6 @@ def adamw(
         grads,
         exp_avgs,
         exp_avg_sqs,
-        last_steps,
         max_exp_avg_sqs,
         state_steps,
         amsgrad=amsgrad,
