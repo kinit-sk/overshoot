@@ -63,8 +63,7 @@ class OvershootTrainer(pl.LightningModule):
         self.previous_grads = None
         self.previous_params = None
         self.last_update = None
-        self.grad_cosine_sim = 0
-        self.update_cosine_sim = 0
+        self.grad_cosine_sim, self.update_cosine_sim = [], []
 
     def _compute_model_distance(self):
         latest_base_model = torch.cat([p.data.view(-1).cpu() for p in self.base_model.parameters()])
@@ -83,13 +82,19 @@ class OvershootTrainer(pl.LightningModule):
         if self.previous_grads is not None:
             sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
             if not torch.isnan(sim).item():
-                self.grad_cosine_sim = 0.9 * self.grad_cosine_sim + 0.1 * sim.item()
+                # self.grad_cosine_sim = 0.9 * self.grad_cosine_sim + 0.1 * sim.item()
+                self.grad_cosine_sim.append(sim.item())
+                if len(self.grad_cosine_sim) > 100:
+                    self.grad_cosine_sim.pop(0)
         if self.previous_params is not None:
             update = params - self.previous_params
             if self.last_update is not None:
                 sim = F.cosine_similarity(self.last_update, update, dim=0)
                 if not torch.isnan(sim).item():
-                    self.update_cosine_sim = 0.9 * self.update_cosine_sim + 0.1 * sim.item()
+                    # self.update_cosine_sim = 0.9 * self.update_cosine_sim + 0.1 * sim.item()
+                    self.update_cosine_sim.append(sim.item())
+                    if len(self.update_cosine_sim) > 100:
+                        self.update_cosine_sim.pop(0)
             self.last_update = update
         self.previous_grads = grads
         self.previous_params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])
@@ -186,8 +191,9 @@ class OvershootTrainer(pl.LightningModule):
                 stats[f"accuracy_{avg}"] = float(np.mean(self.train_accuracy[-avg:]))
 
         if args.compute_cosine:
-            stats["grads_cosine_similarity"] = self.grad_cosine_sim
-            stats["update_cosine_similarity"] = self.update_cosine_sim
+            for avg in [1, 20, 50, 100]:
+                stats[f"grads_cosine_similarity_{avg}"] = float(np.mean(self.grad_cosine_sim[-avg:]))
+                stats[f"update_cosine_similarity_{avg}"] = float(np.mean(self.update_cosine_sim[-avg:]))
             
         if args.compute_model_distance:
             stats["model_distance"] = model_distance

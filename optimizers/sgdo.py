@@ -145,32 +145,19 @@ class SGDO(Optimizer):
         return loss
         
     # TODO: This is only experimental!
-    def move_to_base(self):
+    def move_to_base(self, wait: bool = False):
+        if len(self.state) == 0:
+            return
         for group in self.param_groups:
-            params: List[Tensor] = []
-            grads: List[Tensor] = []
-            momentum_buffer_list: List[Optional[Tensor]] = []
-            self._init_group(group, params, grads, momentum_buffer_list)
-            for i, param in enumerate(group["params"]):
-                if len(self.state[param]) == 0:
-                    return
-                if param.grad is None:
-                    continue
-                param.add_(momentum_buffer_list[i], alpha=group["lr"] * group["overshoot"])
+            for param in group["params"]:
+                param.add_(self.state[param]["momentum_buffer"], alpha=group["lr"] * group["overshoot"])
                 
     def move_to_overshoot(self):
+        if len(self.state) == 0:
+            return
         for group in self.param_groups:
-            params: List[Tensor] = []
-            grads: List[Tensor] = []
-            momentum_buffer_list: List[Optional[Tensor]] = []
-            self._init_group(group, params, grads, momentum_buffer_list)
-            for i, param in enumerate(group["params"]):
-                if len(self.state[param]) == 0:
-                    return
-                if param.grad is None:
-                    continue
-                param.add_(momentum_buffer_list[i], alpha=-group["lr"] * group["overshoot"])
-
+            for param in group["params"]:
+                param.add_(self.state[param]["momentum_buffer"], alpha=-group["lr"] * group["overshoot"])
 
 
 SGDO.__doc__ = (
