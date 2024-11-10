@@ -124,11 +124,7 @@ class UnifiedDatasetInterface:
         return self._batching_fn
 
 def create_mnist():
-    transform = transforms.Compose([
-        transforms.Grayscale(num_output_channels=3), 
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,)),  # Normalize with mean and std deviation for MNIST
-    ])
+    transform = transforms.Compose([transforms.ToTensor()])
     train = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
     val = datasets.MNIST(root='./.mnist_data', train=False, download=True, transform=transform)
     return UnifiedDatasetInterface(train, 10, True), UnifiedDatasetInterface(val, 10, True)
@@ -138,7 +134,7 @@ def create_mnist():
 def create_cifar(cifar_type: int):
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,)),
+        # transforms.Normalize((0.1307,), (0.3081,)),
         # transforms.RandomRotation(10),
     ])
     if cifar_type == 10:
@@ -283,7 +279,6 @@ def create_energy_datatset(file=".datasets/energy_efficiency_data.csv"):
 
 
 def create_fasion_mnist():
-    # transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
     transform = transforms.Compose([transforms.ToTensor()])
     # transform = transforms.Compose([transforms.ToTensor(), transforms.ConvertImageDtype(torch.float16)])
     train = datasets.FashionMNIST(root="./.fashion_mnist", train=True, download=True, transform=transform)
