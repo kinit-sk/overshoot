@@ -3,6 +3,7 @@ import copy
 import os
 import re
 import time
+import random
 
 import pytorch_lightning as pl
 import numpy as np
@@ -60,10 +61,9 @@ class OvershootTrainer(pl.LightningModule):
         self.distances = []
         self.last_time = time.time()
         # Cosine gradient statistics
-        self.previous_grads = None
-        self.previous_params = None
-        self.last_update = None
-        self.grad_cosine_sim, self.update_cosine_sim = [], []
+        self.previous_params, self.previous_params_est = None, None
+        self.last_update, self.last_update_est = None, None
+        self.update_cosine, self.update_cosine_est = [0], [0]
 
     def _compute_model_distance(self):
         latest_base_model = torch.cat([p.data.view(-1).cpu() for p in self.base_model.parameters()])
@@ -77,33 +77,33 @@ class OvershootTrainer(pl.LightningModule):
         return compute_model_distance(latest_base_model, self.past_models, momentum)
             
     def _cosine_similarity(self):
-        grads = torch.cat([p.grad.view(-1) for p in self.overshoot_model.parameters() if p.grad is not None])
-        params = torch.cat([p.data.view(-1) for p in self.overshoot_model.parameters()])
-        if self.previous_grads is not None:
-            sim = F.cosine_similarity(self.previous_grads, grads, dim=0)
-            if not torch.isnan(sim).item():
-                # self.grad_cosine_sim = 0.9 * self.grad_cosine_sim + 0.1 * sim.item()
-                self.grad_cosine_sim.append(sim.item())
-                if len(self.grad_cosine_sim) > 100:
-                    self.grad_cosine_sim.pop(0)
+        sample_size = 1000
+        params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])
+        if not hasattr(self, "random_indices"):
+            self.random_indices = torch.randint(0, params.size(0), (sample_size,))
+        params_est = params[self.random_indices]
         if self.previous_params is not None:
             update = params - self.previous_params
+            update_est = params_est - self.previous_params_est
             if self.last_update is not None:
-                sim = F.cosine_similarity(self.last_update, update, dim=0)
-                if not torch.isnan(sim).item():
-                    # self.update_cosine_sim = 0.9 * self.update_cosine_sim + 0.1 * sim.item()
-                    self.update_cosine_sim.append(sim.item())
-                    if len(self.update_cosine_sim) > 100:
-                        self.update_cosine_sim.pop(0)
+                similarity = F.cosine_similarity(self.last_update, update, dim=0)
+                similarity_est = F.cosine_similarity(self.last_update_est, update_est, dim=0)
+                for arr, new in [(self.update_cosine, similarity), (self.update_cosine_est, similarity_est)]:
+                    if not torch.isnan(new):
+                        arr.append(new.item())
+                        if len(arr) > 100:
+                            arr.pop(0)
             self.last_update = update
-        self.previous_grads = grads
-        self.previous_params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])
+            self.last_update_est = update_est
+            
+        self.previous_params = params
+        self.previous_params_est = params_est
 
     # This just prints stats to console. Shouldn't be this complicated
     def __print_stats(self, stats):
         if stats["batch_step"] % self.config.log_every_n_steps == 0:
             k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
-            text = ' | '.join([k_v_to_str(k, v) for k, v in stats.items() if not re.search(r"(loss|accuracy)_[0-9][0-9]+$", k)])
+            text = ' | '.join([k_v_to_str(k, v) for k, v in stats.items() if not re.search(r"(loss|accuracy|similarity|est)_[0-9][0-9]+$", k)])
             print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
 
     def _baseline_training_step(self, batch, batch_idx):
@@ -137,20 +137,16 @@ class OvershootTrainer(pl.LightningModule):
                 if param1.grad is not None:
                     param2.grad = param1.grad.clone()
 
-            # 2) (Optional) Compute cosine stats
-            if args.compute_cosine:
-                self._cosine_similarity()
-
-            # 3) Weights BASE -> OVERSHOOT
+            # 2) Weights BASE -> OVERSHOOT
             for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
                 param2.data = param1.data.clone()
 
-            # 4) (Optional) Update learning rates
+            # 3) (Optional) Update learning rates
             if self.config.decay_lr:
                 self.base_scheduler.step()
                 self.overshoot_scheduler.step()
 
-            # 5) Update models based on gradients
+            # 4) Update models based on gradients
             for opt in self.optimizers():
                 opt.step()
                 opt.zero_grad()
@@ -162,6 +158,10 @@ class OvershootTrainer(pl.LightningModule):
         # We compute model distances before model update to have the same behaviour for baseline and overshoot
         if args.compute_model_distance:
             model_distance = self._compute_model_distance()
+            
+        if args.compute_cosine:
+            self._cosine_similarity()
+
             
         train_fn = self._baseline_training_step if self.automatic_optimization else self._overshoot_training_step
         loss_base, loss_overshoot, output_base = train_fn(batch, batch_idx)
@@ -192,8 +192,8 @@ class OvershootTrainer(pl.LightningModule):
 
         if args.compute_cosine:
             for avg in [1, 20, 50, 100]:
-                stats[f"grads_cosine_similarity_{avg}"] = float(np.mean(self.grad_cosine_sim[-avg:]))
-                stats[f"update_cosine_similarity_{avg}"] = float(np.mean(self.update_cosine_sim[-avg:]))
+                stats[f"update_cosine_similarity_{avg}"] = float(np.mean(self.update_cosine[-avg:]))
+                stats[f"update_cosine_similarity_est_{avg}"] = float(np.mean(self.update_cosine_est[-avg:]))
             
         if args.compute_model_distance:
             stats["model_distance"] = model_distance
