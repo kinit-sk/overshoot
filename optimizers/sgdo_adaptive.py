@@ -133,9 +133,9 @@ class SGDO(Optimizer):
         
         self._overshoot_old = self._overshoot_new
         if self.update_cosine < self._cosine_target:
-            self._overshoot_new -= 0.1
+            self._overshoot_new -= 0.01
         else:
-            self._overshoot_new += 0.1
+            self._overshoot_new += 0.01
         
 
         for group in self.param_groups:

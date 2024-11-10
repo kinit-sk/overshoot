@@ -4,12 +4,13 @@ import numpy as np
 from transformers import (AutoConfig, AutoModelForPreTraining,
                           AutoModelForSequenceClassification, AutoTokenizer)
 
-from cnn import CNN, ResNet
-from mlp import MLP
-from vae import VAE
+from models._2c2d import _2c2d
+from models.resnet import ResNet
+from models.mlp import MLP
+from models.vae import VAE
 from custom_datasets import (NextTokenDataloader,
                              create_qqp, create_mnist, create_cifar, create_housing_datatset, create_energy_datatset, create_sst, create_fasion_mnist)
-from gpt import GPT, GPTConfig, GPTTinyConfig
+from models.gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
 
@@ -93,9 +94,9 @@ def init_model(model_name, datatset, trainer_config):
     elif model_name == "mlp":
         inpt_shape = datatset[0]["x"].shape
         return MLP(inpt_shape, n_outputs, datatset.is_classification(), hidden_layers=trainer_config.mlp_hidden_size)
-    elif model_name == "cnn":
+    elif model_name == "2c2d":
         inpt_shape = datatset[0]["x"].shape
-        return CNN(inpt_shape, n_outputs)
+        return _2c2d(inpt_shape, n_outputs)
     elif model_name.startswith("resnet"):
         return ResNet(n_outputs, type=model_name)
     elif model_name == "vae":

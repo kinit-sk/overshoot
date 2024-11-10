@@ -28,10 +28,10 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("mlp", "mnist", "adam"): MlpMnistConfig, # TODO
         ("mlp", "cifar", "sgd"): MlpCifarSgdConfig,
         ("mlp", "cifar", "adam"): MlpCifarSgdConfig, # TODO
-        ("cnn", "mnist", "sgd"): CnnMnistSgdConfig,
-        ("cnn", "mnist", "adam"): CnnMnistAdamConfig,
-        ("cnn", "cifar", "sgd"): CnnCifarSgdConfig,
-        ("cnn", "cifar", "adam"): CnnCifarAdamConfig,
+        ("2c2d", "mnist", "sgd"): _2c2dMnistSgdConfig,
+        ("2c2d", "mnist", "adam"): _2c2dMnistAdamConfig,
+        ("2c2d", "cifar", "sgd"): _2c2dCifarSgdConfig,
+        ("2c2d", "cifar", "adam"): _2c2dCifarAdamConfig,
         ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
         ("resnet", "mnist", "adam"): ResnetMnistAdamConfig,
         ("resnet", "cifar", "sgd"): ResnetCifartSgdConfig,
@@ -139,22 +139,21 @@ class MlpCifarSgdConfig(DefaultConfig):
     
         
 @dataclass
-class CnnMnistSgdConfig(DefaultConfig):
+class _2c2dMnistSgdConfig(DefaultConfig):
     lr: float = 0.01
-    epochs: int = 10
+    epochs: int = 50
         
 @dataclass
-class CnnMnistAdamConfig(DefaultConfig):
-    epochs: int = 10
+class _2c2dMnistAdamConfig(DefaultConfig):
+    epochs: int = 50
     
 @dataclass
-class CnnCifarSgdConfig(DefaultConfig):
-    epochs: int = 15
+class _2c2dCifarSgdConfig(DefaultConfig):
+    epochs: int = 50
     
 @dataclass
-class CnnCifarAdamConfig(DefaultConfig):
-    lr: float = 1e-3
-    epochs: int = 15
+class _2c2dCifarAdamConfig(DefaultConfig):
+    epochs: int = 50
     
     
 @dataclass
