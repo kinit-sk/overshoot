@@ -14,6 +14,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
 from optimizers.sgdo import SGDO
+from optimizers.sgdo_adaptive import SGDO as SGDO_adaptive
 from optimizers.adamw_overshoot_replication import AdamW as OvershootAdamW_replication
 from optimizers.adamw_overshoot_full_approximation import AdamW as OvershootAdamW_full_approximation
 from optimizers.adamw_overshoot_denom_approximation import AdamW as OvershootAdamW_denom_approximation
@@ -182,6 +183,10 @@ class OvershootTrainer(pl.LightningModule):
         for avg in [1, 20, 50, 100]:
             stats[f"base_loss_{avg}"] = float(np.mean(self.train_losses[-avg:]))
             stats[f"overshoot_loss_{avg}"] = float(np.mean(self.overshoot_losses[-avg:])) # For baseline same as base loss
+
+        
+        if hasattr(self.optimizers(), "_overshoot_new"):
+            stats["overshoot_factor"] = self.optimizers()._overshoot_new
                 
         if self.train_dataset.is_classification():
             self.train_accuracy.append(100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item())
@@ -253,6 +258,7 @@ class OvershootTrainer(pl.LightningModule):
                 "sgd_momentum": torch.optim.SGD,
                 "sgd_nesterov": torch.optim.SGD,
                 "sgd_overshoot": SGDO,
+                "sgd_adaptive": SGDO_adaptive,
                 "adam": torch.optim.Adam,
                 "adamW": torch.optim.AdamW,
                 "adam_zero": torch.optim.Adam,
@@ -298,6 +304,14 @@ class OvershootTrainer(pl.LightningModule):
                     lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
                     weight_decay=self.config.weight_decay,
+                    foreach=False,
+                )
+            elif "sgd_adaptive" in args.opt_name:
+                opt = opt_map[args.opt_name](
+                    optim_groups,
+                    lr=lr,
+                    momentum=self.config.sgd_momentum,
+                    cosine_target=self.config.target_cosine_similarity,
                     foreach=False,
                 )
             elif "sgd_overshoot" in args.opt_name:
