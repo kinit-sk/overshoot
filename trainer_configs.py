@@ -102,6 +102,7 @@ class DefaultConfig:
 ############################# MLP regression tasks #############################
 ################################################################################
 
+# When using SGD we do not manage to overfit, but that is fine...
 @dataclass
 class HousingConfig(DefaultConfig):
     epochs: int = 200
