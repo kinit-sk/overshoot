@@ -36,8 +36,10 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("resnet", "mnist", "adam"): ResnetMnistAdamConfig,
         ("resnet", "cifar", "sgd"): ResnetCifartSgdConfig,
         ("resnet", "cifar", "adam"): ResnetCifartAdamConfig,
+        ("vae", "mnist", "sgd"): VaeMnistConfig,
+        ("vae", "mnist", "adam"): VaeMnistConfig,
         ("vae", "fashion", "sgd"): VaeFashionConfig,
-        ("vae", "fashion", "adam"): ResnetCifartAdamConfig,
+        ("vae", "fashion", "adam"): VaeFashionConfig,
         ("gpt_hf", "sst", "adam"): GptSstAdamConfig,
         ("roberta_hf", "sst", "adam"): RobertaSstAdamConfig,
         ("minilm", "sst", "adam"): MinilmSstAdamConfig,
@@ -177,8 +179,12 @@ class ResnetCifartAdamConfig(DefaultConfig):
     epochs: int = 20
     
 @dataclass
+class VaeMnistConfig(DefaultConfig):
+    epochs: int = 100
+    
+@dataclass
 class VaeFashionConfig(DefaultConfig):
-    epochs: int = 50
+    epochs: int = 100
     
     
 ################################################################################
