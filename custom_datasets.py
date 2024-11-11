@@ -255,7 +255,7 @@ def create_housing_datatset(val_split: float = 0.1):
     # Normalize the data
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
-    X_val = scaler.fit_transform(X_val)
+    X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
     # Convert to PyTorch tensors
