@@ -40,7 +40,7 @@ class OvershootTrainer(pl.LightningModule):
         self.base_model = model
         if args.two_models:
             self.overshoot_model = copy.deepcopy(model)
-        self.train_dataset, self.val_dataset = dataset
+        self.train_dataset, self.val_dataset, self.test_dataset = dataset
         self.steps = int(round(config.B + config.epochs * len(self.train_dataset) // config.B // max(1, config.n_gpu)))
         print("-----------------------------------------------")
         print("Total training steps: ", self.steps)
@@ -49,14 +49,16 @@ class OvershootTrainer(pl.LightningModule):
         print(f"Train dataset size: {len(self.train_dataset)}")
         if self.val_dataset:
             print(f"Valid dataset size: {len(self.val_dataset)}")
+        if self.test_dataset:
+            print(f"Test dataset size: {len(self.test_dataset)}")
         print("-----------------------------------------------")
         if config.max_steps:
             self.steps = min(self.steps, config.max_steps)
         self.config = config
-        self.train_stats, self.val_stats = [], []
+        self.train_stats, self.val_stats, self.test_stats = [], [], []
         self.current_step = 0
         self.train_losses, self.train_accuracy = [], []
-        self.val_losses, self.val_accuracy = [], []
+        self.val_losses, self.val_accuracy = None, None
         self.overshoot_losses = []
         self.all_params_base = []
         self.all_params_overshoot = []
@@ -213,7 +215,11 @@ class OvershootTrainer(pl.LightningModule):
         self.trainer.should_stop = self.current_step >= self.steps
         return loss_overshoot
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, dataloader_idx=0):
+        if self.val_losses is None:
+            self.val_losses = [[] for _ in range(len(self.trainer.val_dataloaders))]
+            self.val_accuracy = [[] for _ in range(len(self.trainer.val_dataloaders))]
+            
         if self.eval_model is None:
             if hasattr(self.optimizers(), "move_to_base"):
                 with torch.no_grad():
@@ -225,18 +231,25 @@ class OvershootTrainer(pl.LightningModule):
         
         with torch.no_grad():
             output = self.eval_model.forward(**batch)
-        self.val_losses.append(output["loss"].item())
+        self.val_losses[dataloader_idx].append(output["loss"].item())
         if self.val_dataset.is_classification():
-            self.val_accuracy.append(100 * torch.mean(output["logits"].argmax(dim=-1) == batch["labels"], dtype=float).item())
+            self.val_accuracy[dataloader_idx].append(100 * torch.mean(output["logits"].argmax(dim=-1) == batch["labels"], dtype=float).item())
         
     def on_validation_epoch_end(self):
-        self.val_stats.append({"epoch": self.current_epoch, "loss": float(np.mean(self.val_losses))})
+        self.val_stats.append({"loss": float(np.mean(self.val_losses[0]))})
         if self.val_dataset.is_classification():
-            self.val_stats[-1]["accuracy"] = float(np.mean(self.val_accuracy))
+            self.val_stats[-1]["accuracy"] = float(np.mean(self.val_accuracy[0]))
         k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
-        print(f"===TEST=== " + ' | '.join([k_v_to_str(k, v) for k, v in self.val_stats[-1].items()]), flush=True)
+        print(f"===Validation=== " + ' | '.join([k_v_to_str(k, v) for k, v in self.val_stats[-1].items()]), flush=True)
         self.log_dict({f"val_{k}": v for k, v in self.val_stats[-1].items()})
-        self.val_losses, self.val_accuracy, self.eval_model = [], [], None
+        
+        if self.test_dataset:
+            self.test_stats.append({"loss": float(np.mean(self.val_losses[1]))})
+            if self.test_dataset.is_classification():
+                self.test_stats[-1]["accuracy"] = float(np.mean(self.val_accuracy[1]))
+            # TODO: Remove from tensorboard loggings once verified test is working nicely.
+            self.log_dict({f"test_{k}": v for k, v in self.test_stats[-1].items()})
+        self.val_losses, self.val_accuracy, self.eval_model = None, None, None
 
     def configure_optimizers(self):
         optimizers = []
@@ -354,14 +367,22 @@ class OvershootTrainer(pl.LightningModule):
         return DataLoader(self.train_dataset, batch_size=self.config.B, collate_fn=self.train_dataset.get_batching_fn())
 
     def val_dataloader(self):
+        dataloaders = []
         if self.val_dataset is not None:
-            return DataLoader(self.val_dataset, batch_size=self.config.B, collate_fn=self.val_dataset.get_batching_fn())
+            dataloaders.append(DataLoader(self.val_dataset, batch_size=self.config.B, collate_fn=self.val_dataset.get_batching_fn()))
+        if self.test_dataset is not None:
+            dataloaders.append(DataLoader(self.test_dataset, batch_size=self.config.B, collate_fn=self.test_dataset.get_batching_fn()))
+        return dataloaders
+            
 
     def on_train_end(self):
         dst_dir = os.path.join("lightning_logs", args.experiment_name, args.job_name)
         version = f"version_{len(next(os.walk(dst_dir))[1]) - 1}"
         pd.DataFrame(self.train_stats).to_csv(os.path.join(dst_dir, version, "training_stats.csv"), index=False)
-        pd.DataFrame(self.val_stats).to_csv(os.path.join(dst_dir, version, "validation_stats.csv"), index=False)
+        if self.val_dataset:
+            pd.DataFrame(self.val_stats).to_csv(os.path.join(dst_dir, version, "validation_stats.csv"), index=False)
+        if self.test_dataset:
+            pd.DataFrame(self.test_stats).to_csv(os.path.join(dst_dir, version, "test_stats.csv"), index=False)
         
 # -----------------------------------------------------------------------------
 def main():

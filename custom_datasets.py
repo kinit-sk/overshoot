@@ -123,30 +123,43 @@ class UnifiedDatasetInterface:
     def get_batching_fn(self):
         return self._batching_fn
 
-def create_mnist():
+def create_mnist(val_split: float = 0.1):
     transform = transforms.Compose([transforms.ToTensor()])
-    train = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
-    val = datasets.MNIST(root='./.mnist_data', train=False, download=True, transform=transform)
-    return UnifiedDatasetInterface(train, 10, True), UnifiedDatasetInterface(val, 10, True)
+    train_val = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
+    test = datasets.MNIST(root='./.mnist_data', train=False, download=True, transform=transform)
+    val_size = round(len(train_val) * val_split)
+    train, val = random_split(train_val, [len(train_val) - val_size, val_size])
+    return UnifiedDatasetInterface(train, 10, True), UnifiedDatasetInterface(val, 10, True), UnifiedDatasetInterface(test, 10, True)
     
     
-    
-def create_cifar(cifar_type: int):
+def create_cifar(cifar_type: int, val_split: float = 0.1):
     transform = transforms.Compose([
         transforms.ToTensor(),
         # transforms.Normalize((0.1307,), (0.3081,)),
         # transforms.RandomRotation(10),
     ])
     if cifar_type == 10:
-        train = datasets.CIFAR10(root='./.cifar_data_10', train=True, download=True, transform=transform)
+        train_val = datasets.CIFAR10(root='./.cifar_data_10', train=True, download=True, transform=transform)
         test = datasets.CIFAR10(root='./.cifar_data_10', train=False, download=True, transform=transform)
     elif cifar_type == 100:
-        train = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=transform)
+        train_val = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=transform)
         test = datasets.CIFAR100(root='./.cifar_data', train=False, download=True, transform=transform)
     else:
         raise Exception(f"Unssuported cifar type: {cifar_type}. Suported are: 10, 100")
-    return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
+    val_size = round(len(train_val) * val_split)
+    train, val = random_split(train_val, [len(train_val) - val_size, val_size])
+    return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
     
+    
+def create_fasion_mnist(val_split: float = 0.1):
+    transform = transforms.Compose([transforms.ToTensor()])
+    train_val = datasets.FashionMNIST(root="./.fashion_mnist", train=True, download=True, transform=transform)
+    test = datasets.FashionMNIST(root="./.fashion_mnist", train=False, download=True, transform=transform)
+    val_size = round(len(train_val) * val_split)
+    train, val = random_split(train_val, [len(train_val) - val_size, val_size])
+    return UnifiedDatasetInterface(train, 1, False), UnifiedDatasetInterface(val, 1, False), UnifiedDatasetInterface(test, 1, False)
+    
+# TODO: Create Test split
 def create_sst(tokenizer):
     train_data = load_dataset("nyu-mll/glue", "sst2")['train']
     validation_data = load_dataset("nyu-mll/glue", "sst2")['validation']
@@ -162,7 +175,7 @@ def create_sst(tokenizer):
     train_dataset.tokenizer = tokenizer
     val_dataset =UnifiedDatasetInterface(validation_data, 2, True, batching_fn=batching)
     val_dataset.tokenizer = tokenizer
-    return train_dataset, val_dataset
+    return train_dataset, val_dataset, None # TODO: Create Test split
 
 
 def create_qqp(tokenizer):
@@ -180,7 +193,7 @@ def create_qqp(tokenizer):
     train_dataset.tokenizer = tokenizer
     val_dataset =UnifiedDatasetInterface(validation_data, 2, True, batching_fn=batching)
     val_dataset.tokenizer = tokenizer
-    return train_dataset, val_dataset
+    return train_dataset, val_dataset, None # TODO: Create Test split
         
         
 # class MNLIDataset:
@@ -233,28 +246,34 @@ def create_qqp(tokenizer):
 #         return 4
 
 
-def create_housing_datatset():
+def create_housing_datatset(val_split: float = 0.1):
     data = fetch_california_housing()
     X, y = data.data, data.target
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train_val, X_test, y_train_val, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val, test_size=val_split, random_state=42)
     
     # Normalize the data
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
-    X_val = scaler.transform(X_val)
+    X_val = scaler.fit_transform(X_val)
+    X_test = scaler.transform(X_test)
 
     # Convert to PyTorch tensors
     X_train_tensor = torch.tensor(X_train, dtype=torch.get_default_dtype())
     y_train_tensor = torch.tensor(y_train, dtype=torch.get_default_dtype()).view(-1, 1)
     X_val_tensor = torch.tensor(X_val, dtype=torch.get_default_dtype())
     y_val_tensor = torch.tensor(y_val, dtype=torch.get_default_dtype()).view(-1, 1)
+    X_test_tensor = torch.tensor(X_test, dtype=torch.get_default_dtype())
+    y_test_tensor = torch.tensor(y_test, dtype=torch.get_default_dtype()).view(-1, 1)
     
     train_data = list(zip(list(torch.unbind(X_train_tensor, dim=0)), list(torch.unbind(y_train_tensor, dim=0))))
     val_data = list(zip(list(torch.unbind(X_val_tensor, dim=0)), list(torch.unbind(y_val_tensor, dim=0))))
+    test_data = list(zip(list(torch.unbind(X_test_tensor, dim=0)), list(torch.unbind(y_test_tensor, dim=0))))
 
     train_dataset = UnifiedDatasetInterface(train_data, 1, False)
     val_dataset = UnifiedDatasetInterface(val_data, 1, False)
-    return train_dataset, val_dataset
+    test_dataset = UnifiedDatasetInterface(test_data, 1, False)
+    return train_dataset, val_dataset, test_dataset
     
     
 def create_energy_datatset(file=".datasets/energy_efficiency_data.csv"):
@@ -275,12 +294,5 @@ def create_energy_datatset(file=".datasets/energy_efficiency_data.csv"):
 
     train_dataset = UnifiedDatasetInterface(train_data, 2, False)
     val_dataset = UnifiedDatasetInterface(val_data, 2, False)
-    return train_dataset, val_dataset
+    return train_dataset, val_dataset, None # TODO: Create Test split
 
-
-def create_fasion_mnist():
-    transform = transforms.Compose([transforms.ToTensor()])
-    # transform = transforms.Compose([transforms.ToTensor(), transforms.ConvertImageDtype(torch.float16)])
-    train = datasets.FashionMNIST(root="./.fashion_mnist", train=True, download=True, transform=transform)
-    val = datasets.FashionMNIST(root="./.fashion_mnist", train=False, download=True, transform=transform)
-    return UnifiedDatasetInterface(train, 1, False), UnifiedDatasetInterface(val, 1, False)
