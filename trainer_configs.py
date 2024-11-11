@@ -131,7 +131,7 @@ class EnergyConfig2(DefaultConfig):
 
 @dataclass
 class MlpMnistConfig(DefaultConfig):
-    epochs: int = 10
+    epochs: int = 100
     mlp_hidden_size = [512, 256]
     
 @dataclass
