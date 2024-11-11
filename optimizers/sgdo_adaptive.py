@@ -114,10 +114,12 @@ class SGDO(Optimizer):
             with torch.enable_grad():
                 loss = closure()
 
+            
+        # ----
+        # Adjust overshoot based on update cosine similarity
         sample_size = 1000
         if not hasattr(self, "update_cosine"):
             self.update_cosine = 0
-            
         all_params = torch.cat([p.data.view(-1).cpu() for group in self.param_groups for p in group["params"]])
         if not hasattr(self, "random_indices"):
             self.random_indices = torch.randint(0, all_params.size(0), (sample_size,))
@@ -136,6 +138,7 @@ class SGDO(Optimizer):
             self._overshoot_new -= 0.01
         else:
             self._overshoot_new += 0.01
+        # ----
         
 
         for group in self.param_groups:

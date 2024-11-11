@@ -19,6 +19,7 @@ from optimizers.adamw_overshoot_replication import AdamW as OvershootAdamW_repli
 from optimizers.adamw_overshoot_full_approximation import AdamW as OvershootAdamW_full_approximation
 from optimizers.adamw_overshoot_denom_approximation import AdamW as OvershootAdamW_denom_approximation
 from optimizers.adamw_overshoot_delayed import AdamW as OvershootAdamW_delayed
+from optimizers.adamw_overshoot_adaptive import AdamW as OvershootAdamW_adaptive
 
 
 from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance
@@ -268,6 +269,7 @@ class OvershootTrainer(pl.LightningModule):
                 "adamW_overshoot_full_approximation": OvershootAdamW_full_approximation,
                 "adamW_overshoot_denom_approximation": OvershootAdamW_denom_approximation,
                 "adamW_overshoot_delayed": OvershootAdamW_delayed,
+                "adamW_overshoot_adaptive": OvershootAdamW_adaptive,
                 "rmsprop": torch.optim.RMSprop,
             }
             if args.opt_name == "nadam":
@@ -286,6 +288,15 @@ class OvershootTrainer(pl.LightningModule):
                     weight_decay=self.config.weight_decay,
                     overshoot=args.overshoot_factor,
                     overshoot_delay=self.config.overshoot_delay,
+                    foreach=False,
+                )
+            elif args.opt_name == "adamW_overshoot_adaptive":
+                opt = opt_map[args.opt_name](
+                    optim_groups,
+                    lr=lr,
+                    betas=(self.config.adam_beta1, self.config.adam_beta2),
+                    weight_decay=self.config.weight_decay,
+                    cosine_target=self.config.target_cosine_similarity,
                     foreach=False,
                 )
             elif args.opt_name.startswith("adamW_overshoot"):
