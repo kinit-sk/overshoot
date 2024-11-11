@@ -34,10 +34,10 @@ class OvershootTrainer(pl.LightningModule):
     def __init__(self, model: torch.nn.Module, dataset, config):
         super(OvershootTrainer, self).__init__()
         # Manual optimization: https://lightning.ai/docs/pytorch/stable/common/optimization.html
-        self.automatic_optimization = args.baseline
+        self.automatic_optimization = not args.two_models
         self.eval_model = None
         self.base_model = model
-        if not args.baseline:
+        if args.two_models:
             self.overshoot_model = copy.deepcopy(model)
         self.train_dataset, self.val_dataset = dataset
         self.steps = int(round(config.B + config.epochs * len(self.train_dataset) // config.B // max(1, config.n_gpu)))
@@ -378,7 +378,7 @@ def main():
         enable_progress_bar=False,
         enable_checkpointing=False,
         log_every_n_steps=trainer_config.log_every_n_steps,
-        accumulate_grad_batches=trainer_config.accumulate_grad_batches if args.baseline else 1,
+        accumulate_grad_batches=1 if args.two_models else trainer_config.accumulate_grad_batches,
         logger=TensorBoardLogger(save_dir=os.path.join("lightning_logs", args.experiment_name), name=args.job_name),
         precision="16-mixed" if trainer_config.use_16_bit_precision else None,
         deterministic=True if args.seed else None,
@@ -391,21 +391,21 @@ def main():
 
 if __name__ == "__main__":
     # We should always observe the same results from:
-    #   1) python train.py --baseline --seed 1
-    #   2) python train.py --overshoot_factor 0 --seed 1
+    #   1) python train.py --high_precision --seed 1
+    #   2) python train.py --high_precision --seed 1 --two_models --overshoot_factor 0
     # Sadly deterministic have to use 32-bit precision because of bug in pl.
 
     # We should observe the same results for:
-    #  1)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_nesterov --baseline
-    #  2)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_overshoot --baseline --overshoot_factor 0.9
-    #  3)  python train.py --model cnn --dataset mnist --seed 1 --opt_name sgd_momentum --overshoot_factor 0.9
-    # For sanity check always use accelerator='cpu' !!!
+    #  1)  python train.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_nesterov --config_override max_steps=160
+    #  2)  python train.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_momentum --two_models --overshoot_factor 0.9 --config_override max_steps=160
+    #  3)  python train.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_overshoot --overshoot_factor 0.9 --config_override max_steps=160
+    # ADD 1: In case of nesterov only overshoot model is expected to be equal
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment_name", type=str, default="test", help="Folder name to store experiment results")
     parser.add_argument("--job_name", type=str, default="test", help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Look-ahead factor when computng gradients")
-    parser.add_argument("--baseline", action=argparse.BooleanOptionalAction, default=False, help="Default process")
+    parser.add_argument("--two_models", action=argparse.BooleanOptionalAction, default=False, help="Use process with base and overshoot models")
     parser.add_argument("--seed", type=int, required=False, help="If specified, use this seed for reproducibility.")
     parser.add_argument("--opt_name", type=str, required=True)
     parser.add_argument("--compute_model_distance", action=argparse.BooleanOptionalAction, required=False)
@@ -439,9 +439,6 @@ if __name__ == "__main__":
         help="Sequence of key-value pairs to override config. E.g. --config_override lr=0.01",
     )
     args = parser.parse_args()
-    assert (
-        (args.overshoot_factor is not None) or args.baseline
-    ), "Overshoot factor or baseline needs to be set. See python train.py --help"
     if args.seed:
         pl.seed_everything(args.seed)
     if args.high_precision:
