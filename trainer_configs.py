@@ -20,8 +20,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
     dataset_name = reduce(dataset_name, "cifar")
         
     cfg = defaultdict(lambda: DefaultConfig, {
-        ("mlp", "housing", "sgd"): HousingConfig,
-        ("mlp", "housing", "adam"): HousingConfig,
+        ("mlp", "housing", "sgd"): HousingConfig, ### TABLE 1: 1nd row config
+        ("mlp", "housing", "adam"): HousingConfig, ### TABLE 1: 1nd row config
         ("mlp", "energy", "sgd"): EnergyConfig,
         ("mlp", "energy", "adam"): EnergyConfig,
         ("mlp", "mnist", "sgd"): MlpMnistConfig,
@@ -30,10 +30,10 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("mlp", "cifar", "adam"): MlpCifarSgdConfig, # TODO
         ("2c2d", "mnist", "sgd"): _2c2dMnistSgdConfig,
         ("2c2d", "mnist", "adam"): _2c2dMnistAdamConfig,
-        ("2c2d", "cifar", "sgd"): _2c2dCifarSgdConfig,
-        ("2c2d", "cifar", "adam"): _2c2dCifarAdamConfig,
-        ("2c2d", "fashion", "sgd"): _2c2dFashionSgdConfig,
-        ("2c2d", "fashion", "adam"): _2c2dFashionAdamConfig,
+        ("2c2d", "fashion", "sgd"): _2c2dFashionSgdConfig, ### TABLE 1: 2nd row config
+        ("2c2d", "fashion", "adam"): _2c2dFashionAdamConfig, ### TABLE 1: 2nd row config
+        ("3c3d", "cifar", "sgd"): _3c3dCifarSgdConfig, ### TABLE 1: 3nd row config
+        ("3c3d", "cifar", "adam"): _3c3dCifarAdamConfig, ### TABLE 1: 3nd row config
         ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
         ("resnet", "mnist", "adam"): ResnetMnistAdamConfig,
         ("resnet", "cifar", "sgd"): ResnetCifartSgdConfig,
@@ -104,6 +104,7 @@ class DefaultConfig:
 ############################# MLP regression tasks #############################
 ################################################################################
 
+### TABLE 1: 1nd row config
 # When using SGD we do not manage to overfit, but that is fine...
 @dataclass
 class HousingConfig(DefaultConfig):
@@ -152,21 +153,27 @@ class _2c2dMnistSgdConfig(DefaultConfig):
 class _2c2dMnistAdamConfig(DefaultConfig):
     epochs: int = 50
     
-@dataclass
-class _2c2dCifarSgdConfig(DefaultConfig):
-    epochs: int = 50
-    
-@dataclass
-class _2c2dCifarAdamConfig(DefaultConfig):
-    epochs: int = 25
-    
+### TABLE 1: 2nd row config
 @dataclass
 class _2c2dFashionSgdConfig(DefaultConfig):
     epochs: int = 50
     
+### TABLE 1: 2nd row config
 @dataclass
 class _2c2dFashionAdamConfig(DefaultConfig):
     epochs: int = 10
+    
+### TABLE 1: 3nd row config
+@dataclass
+class _3c3dCifarSgdConfig(DefaultConfig):
+    B: int = 128
+    epochs: int = 100
+    
+### TABLE 1: 3nd row config
+@dataclass
+class _3c3dCifarAdamConfig(DefaultConfig):
+    B: int = 128
+    epochs: int = 100
     
     
 @dataclass
