@@ -31,9 +31,26 @@ task_name_mapping = {
     "2c2d_fashion": "Fashion",
 }
 
+task_name_to_min_max = {
+    "Housing": min,
+    "Mnist": max,
+    "Fashion": max
+}
+
+
+rows_to_drop = [
+    "Mnist"
+]
+columns_to_drop = [
+    "SGDA",
+    "AdamA",
+]
+
 def bold_min(row):
-    sgd_min = min([x[1][0] for x in row.items() if 'SGD' in x[0] or 'CM' in x[0]])
-    adam_min = min([x[1][0] for x in row.items() if 'Adam' in x[0]])
+    # import code; code.interact(local=locals())
+    fn_to_use = task_name_to_min_max[row.name]
+    sgd_min = fn_to_use([x[1][0] for x in row.items() if 'SGD' in x[0] or 'CM' in x[0]])
+    adam_min = fn_to_use([x[1][0] for x in row.items() if 'Adam' in x[0]])
     return [f"\\textbf{{{val[0]} \u00B1{val[1]}}}" if (val[0] == sgd_min or val[0] == adam_min) else f"{val[0]} \u00B1{val[1]}" for _, val in row.items()]
 
 
@@ -46,7 +63,7 @@ def mean_confidence_interval(data, confidence_interval: float=0.95):
     # Calculate the 95% confidence interval
     confidence_interval = stats.t.interval(confidence_interval, len(data) - 1, loc=mean, scale=sem)
 
-    return round(mean, 4), round(mean - confidence_interval[0], 4)
+    return round(mean, 2), round(mean - confidence_interval[0], 2)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -82,9 +99,10 @@ if __name__ == "__main__":
                 else:
                     resutls.append(df["loss"].min())
 
-            task_results[optimizers_names_mapping[run_name]] = mean_confidence_interval(resutls)
             if task_name == "mlp_housing":
-                task_results[optimizers_names_mapping[run_name]] = (round(100 *task_results[optimizers_names_mapping[run_name]][0], 2), round(100 *task_results[optimizers_names_mapping[run_name]][1], 2))
+                resutls = [x * 100 for x in resutls]
+
+            task_results[optimizers_names_mapping[run_name]] = mean_confidence_interval(resutls)
 
         
         all_results[task_name] = task_results
@@ -93,6 +111,8 @@ if __name__ == "__main__":
     df = pd.DataFrame(all_results).T
     df = df[list(optimizers_names_mapping.values())]
     df = df.rename(index=task_name_mapping)
+    df.drop(rows_to_drop, inplace=True)
+    df.drop(columns_to_drop, axis=1, inplace=True)
     
 
     # Apply the function to each row and create a new DataFrame
@@ -100,6 +120,7 @@ if __name__ == "__main__":
 
     # Convert to LaTeX table with column names, ensuring escape=False
     latex_table = bolded_df.to_latex(escape=False, column_format='l' + 'p{0.7cm}' * len(df.columns))
+    # print(type(latex_table))
 
     print(latex_table)
 
