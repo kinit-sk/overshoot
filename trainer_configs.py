@@ -64,7 +64,7 @@ class DefaultConfig:
     B: int = 64
     accumulate_grad_batches: int = 1
     lr: float = 0.001
-    epochs: int = 15
+    epochs: int = 50
     max_steps: Optional[int] = None
     decay_lr: bool = False
     adam_beta1: float = 0.9

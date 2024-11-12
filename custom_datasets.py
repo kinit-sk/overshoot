@@ -124,7 +124,7 @@ class UnifiedDatasetInterface:
         return self._batching_fn
 
 def create_mnist(val_split: float = 0.1):
-    transform = transforms.Compose([transforms.ToTensor()])
+    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.130660], [0.3015041])])
     train_val = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
     test = datasets.MNIST(root='./.mnist_data', train=False, download=True, transform=transform)
     val_size = round(len(train_val) * val_split)
@@ -133,17 +133,35 @@ def create_mnist(val_split: float = 0.1):
     
     
 def create_cifar(cifar_type: int, val_split: float = 0.1):
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        # transforms.Normalize((0.1307,), (0.3081,)),
-        # transforms.RandomRotation(10),
-    ])
+
     if cifar_type == 10:
-        train_val = datasets.CIFAR10(root='./.cifar_data_10', train=True, download=True, transform=transform)
-        test = datasets.CIFAR10(root='./.cifar_data_10', train=False, download=True, transform=transform)
+        mean = [0.4914, 0.4822, 0.4465]
+        std = [0.247, 0.243, 0.261] 
+    elif cifar_type == 100: 
+        mean = [0.5071, 0.4865, 0.4409]
+        std = [0.2673, 0.2564, 0.2762]
+        
+    test_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std),
+    ])
+    
+    train_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.RandomCrop(32, padding=4),                  # Random crop with padding
+        transforms.RandomHorizontalFlip(),                     # Random horizontal flip
+        transforms.ColorJitter(brightness=0.4,                 # Random brightness adjustment
+                            saturation=0.4,                 # Random saturation adjustment
+                            contrast=0.4),                  # Random contrast adjustment
+        transforms.Normalize(mean, std),
+    ])
+    
+    if cifar_type == 10:
+        train_val = datasets.CIFAR10(root='./.cifar_data_10', train=True, download=True, transform=train_transform)
+        test = datasets.CIFAR10(root='./.cifar_data_10', train=False, download=True, transform=test_transform)
     elif cifar_type == 100:
-        train_val = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=transform)
-        test = datasets.CIFAR100(root='./.cifar_data', train=False, download=True, transform=transform)
+        train_val = datasets.CIFAR100(root='./.cifar_data', train=True, download=True, transform=train_transform)
+        test = datasets.CIFAR100(root='./.cifar_data', train=False, download=True, transform=test_transform)
     else:
         raise Exception(f"Unssuported cifar type: {cifar_type}. Suported are: 10, 100")
     val_size = round(len(train_val) * val_split)
@@ -152,7 +170,7 @@ def create_cifar(cifar_type: int, val_split: float = 0.1):
     
     
 def create_fasion_mnist(val_split: float = 0.1):
-    transform = transforms.Compose([transforms.ToTensor()])
+    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.28604], [0.3204534])])
     train_val = datasets.FashionMNIST(root="./.fashion_mnist", train=True, download=True, transform=transform)
     test = datasets.FashionMNIST(root="./.fashion_mnist", train=False, download=True, transform=transform)
     val_size = round(len(train_val) * val_split)

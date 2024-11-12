@@ -249,6 +249,7 @@ class OvershootTrainer(pl.LightningModule):
                 self.test_stats[-1]["accuracy"] = float(np.mean(self.val_accuracy[1]))
             # TODO: Remove from tensorboard loggings once verified test is working nicely.
             self.log_dict({f"test_{k}": v for k, v in self.test_stats[-1].items()})
+            # print(f"===Test=== " + ' | '.join([k_v_to_str(k, v) for k, v in self.test_stats[-1].items()]), flush=True)
         self.val_losses, self.val_accuracy, self.eval_model = None, None, None
 
     def configure_optimizers(self):
@@ -352,7 +353,7 @@ class OvershootTrainer(pl.LightningModule):
                     lr=lr,
                     momentum=0 if args.opt_name == "sgd" else self.config.sgd_momentum,
                     nesterov="nesterov" in args.opt_name,
-                    foreach=True,
+                    foreach=False,
                 )
             else:
                 raise Exception(f"Optimizer {args.opt_name} not recognized.")

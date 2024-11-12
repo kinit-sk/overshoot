@@ -120,7 +120,6 @@ if __name__ == "__main__":
 
     # Convert to LaTeX table with column names, ensuring escape=False
     latex_table = bolded_df.to_latex(escape=False, column_format='l' + 'p{0.7cm}' * len(df.columns))
-    # print(type(latex_table))
 
     print(latex_table)
 
