@@ -167,6 +167,7 @@ class _2c2dFashionAdamConfig(DefaultConfig):
 @dataclass
 class _3c3dCifarSgdConfig(DefaultConfig):
     B: int = 128
+    lr: float = 0.01
     epochs: int = 100
     
 ### TABLE 1: 3nd row config
