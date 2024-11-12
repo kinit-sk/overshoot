@@ -23,10 +23,11 @@ copy_state() {
 
 
 
+# TODO: CHANGE!!!!!!!!!!!!
 # 1) First test case
-EXPERIMENT_NAME="table1/mlp_housing"
-MODEL="mlp"
-DATASET="housing"
+EXPERIMENT_NAME="table1/2c2d_fashion"
+MODEL="2c2d"
+DATASET="fashion"
 PYTHON_ARGS_BASE="--experiment_name ${EXPERIMENT_NAME} --model ${MODEL} --dataset ${DATASET}"
 copy_state "${EXPERIMENT_NAME}"
 

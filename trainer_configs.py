@@ -32,6 +32,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("2c2d", "mnist", "adam"): _2c2dMnistAdamConfig,
         ("2c2d", "cifar", "sgd"): _2c2dCifarSgdConfig,
         ("2c2d", "cifar", "adam"): _2c2dCifarAdamConfig,
+        ("2c2d", "fashion", "sgd"): _2c2dFashionSgdConfig,
+        ("2c2d", "fashion", "adam"): _2c2dFashionAdamConfig,
         ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
         ("resnet", "mnist", "adam"): ResnetMnistAdamConfig,
         ("resnet", "cifar", "sgd"): ResnetCifartSgdConfig,
@@ -156,7 +158,15 @@ class _2c2dCifarSgdConfig(DefaultConfig):
     
 @dataclass
 class _2c2dCifarAdamConfig(DefaultConfig):
+    epochs: int = 25
+    
+@dataclass
+class _2c2dFashionSgdConfig(DefaultConfig):
     epochs: int = 50
+    
+@dataclass
+class _2c2dFashionAdamConfig(DefaultConfig):
+    epochs: int = 10
     
     
 @dataclass

@@ -27,6 +27,8 @@ optimizers_names_mapping = {
 
 task_name_mapping = {
     "mlp_housing": "Housing",
+    "mlp_mnist": "Mnist",
+    "2c2d_fashion": "Fashion",
 }
 
 def bold_min(row):
@@ -68,7 +70,10 @@ if __name__ == "__main__":
             for seeds in os.listdir(run_root):
                 finel_path = os.path.join(run_root, seeds)
             
-                validation_stats = os.path.join(finel_path, "validation_stats.csv")
+                if "housing" in task_name:
+                    validation_stats = os.path.join(finel_path, "validation_stats.csv")
+                else:
+                    validation_stats = os.path.join(finel_path, "test_stats.csv")
                 if not os.path.exists(validation_stats):
                     continue
                 df = pd.read_csv(validation_stats)

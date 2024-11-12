@@ -157,7 +157,7 @@ def create_fasion_mnist(val_split: float = 0.1):
     test = datasets.FashionMNIST(root="./.fashion_mnist", train=False, download=True, transform=transform)
     val_size = round(len(train_val) * val_split)
     train, val = random_split(train_val, [len(train_val) - val_size, val_size])
-    return UnifiedDatasetInterface(train, 1, False), UnifiedDatasetInterface(val, 1, False), UnifiedDatasetInterface(test, 1, False)
+    return UnifiedDatasetInterface(train, 10, True), UnifiedDatasetInterface(val, 10, True), UnifiedDatasetInterface(test, 10, True)
     
 # TODO: Create Test split
 def create_sst(tokenizer):

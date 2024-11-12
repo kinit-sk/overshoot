@@ -17,8 +17,8 @@ class _2c2d(nn.Module):
                 # nn.Conv2d(96, 128, 3, padding='same'),
             ]
         )
-        self.fc1 = nn.Linear(round(inpt_shape[-1] / 2**len(self.convs))**2 * 64, 1024)
-        self.fc2 = nn.Linear(1024, output_shape)
+        self.fc1 = nn.Linear(round(inpt_shape[-1] / 2**len(self.convs))**2 * 64, 256)
+        self.fc2 = nn.Linear(256, output_shape)
         
     def forward(self, x, labels=None):
         for conv in self.convs:
