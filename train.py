@@ -377,13 +377,11 @@ class OvershootTrainer(pl.LightningModule):
             
 
     def on_train_end(self):
-        dst_dir = os.path.join("lightning_logs", args.experiment_name, args.job_name)
-        version = f"version_{len(next(os.walk(dst_dir))[1]) - 1}"
-        pd.DataFrame(self.train_stats).to_csv(os.path.join(dst_dir, version, "training_stats.csv"), index=False)
+        pd.DataFrame(self.train_stats).to_csv(os.path.join(self.logger.log_dir, "training_stats.csv"), index=False)
         if self.val_dataset:
-            pd.DataFrame(self.val_stats).to_csv(os.path.join(dst_dir, version, "validation_stats.csv"), index=False)
+            pd.DataFrame(self.val_stats).to_csv(os.path.join(self.logger.log_dir, "validation_stats.csv"), index=False)
         if self.test_dataset:
-            pd.DataFrame(self.test_stats).to_csv(os.path.join(dst_dir, version, "test_stats.csv"), index=False)
+            pd.DataFrame(self.test_stats).to_csv(os.path.join(self.logger.log_dir, "test_stats.csv"), index=False)
         
 # -----------------------------------------------------------------------------
 def main():
