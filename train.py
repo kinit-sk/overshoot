@@ -80,8 +80,7 @@ class OvershootTrainer(pl.LightningModule):
         momentum = self.config.sgd_momentum if "sgd" in args.opt_name else self.config.adam_beta1
         return compute_model_distance(latest_base_model, self.past_models, momentum)
             
-    def _cosine_similarity(self):
-        sample_size = 1000
+    def _cosine_similarity(self, sample_size: int = 1000):
         params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])
         if not hasattr(self, "random_indices"):
             self.random_indices = torch.randint(0, params.size(0), (sample_size,))
@@ -365,14 +364,14 @@ class OvershootTrainer(pl.LightningModule):
         return optimizers
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.config.B, collate_fn=self.train_dataset.get_batching_fn())
+        return DataLoader(self.train_dataset, batch_size=self.config.B, num_workers=2, collate_fn=self.train_dataset.get_batching_fn())
 
     def val_dataloader(self):
         dataloaders = []
         if self.val_dataset is not None:
-            dataloaders.append(DataLoader(self.val_dataset, batch_size=self.config.B, collate_fn=self.val_dataset.get_batching_fn()))
+            dataloaders.append(DataLoader(self.val_dataset, batch_size=self.config.B, num_workers=2, collate_fn=self.val_dataset.get_batching_fn()))
         if self.test_dataset is not None:
-            dataloaders.append(DataLoader(self.test_dataset, batch_size=self.config.B, collate_fn=self.test_dataset.get_batching_fn()))
+            dataloaders.append(DataLoader(self.test_dataset, batch_size=self.config.B, num_workers=2, collate_fn=self.test_dataset.get_batching_fn()))
         return dataloaders
             
 
