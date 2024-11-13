@@ -42,7 +42,7 @@ supported_models = [
 
 def init_dataset(dataset_name, model_name: Optional[str]):
     if dataset_name == "mnist":
-        return create_mnist()
+        return create_mnist(model_name == "vae")
     elif dataset_name == "cifar10":
         return create_cifar(10)
     elif dataset_name == "cifar100":
@@ -52,7 +52,7 @@ def init_dataset(dataset_name, model_name: Optional[str]):
     elif dataset_name == "energy":
         return create_energy_datatset()
     elif dataset_name == "f-mnist":
-        return create_fasion_mnist()
+        return create_fasion_mnist(model_name == "vae")
         
     assert model_name
     model_map = {

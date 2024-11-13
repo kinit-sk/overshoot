@@ -123,13 +123,20 @@ class UnifiedDatasetInterface:
     def get_batching_fn(self):
         return self._batching_fn
 
-def create_mnist(val_split: float = 0.1):
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.130660], [0.3015041])])
+def create_mnist(used_for_autoencoder: bool, val_split: float = 0.1):
+    
+    # Do not normalize if used for autoencoder
+    if used_for_autoencoder:
+        transform = transforms.Compose([transforms.ToTensor()])
+    else:
+        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.130660], [0.3015041])])
+        
     train_val = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
     test = datasets.MNIST(root='./.mnist_data', train=False, download=True, transform=transform)
     val_size = round(len(train_val) * val_split)
     train, val = random_split(train_val, [len(train_val) - val_size, val_size])
-    return UnifiedDatasetInterface(train, 10, True), UnifiedDatasetInterface(val, 10, True), UnifiedDatasetInterface(test, 10, True)
+    is_classification = not used_for_autoencoder
+    return UnifiedDatasetInterface(train, 10, is_classification), UnifiedDatasetInterface(val, 10, is_classification), UnifiedDatasetInterface(test, 10, is_classification)
     
     
 def create_cifar(cifar_type: int, val_split: float = 0.1):
@@ -169,13 +176,20 @@ def create_cifar(cifar_type: int, val_split: float = 0.1):
     return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
     
     
-def create_fasion_mnist(val_split: float = 0.1):
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.28604], [0.3204534])])
+def create_fasion_mnist(used_for_autoencoder: bool, val_split: float = 0.1):
+    
+    # Do not normalize if used for autoencoder
+    if used_for_autoencoder:
+        transform = transforms.Compose([transforms.ToTensor()])
+    else:
+        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.28604], [0.3204534])])
+        
     train_val = datasets.FashionMNIST(root="./.fashion_mnist", train=True, download=True, transform=transform)
     test = datasets.FashionMNIST(root="./.fashion_mnist", train=False, download=True, transform=transform)
     val_size = round(len(train_val) * val_split)
     train, val = random_split(train_val, [len(train_val) - val_size, val_size])
-    return UnifiedDatasetInterface(train, 10, True), UnifiedDatasetInterface(val, 10, True), UnifiedDatasetInterface(test, 10, True)
+    is_classification = not used_for_autoencoder
+    return UnifiedDatasetInterface(train, 10, is_classification), UnifiedDatasetInterface(val, 10, is_classification), UnifiedDatasetInterface(test, 10, is_classification)
     
 # TODO: Create Test split
 def create_sst(tokenizer):
