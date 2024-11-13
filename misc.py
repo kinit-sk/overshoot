@@ -30,6 +30,8 @@ supported_models = [
     "mlp",
     "2c2d",
     "3c3d",
+    "resnet18"
+    "resnet50"
     "vae",
     "gpt",
     "roberta_hf",
