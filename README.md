@@ -7,23 +7,34 @@ Stochastic gradient descent based optimization method for faster convergence.
  - Python packages: `pip install -r requirements.txt`
  - (Optional) Enviroment with GPU and cuda drivers
 
-## Execution
+## Run
 
-To run experiments execute for example:
+To run baseline:
 ```
-python train.py --job_name test --model gpt --dataset shakespear --overshoot_factor 2.0
+python train.py --model mlp --dataset mnist --opt_name sgd_momentun
 ```
-When having cpu only it's recomended to use `--model_type cnn`.
-For more info run `python train.py --help`.
+To run overshoot with two models implementation:
+```
+python train.py --model mlp --dataset mnist --opt_name sgd_momentum --two_models --overshoot_factor 3
+```
+To run overshoot with efficient implementation:
+```
+python train.py --model mlp --dataset mnist --opt_name sgd_overshoot --overshoot_factor 3
+```
+To observe the same results include: `--seed 42 --high_precision`.
+
+For detailed description of the args training entry-point run:
+```
+python train.py --help
+```
+
+## Monitor experiments
+To observe training statistics when neither `experiment_name` nor `job_name` is specified run:
+```
+tensorboard --logdir lightning_logs/test/test --port 6006
+```
+In the browser open `localhost:6006`.
 
 ## Execution on devana
 To schedule jobs using slurm see: `devana-batch-jobs.sh`.
-By default `devana-batch-jobs.sh` will run several jobs using various `overshoot-factors`
 
-
-## Monitor experiments
-To observe training statistics run 
-```
-tensorboard --logdir lightning_logs/{job_name} --port 6007
-```
-In browser open `localhost:6007`.
