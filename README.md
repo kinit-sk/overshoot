@@ -11,7 +11,7 @@ Stochastic gradient descent based optimization method for faster convergence. Co
 
 To run baseline:
 ```
-python train.py --model mlp --dataset mnist --opt_name sgd_momentun
+python train.py --model mlp --dataset mnist --opt_name sgd_momentum
 ```
 To run overshoot with two models implementation:
 ```
