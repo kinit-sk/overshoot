@@ -13,16 +13,10 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-from optimizers.sgdo import SGDO
-from optimizers.sgdo_adaptive import SGDO as SGDO_adaptive
-from optimizers.adamw_overshoot_replication import AdamW as OvershootAdamW_replication
-from optimizers.adamw_overshoot_full_approximation import AdamW as OvershootAdamW_full_approximation
-from optimizers.adamw_overshoot_denom_approximation import AdamW as OvershootAdamW_denom_approximation
-from optimizers.adamw_overshoot_delayed import AdamW as OvershootAdamW_delayed
-from optimizers.adamw_overshoot_adaptive import AdamW as OvershootAdamW_adaptive
+from optimizers import optimizers_map
 
 
-from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance
+from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance, supported_datasets, supported_models
 from trainer_configs import get_trainer_config
 
 # ------------------------------------------------------------------------------
@@ -268,25 +262,8 @@ class OvershootTrainer(pl.LightningModule):
             print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
             print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
             lr = self.config.lr * (args.overshoot_factor + 1) if model_name == "overshoot" else self.config.lr
-            opt_map = {
-                "sgd_momentum": torch.optim.SGD,
-                "sgd_nesterov": torch.optim.SGD,
-                "sgd_overshoot": SGDO,
-                "sgd_adaptive": SGDO_adaptive,
-                "adam": torch.optim.Adam,
-                "adamW": torch.optim.AdamW,
-                "adam_zero": torch.optim.Adam,
-                "adamW_zero": torch.optim.AdamW,
-                "nadam": torch.optim.NAdam,
-                "adamW_overshoot_replication": OvershootAdamW_replication,
-                "adamW_overshoot_full_approximation": OvershootAdamW_full_approximation,
-                "adamW_overshoot_denom_approximation": OvershootAdamW_denom_approximation,
-                "adamW_overshoot_delayed": OvershootAdamW_delayed,
-                "adamW_overshoot_adaptive": OvershootAdamW_adaptive,
-                "rmsprop": torch.optim.RMSprop,
-            }
             if args.opt_name == "nadam":
-                opt = opt_map[args.opt_name](
+                opt = optimizers_map[args.opt_name](
                     optim_groups,
                     lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
@@ -294,7 +271,7 @@ class OvershootTrainer(pl.LightningModule):
                     foreach=False,
                 )
             elif args.opt_name == "adamW_overshoot_delayed":
-                opt = opt_map[args.opt_name](
+                opt = optimizers_map[args.opt_name](
                     optim_groups,
                     lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
@@ -304,7 +281,7 @@ class OvershootTrainer(pl.LightningModule):
                     foreach=False,
                 )
             elif args.opt_name == "adamW_overshoot_adaptive":
-                opt = opt_map[args.opt_name](
+                opt = optimizers_map[args.opt_name](
                     optim_groups,
                     lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
@@ -313,7 +290,7 @@ class OvershootTrainer(pl.LightningModule):
                     foreach=False,
                 )
             elif args.opt_name.startswith("adamW_overshoot"):
-                opt = opt_map[args.opt_name](
+                opt = optimizers_map[args.opt_name](
                     optim_groups,
                     lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
@@ -323,7 +300,7 @@ class OvershootTrainer(pl.LightningModule):
                 )
             elif "adam" in args.opt_name:
                 self.config.adam_beta1 *= "zero" not in args.opt_name
-                opt = opt_map[args.opt_name](
+                opt = optimizers_map[args.opt_name](
                     optim_groups,
                     lr=lr,
                     betas=(self.config.adam_beta1, self.config.adam_beta2),
@@ -331,7 +308,7 @@ class OvershootTrainer(pl.LightningModule):
                     foreach=False,
                 )
             elif "sgd_adaptive" in args.opt_name:
-                opt = opt_map[args.opt_name](
+                opt = optimizers_map[args.opt_name](
                     optim_groups,
                     lr=lr,
                     momentum=self.config.sgd_momentum,
@@ -339,7 +316,7 @@ class OvershootTrainer(pl.LightningModule):
                     foreach=False,
                 )
             elif "sgd_overshoot" in args.opt_name:
-                opt = opt_map[args.opt_name](
+                opt = optimizers_map[args.opt_name](
                     optim_groups,
                     lr=lr,
                     momentum=self.config.sgd_momentum,
@@ -347,7 +324,7 @@ class OvershootTrainer(pl.LightningModule):
                     foreach=False,
                 )
             elif "sgd" in args.opt_name:
-                opt = opt_map[args.opt_name](
+                opt = optimizers_map[args.opt_name](
                     optim_groups,
                     lr=lr,
                     momentum=0 if args.opt_name == "sgd" else self.config.sgd_momentum,
@@ -431,29 +408,26 @@ if __name__ == "__main__":
     #  3)  python train.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_overshoot --overshoot_factor 0.9 --config_override max_steps=160
     # ADD 1: In case of nesterov only overshoot model is expected to be equal
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("Train models, datasets using various custom optimizers.")
     parser.add_argument("--experiment_name", type=str, default="test", help="Folder name to store experiment results")
     parser.add_argument("--job_name", type=str, default="test", help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Look-ahead factor when computng gradients")
     parser.add_argument("--two_models", action=argparse.BooleanOptionalAction, default=False, help="Use process with base and overshoot models")
     parser.add_argument("--seed", type=int, required=False, help="If specified, use this seed for reproducibility.")
-    parser.add_argument("--opt_name", type=str, required=True)
+    parser.add_argument("--opt_name", type=str, required=True, help=f"Supported optimizers are: {', '.join(optimizers_map.keys())}")
     parser.add_argument("--compute_model_distance", action=argparse.BooleanOptionalAction, required=False)
     parser.add_argument("--high_precision", action=argparse.BooleanOptionalAction, required=False)
     parser.add_argument(
         "--model",
         type=str,
         required=True,
-        help="Supported types are: `gpt`, `cnn`, `gpt_hf`, `roberta_hf`, `bloom_hf`, `mdeberta_hf` and `t5_hf`. For fast iteration use `cnn`.",
+        help=f"Supported models are: {', '.join(supported_models)}",
     )
     parser.add_argument(
         "--dataset",
         type=str,
         required=True,
-        help="""Dataset to use. Options: 
-                                   a) vision: `mnist`, `cifar10`, `cifar100`
-                                   b) next-token-prediction: `shakespear`, `gutenberg`,
-                                   c) text-classification: `qqp`, `mnli`, `sst`""",
+        help=f"Supported datasets are: {', '.join(supported_datasets)}",
     )
     parser.add_argument(
         "--compute_cosine",

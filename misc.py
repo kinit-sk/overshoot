@@ -15,6 +15,27 @@ from models.gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
 
+supported_datasets = [
+    "mnist",
+    "f-mnist",
+    "cifar10",
+    "cifar100",
+    "housing",
+    "sst",
+    "qqp",
+    "shakespear",
+]
+
+supported_models = [
+    "mlp",
+    "2c2d",
+    "3c3d",
+    "vae",
+    "gpt",
+    "roberta_hf",
+    "bloom_hf",
+    "minilm",
+]
 
 
 def init_dataset(dataset_name, model_name: Optional[str]):
@@ -28,7 +49,7 @@ def init_dataset(dataset_name, model_name: Optional[str]):
         return create_housing_datatset()
     elif dataset_name == "energy":
         return create_energy_datatset()
-    elif dataset_name == "fashion":
+    elif dataset_name == "f-mnist":
         return create_fasion_mnist()
         
     assert model_name
@@ -59,8 +80,8 @@ def init_dataset(dataset_name, model_name: Optional[str]):
         tokenizer.pad_token = tokenizer.eos_token
         
     if dataset_name == "shakespear":
-        return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="tiny_shakespear_")
-        # return NextTokenDataloader(tokenizer, T=T, source_file="tiny_shakespear.txt")
+        # return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="tiny_shakespear_")
+        return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="tiny_shakespear.txt")
     elif dataset_name == "gutenberg":
         return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="gutenberg_books_")
     elif dataset_name == "sst":
