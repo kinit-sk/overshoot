@@ -25,44 +25,44 @@ copy_state() {
 
 # TODO: CHANGE!!!!!!!!!!!!
 # 1) First test case
-EXPERIMENT_NAME="table1/2c2d_fashion"
-MODEL="2c2d"
-DATASET="fashion"
+EXPERIMENT_NAME="table1/3c3d_cifar10"
+MODEL="3c3d"
+DATASET="cifar10"
 PYTHON_ARGS_BASE="--experiment_name ${EXPERIMENT_NAME} --model ${MODEL} --dataset ${DATASET}"
 copy_state "${EXPERIMENT_NAME}"
 
 
 # SGD runs
 PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name sgd_baseline --opt_name sgd_momentum"
-sbatch --output="slurm_logs/sgd_baseline.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh
+sbatch --output="slurm_logs/sgd_baseline.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job-p.sh
 
 PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name nesterov --opt_name sgd_nesterov"
-sbatch --output="slurm_logs/nesterov.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh
+sbatch --output="slurm_logs/nesterov.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job-p.sh
 
 for FACTOR in "${OVERSHOOT_FACTORS[@]}"; do
     PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name sgd_overshoot_${FACTOR} --opt_name sgd_overshoot --overshoot_factor ${FACTOR}"
-    sbatch --output="slurm_logs/sgd_overshoot_${FACTOR}.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh 
+    sbatch --output="slurm_logs/sgd_overshoot_${FACTOR}.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job-p.sh
 done
 
 PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name sgd_overshoot_adaptive --opt_name sgd_adaptive"
-sbatch --output="slurm_logs/sgd_overshoot_adaptive.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh
+sbatch --output="slurm_logs/sgd_overshoot_adaptive.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job-p.sh
 
 
 
 
 # Adam runs
 PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name adam_baseline --opt_name adamW"
-sbatch --output="slurm_logs/adam_baseline.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh
+sbatch --output="slurm_logs/adam_baseline.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job-p.sh
 
 PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name nadam --opt_name nadam"
-sbatch --output="slurm_logs/nadam.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh
+sbatch --output="slurm_logs/nadam.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job-p.sh
 
 for FACTOR in "${OVERSHOOT_FACTORS[@]}"; do
     PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name adam_overshoot_${FACTOR} --opt_name adamW_overshoot_delayed --overshoot_factor ${FACTOR}"
-    sbatch --output="slurm_logs/adam_overshoot_${FACTOR}.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh 
+    sbatch --output="slurm_logs/adam_overshoot_${FACTOR}.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job-p.sh
 done
 
 PYTHON_ARGS="${PYTHON_ARGS_BASE} --job_name adam_overshoot_adaptive --opt_name adamW_overshoot_adaptive"
-sbatch --output="slurm_logs/adam_overshoot_adaptive.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job.sh
+sbatch --output="slurm_logs/adam_overshoot_adaptive.job" -J "${EXPERIMENT_NAME}"  --export=ALL,PYTHON_ARGS="${PYTHON_ARGS}",SEEDS="${SEEDS}" devana-job-p.sh
 
 

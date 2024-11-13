@@ -21,7 +21,6 @@ optimizers_names_mapping = {
     "adam_overshoot_3": "Adam3",
     "adam_overshoot_5": "Adam5",
     "adam_overshoot_7": "Adam7",
-    "adam_overshoot_7": "Adam7",
     "adam_overshoot_adaptive": "AdamA",
 }
 
@@ -29,12 +28,14 @@ task_name_mapping = {
     "mlp_housing": "Housing",
     "mlp_mnist": "Mnist",
     "2c2d_fashion": "Fashion",
+    "3c3d_cifar10": "Cifar10",
 }
 
 task_name_to_min_max = {
     "Housing": min,
     "Mnist": max,
-    "Fashion": max
+    "Fashion": max,
+    "Cifar10": max,
 }
 
 
@@ -51,7 +52,7 @@ def bold_min(row):
     fn_to_use = task_name_to_min_max[row.name]
     sgd_min = fn_to_use([x[1][0] for x in row.items() if 'SGD' in x[0] or 'CM' in x[0]])
     adam_min = fn_to_use([x[1][0] for x in row.items() if 'Adam' in x[0]])
-    return [f"\\textbf{{{val[0]} \u00B1{val[1]}}}" if (val[0] == sgd_min or val[0] == adam_min) else f"{val[0]} \u00B1{val[1]}" for _, val in row.items()]
+    return [f"\\textbf{{{val[0]:.2f} \u00B1{val[1]}}}" if (val[0] == sgd_min or val[0] == adam_min) else f"{val[0]:.2f} \u00B1{val[1]}" for _, val in row.items()]
 
 
 def mean_confidence_interval(data, confidence_interval: float=0.95):

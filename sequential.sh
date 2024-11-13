@@ -8,12 +8,11 @@ DATASET=${3:?"Missing dataset name. a) vision: 'mnist', 'cifar100'. b) next-toke
 N_RUNS=${4:-1}
 
 
-# 2) Set seeds
 SEEDS=()
 for ((i=1; i<=${N_RUNS}; i++)); do
     SEEDS+=(${RANDOM})
 done
-PYTHON_ARGS_BASE="--experiment_name ${EXPERIMENT_NAME} --model ${MODEL} --dataset ${DATASET} --compute_model_distance"
+PYTHON_ARGS_BASE="--experiment_name ${EXPERIMENT_NAME} --model ${MODEL} --dataset ${DATASET}"
 
 
 # 3) Prepare output directory
@@ -26,14 +25,9 @@ mkdir -p "${DST}"
 cp train.py "lightning_logs/${EXPERIMENT_NAME}/"
 cp trainer_configs.py "lightning_logs/${EXPERIMENT_NAME}/"
 cp custom_datasets.py "lightning_logs/${EXPERIMENT_NAME}/"
-cp cnn.py "lightning_logs/${EXPERIMENT_NAME}/"
-cp mlp.py "lightning_logs/${EXPERIMENT_NAME}/"
-cp gpt.py "lightning_logs/${EXPERIMENT_NAME}/"
-cp sequential.sh "lightning_logs/${EXPERIMENT_NAME}/"
 
 
-OVERSHOOT=(0.9 3 5 7 9 11)
-
+OVERSHOOT=(3 5 7)
 for SEED in "${SEEDS[@]}"; do
     python train.py ${PYTHON_ARGS_BASE} --job_name baseline --opt_name sgd_momentum  --seed ${SEED} --baseline
     for FACTOR in "${OVERSHOOT[@]}"; do
