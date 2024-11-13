@@ -408,7 +408,14 @@ if __name__ == "__main__":
     #  3)  python train.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_overshoot --overshoot_factor 0.9 --config_override max_steps=160
     # ADD 1: In case of nesterov only overshoot model is expected to be equal
 
-    parser = argparse.ArgumentParser("Train models, datasets using various custom optimizers.")
+    parser = argparse.ArgumentParser("""Train models using various custom optimizers.
+                For baseline run:
+                    `python train.py --model mlp --dataset mnist --opt_name sgd_momentun`
+                Overshoot with two models implementation: 
+                    `python train.py --model mlp --dataset mnist --opt_name sgd_momentum --two_models --overshoot_factor 3`
+                Overshoot with efficient implementation: 
+                    `python train.py --model mlp --dataset mnist --opt_name sgd_overshoot --overshoot_factor 3`
+                To have deterministic results include: `--seed 42 --high_precision`""")
     parser.add_argument("--experiment_name", type=str, default="test", help="Folder name to store experiment results")
     parser.add_argument("--job_name", type=str, default="test", help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Look-ahead factor when computng gradients")
