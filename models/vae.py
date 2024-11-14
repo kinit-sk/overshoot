@@ -1,93 +1,85 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import models
 
-
-# According to: https://github.com/fsschneider/DeepOBS/blob/master/deepobs/tensorflow/testproblems/_vae.py
-# TODO: Only working with input shape 28x28
 class VAE(nn.Module):
-    def __init__(self, latent_dim: int  = 8):
+    def __init__(self, latent_dim=8):
         super(VAE, self).__init__()
-        # Encoder
-        # self.encoder = nn.Sequential(
-        #     nn.Flatten(),
-        #     nn.Linear(28 * 28, 400),
-        #     nn.ReLU(),
-        #     nn.Linear(400, 200),
-        #     nn.ReLU()
-        # )
         
-        
+        # Encoder: Convolutional layers to compress the input
         self.encoder = nn.Sequential(
-                nn.Conv2d(1, 64, 4, 2, padding='valid'),
-                nn.LeakyReLU(),
-                nn.Dropout(0.2),
-                nn.Conv2d(64, 64, 4, 2, padding='valid'),
-                nn.LeakyReLU(),
-                nn.Dropout(0.2),
-                nn.Conv2d(64, 64, 4, 1, padding='valid'),
-                nn.LeakyReLU(),
-                nn.Dropout(0.2),
-                nn.Flatten(),
+            nn.Conv2d(1, 32, kernel_size=4, stride=2, padding=1),  # Output: (32, 14, 14)
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),  # Output: (64, 7, 7)
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),  # Output: (128, 4, 4)
+            nn.ReLU(),
         )
         
+        # Fully connected layers to map to the latent space (mean and logvar for reparameterization trick)
+        self.fc_mu = nn.Linear(128 * 4 * 4, latent_dim)
+        self.fc_logvar = nn.Linear(128 * 4 * 4, latent_dim)
         
-        self.mu = nn.Linear(256, latent_dim)
-        self.log_var = nn.Linear(256, latent_dim)
+        # Decoder: Fully connected layer to expand from latent_dim to the correct shape for the decoder
+        self.fc_decode = nn.Linear(latent_dim, 128 * 4 * 4)
         
-        # Decoder
-        # self.decoder = nn.Sequential(
-        #     nn.Linear(latent_dim, 200),
-        #     nn.ReLU(),
-        #     nn.Linear(200, 400),
-        #     nn.ReLU(),
-        #     nn.Linear(400, 28 * 28),
-        # )
-        self.decoder_preprocess = nn.Sequential(
-                nn.Linear(8, 24),
-                nn.LeakyReLU(),
-                nn.Linear(24, 49),
-                nn.LeakyReLU(),
-        )
-        
+        # Decoder: Transposed Convolutional layers to reconstruct the image
         self.decoder = nn.Sequential(
-                nn.ConvTranspose2d(1, 64, 4, 2),
-                nn.Dropout(0.2),
-                nn.Conv2d(64, 64, 4, 1),
-                nn.Dropout(0.2),
-                nn.Conv2d(64, 64, 4, 1),
-                nn.Flatten(),
-                nn.Linear(6400, 28 * 28),
-                nn.Sigmoid()
+            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1),  # Output: (64, 7, 7)
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),  # Output: (32, 14, 14)
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1),  # Output: (1, 28, 28)
+            nn.Flatten(),
+            nn.Linear(32 * 32, 28 * 28),
+            nn.Sigmoid(),  # To ensure output is between 0 and 1
         )
-        
-        
 
-    def reparameterize(self, mu, log_var):
-        std = torch.exp(0.5 * log_var)
+    def encode(self, x):
+        x = self.encoder(x)
+        x = x.view(x.size(0), -1)  # Flatten for the fully connected layers
+        mu = self.fc_mu(x)
+        logvar = self.fc_logvar(x)
+        return mu, logvar
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    # Labels is cloath type, which we do not use in generative model
-    def forward(self, x, labels=None):
-        labels = x.clone()
+    def decode(self, z):
+        x = self.fc_decode(z)
+        x = x.view(x.size(0), 128, 4, 4)  # Reshape to start decoding
+        x = self.decoder(x)
+        return x
+
+    # def forward(self, x):
+    #     mu, logvar = self.encode(x)
+    #     z = self.reparameterize(mu, logvar)
+    #     return self.decode(z), mu, logvar
         
-        x = self.encoder(x)
-        mu = self.mu(x)
-        log_var = self.log_var(x)
+    def forward(self, x, labels=None):
+        
+        labels = x.clone()
+        mu, log_var = self.encode(x)
         z = self.reparameterize(mu, log_var)
-
-        x_reconstructed = self.decoder(self.decoder_preprocess(z).view(-1, 1, 7, 7)).view(labels.shape)
-
-        # recon_loss = nn.functional.binary_cross_entropy_with_logits(x_reconstructed, labels, reduction="sum")
-        # recon_loss = nn.functional.binary_cross_entropy(x_reconstructed, labels, reduction="sum")
-        # recon_loss = torch.sum((x_reconstructed.view(-1) - labels.view(-1)) ** 2, 1)
-        recon_loss = torch.sum((x_reconstructed.view(x.shape[0], -1) - labels.view(x.shape[0], -1)) ** 2, 1)
+        decoded = self.decode(z)
+        
+        recon_loss = torch.sum((decoded.view(x.shape[0], -1) - labels.view(x.shape[0], -1)) ** 2, 1)
         
         # KL Divergence
         kl_divergence = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), 1)
         # Total Loss
         loss = torch.mean(recon_loss) + kl_divergence.mean()
 
-        return {'loss': loss, 'logits': x_reconstructed}
+        return {'loss': loss, 'logits': decoded}
+
+
+
+# # Loss function for VAE (reconstruction + KL divergence)
+# def vae_loss(reconstructed, original, mu, logvar):
+#     # Reconstruction loss
+#     recon_loss = F.binary_cross_entropy(reconstructed, original, reduction='sum')
+#     # KL divergence
+#     kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+#     return recon_loss + kl_div

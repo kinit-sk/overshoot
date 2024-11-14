@@ -199,7 +199,7 @@ class ResnetCifartAdamConfig(DefaultConfig):
     
 @dataclass
 class VaeMnistConfig(DefaultConfig):
-    epochs: int = 100
+    epochs: int = 50
     
 @dataclass
 class VaeFashionConfig(DefaultConfig):
