@@ -25,9 +25,9 @@ copy_state() {
 
 # TODO: CHANGE!!!!!!!!!!!!
 # 1) First test case
-EXPERIMENT_NAME="table1/3c3d_cifar10"
-MODEL="3c3d"
-DATASET="cifar10"
+EXPERIMENT_NAME="table1/vae_f-mnist"
+MODEL="vae"
+DATASET="f-mnist"
 PYTHON_ARGS_BASE="--experiment_name ${EXPERIMENT_NAME} --model ${MODEL} --dataset ${DATASET}"
 copy_state "${EXPERIMENT_NAME}"
 

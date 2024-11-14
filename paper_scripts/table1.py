@@ -25,22 +25,16 @@ optimizers_names_mapping = {
 }
 
 task_name_mapping = {
-    "mlp_housing": "Housing",
-    "mlp_mnist": "Mnist",
-    "2c2d_fashion": "Fashion",
-    "3c3d_cifar10": "Cifar10",
+    "mlp_housing": "MLP Housing (loss)",
+    "mlp_mnist": "Mnist (acc)",
+    "2c2d_fashion": "2c2c F-MNIST (acc)",
+    "3c3d_cifar10": "3c3d CIFAR-10 (acc)",
+    "vae_mnist": "VAE MNIST (loss)",
+    "vae_f-mnist": "VAE F-MNIST (loss)",
 }
-
-task_name_to_min_max = {
-    "Housing": min,
-    "Mnist": max,
-    "Fashion": max,
-    "Cifar10": max,
-}
-
 
 rows_to_drop = [
-    "Mnist"
+    "Mnist (acc)"
 ]
 columns_to_drop = [
     "SGDA",
@@ -49,10 +43,16 @@ columns_to_drop = [
 
 def bold_min(row):
     # import code; code.interact(local=locals())
-    fn_to_use = task_name_to_min_max[row.name]
+    if "acc" in row.name:
+        fn_to_use = max
+    elif "loss" in row.name:
+        fn_to_use = min
+    else:
+        raise Exception(f"task name have to contain either acc or loss: {row.name}")
+        
     sgd_min = fn_to_use([x[1][0] for x in row.items() if 'SGD' in x[0] or 'CM' in x[0]])
     adam_min = fn_to_use([x[1][0] for x in row.items() if 'Adam' in x[0]])
-    return [f"\\textbf{{{val[0]:.2f} \u00B1{val[1]}}}" if (val[0] == sgd_min or val[0] == adam_min) else f"{val[0]:.2f} \u00B1{val[1]}" for _, val in row.items()]
+    return [f"\\textbf{{{val[0]:.2f} \u00B1{val[1]:.2f}}}" if (val[0] == sgd_min or val[0] == adam_min) else f"{val[0]:.2f} \u00B1{val[1]:.2f}" for _, val in row.items()]
 
 
 def mean_confidence_interval(data, confidence_interval: float=0.95):
@@ -94,19 +94,20 @@ if __name__ == "__main__":
                     validation_stats = os.path.join(finel_path, "test_stats.csv")
                 if not os.path.exists(validation_stats):
                     continue
+                
                 df = pd.read_csv(validation_stats)
                 if "accuracy" in df.columns:
                     resutls.append(df["accuracy"].max())
                 else:
                     resutls.append(df["loss"].min())
 
-            if task_name == "mlp_housing":
-                resutls = [x * 100 for x in resutls]
+            if len(resutls)> 1:
+                if task_name == "mlp_housing":
+                    resutls = [x * 100 for x in resutls]
+                task_results[optimizers_names_mapping[run_name]] = mean_confidence_interval(resutls)
 
-            task_results[optimizers_names_mapping[run_name]] = mean_confidence_interval(resutls)
-
-        
-        all_results[task_name] = task_results
+        if len(task_results):
+            all_results[task_name] = task_results
             
     # print(all_results)
     df = pd.DataFrame(all_results).T
@@ -114,6 +115,9 @@ if __name__ == "__main__":
     df = df.rename(index=task_name_mapping)
     df.drop(rows_to_drop, inplace=True)
     df.drop(columns_to_drop, axis=1, inplace=True)
+
+    # print(df)
+    # exit()
     
 
     # Apply the function to each row and create a new DataFrame
@@ -121,6 +125,9 @@ if __name__ == "__main__":
 
     # Convert to LaTeX table with column names, ensuring escape=False
     latex_table = bolded_df.to_latex(escape=False, column_format='l' + 'p{0.7cm}' * len(df.columns))
+
+
+    latex_table = latex_table.replace(r'\\', r'\\ \midrule')
 
     print(latex_table)
 

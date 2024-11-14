@@ -221,6 +221,7 @@ class OvershootTrainer(pl.LightningModule):
                     self.optimizers().move_to_overshoot()
             else:
                 self.eval_model = self.base_model
+            self.eval_model.eval()
         
         with torch.no_grad():
             output = self.eval_model.forward(**batch)
@@ -229,6 +230,7 @@ class OvershootTrainer(pl.LightningModule):
             self.val_accuracy[dataloader_idx].append(100 * torch.mean(output["logits"].argmax(dim=-1) == batch["labels"], dtype=float).item())
         
     def on_validation_epoch_end(self):
+        self.base_model.train()
         self.val_stats.append({"loss": float(np.mean(self.val_losses[0]))})
         if self.val_dataset.is_classification():
             self.val_stats[-1]["accuracy"] = float(np.mean(self.val_accuracy[0]))
@@ -242,7 +244,7 @@ class OvershootTrainer(pl.LightningModule):
                 self.test_stats[-1]["accuracy"] = float(np.mean(self.val_accuracy[1]))
             # TODO: Remove from tensorboard loggings once verified test is working nicely.
             self.log_dict({f"test_{k}": v for k, v in self.test_stats[-1].items()})
-            # print(f"===Test=== " + ' | '.join([k_v_to_str(k, v) for k, v in self.test_stats[-1].items()]), flush=True)
+            print(f"===Test=== " + ' | '.join([k_v_to_str(k, v) for k, v in self.test_stats[-1].items()]), flush=True)
         self.val_losses, self.val_accuracy, self.eval_model = None, None, None
 
     def configure_optimizers(self):
