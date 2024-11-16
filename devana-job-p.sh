@@ -16,7 +16,7 @@ conda activate overshoot
 
 for seed in ${SEEDS}; do
     PYTHON_ARGS_FINAL="${PYTHON_ARGS} --seed ${seed}"
-    python train.py ${PYTHON_ARGS_FINAL} & # Launch processes in parallel
+    python main.py ${PYTHON_ARGS_FINAL} & # Launch processes in parallel
     
     # Wait to not conflict about gpu resources with previous process
     sleep 30

@@ -42,8 +42,9 @@ model = torchvision.models.resnet18(num_classes=100).cuda()
 
 # Optimizer and Scheduler
 # optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
-# optimizer = optim.AdamW(model.parameters(), weight_decay=0)
-optimizer = optim.SGD(model.parameters(), momentum=0.9, nesterov=True)
+optimizer = optim.AdamW(model.parameters(), weight_decay=0)
+# optimizer = optim.SGD(model.parameters(), momentum=0.9, nesterov=True)
+# optimizer = optim.SGD(model.parameters(), momentum=0.9)
 # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 criterion = nn.CrossEntropyLoss()
 
@@ -59,11 +60,11 @@ for epoch in range(200):  # Training for 200 epochs
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
-        if training_step % 10 == 0:
+        if training_step % 50 == 0:
             print(f"Step: {training_step}, epoch: {epoch}, loss: {loss.item():.4f}")
         training_step += 1
-        if training_step >= 50:
-            exit()
+        # if training_step >= 50:
+        #     exit()
         # log_stats(epoch, )
     # scheduler.step()
 
@@ -81,4 +82,3 @@ for epoch in range(200):  # Training for 200 epochs
             
     print(f"Epoch took {(time.time() - start_time)} seconds")
     print(f"Epoch {epoch + 1}: Test Accuracy: {100 * correct / total:.2f}%")
-    start_time = time.time()

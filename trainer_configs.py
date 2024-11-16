@@ -189,20 +189,23 @@ class ResnetMnistAdamConfig(DefaultConfig):
     
 @dataclass
 class ResnetCifartSgdConfig(DefaultConfig):
-    B: int = 128
+    B: int = 256
     # lr: float = 2e-3 # 4e-3 for cira100
-    epochs: int = 300
+    lr: float = 0.01
+    epochs: int = 350
     
 @dataclass
 class ResnetCifartAdamConfig(DefaultConfig):
-    B: int = 128
-    epochs: int = 300
+    B: int = 256
+    epochs: int = 350
     # lr: float = 2e-4
     
+### TABLE 1: 4nd row config
 @dataclass
 class VaeMnistConfig(DefaultConfig):
     epochs: int = 50
     
+### TABLE 1: 5nd row config
 @dataclass
 class VaeFashionConfig(DefaultConfig):
     epochs: int = 100

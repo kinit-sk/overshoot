@@ -119,10 +119,9 @@ class OvershootTrainer:
 
     # This just prints stats to console. Shouldn't be this complicated
     def __print_stats(self, stats):
-        if stats["batch_step"] % self.config.log_every_n_steps == 0:
-            k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
-            text = ' | '.join([k_v_to_str(k, v) for k, v in stats.items() if not re.search(r"(loss|accuracy|similarity|est)_[0-9][0-9]+$", k)])
-            print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
+        k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
+        text = ' | '.join([k_v_to_str(k, v) for k, v in stats.items() if not re.search(r"(loss|accuracy|similarity|est)_[0-9][0-9]+$", k)])
+        print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
 
     def _baseline_training_step(self, batch, batch_idx):
         assert len(self.optimizers) == 1
@@ -217,10 +216,11 @@ class OvershootTrainer:
         if self.args.compute_model_distance:
             stats["model_distance"] = model_distance
             
-        self.__print_stats(stats)
-        for k, v in stats.items():
-            self.log_writer.add_scalar(k, v, self.current_step)    
         self.train_stats.append(stats)
+        if self.current_step % self.config.log_every_n_steps == 0:
+            self.__print_stats(stats)
+            for k, v in stats.items():
+                self.log_writer.add_scalar(k, v, self.current_step)    
 
     def log_stats(self, stats, epoch, epoch_duration, loss, accuracy):
         self.log_writer.add_scalar('test_loss', loss, epoch)    
@@ -249,6 +249,7 @@ class OvershootTrainer:
             
 
     def main(self):
+        self.configure_optimizers()
         train_dataloader = DataLoader(self.train_dataset, batch_size=self.config.B, num_workers=4, shuffle=True, collate_fn=self.train_dataset.get_batching_fn())
         if self.val_dataset:
             val_dataloader = DataLoader(self.val_dataset, batch_size=self.config.B, num_workers=2, shuffle=False, collate_fn=self.val_dataset.get_batching_fn())
@@ -259,7 +260,6 @@ class OvershootTrainer:
         else:
             test_dataloader = None
             
-        self.configure_optimizers()
         
         for epoch in range(self.config.epochs):
             start_time = time.time()
@@ -288,4 +288,4 @@ class OvershootTrainer:
                         correct += predicted.eq(batch["labels"]).sum().item()
                         losses.append(outputs["loss"].item())
                     self.log_stats(stats, epoch, time.time() - start_time, np.mean(losses), 100 * correct / total)
-        self.save_stats()
+            self.save_stats()

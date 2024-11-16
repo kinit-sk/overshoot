@@ -32,7 +32,7 @@ def main():
     # 4) Create model
     model = init_model(args.model, dataset[0], trainer_config)
     if trainer_config.n_gpu > 0:
-        model = model.cuda()
+        model.cuda()
         # Doesn't work inside devana slurn job
         # model = torch.compile(model)
     print("-------------------------------")

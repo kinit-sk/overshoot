@@ -173,8 +173,8 @@ def create_cifar(cifar_type: int, val_split: float = 0.1):
     # val_size = round(len(train_val) * val_split)
     # train, val = random_split(train_val, [len(train_val) - val_size, val_size])
     # return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
-    # return UnifiedDatasetInterface(train_val, cifar_type, True), None, UnifiedDatasetInterface(test, cifar_type, True)
-    return UnifiedDatasetInterface(train_val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
+    return UnifiedDatasetInterface(train_val, cifar_type, True), None, UnifiedDatasetInterface(test, cifar_type, True)
+    # return UnifiedDatasetInterface(train_val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
     
     
 def create_fasion_mnist(used_for_autoencoder: bool, val_split: float = 0.1):
