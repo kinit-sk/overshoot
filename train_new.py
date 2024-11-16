@@ -22,7 +22,8 @@ torch.cuda.empty_cache()
 
 
 class OvershootTrainer:
-    def __init__(self, model: torch.nn.Module, dataset, args, config):
+    def __init__(self, model: torch.nn.Module, dataset, log_writer, args, config):
+        self.log_writer = log_writer
         self.args = args
         self.two_models = args.two_models
         
@@ -104,8 +105,9 @@ class OvershootTrainer:
                 self.overshoot_model.eval()
     
     def _move_batch_to_cuda(self, batch):
-        batch['x'] = batch['x'].cuda()
-        batch['labels'] = batch['labels'].cuda()
+        if self.config.n_gpu > 0:
+            batch['x'] = batch['x'].cuda()
+            batch['labels'] = batch['labels'].cuda()
         return batch
 
     def _get_base_model(self):
@@ -221,7 +223,8 @@ class OvershootTrainer:
             stats["model_distance"] = model_distance
             
         self.__print_stats(stats)
-        # self.log_dict(stats)
+        for k, v in stats.items():
+            self.log_writer.add_scalar(k, v, self.current_step)    
         self.train_stats.append(stats)
 
     def log_stats(self, losses, accuracy):
@@ -238,14 +241,14 @@ class OvershootTrainer:
             self.optimizers.append(create_optimizer(self.args.opt_name, params, self.args.overshoot_factor, lr, self.config))
             if self.config.decay_lr:
                 self.lr_schedulers.append(torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizers[-1], T_0=self.steps))
-            
 
-    def on_train_end(self):
-        pd.DataFrame(self.train_stats).to_csv(os.path.join(self.logger.log_dir, "training_stats.csv"), index=False)
+    def save_stats(self):
+        pd.DataFrame(self.train_stats).to_csv(os.path.join(self.log_writer.log_dir, "training_stats.csv"), index=False)
         if self.val_dataset:
-            pd.DataFrame(self.val_stats).to_csv(os.path.join(self.logger.log_dir, "validation_stats.csv"), index=False)
+            pd.DataFrame(self.val_stats).to_csv(os.path.join(self.log_writer.log_dir, "validation_stats.csv"), index=False)
         if self.test_dataset:
-            pd.DataFrame(self.test_stats).to_csv(os.path.join(self.logger.log_dir, "test_stats.csv"), index=False)
+            pd.DataFrame(self.test_stats).to_csv(os.path.join(self.log_writer.log_dir, "test_stats.csv"), index=False)
+            
 
     def main(self):
         
@@ -256,7 +259,6 @@ class OvershootTrainer:
             test_dataloader = DataLoader(self.test_dataset, batch_size=self.config.B, num_workers=2, collate_fn=self.test_dataset.get_batching_fn())
             
         self.configure_optimizers()
-            
         
         for epoch in range(self.config.epochs):
             start_time = time.time()
@@ -267,6 +269,7 @@ class OvershootTrainer:
                 self.training_step(self._move_batch_to_cuda(batch), epoch, batch_id)
                 self.current_step += 1
                 if self.current_step >= self.steps:
+                    self.save_stats()
                     return
 
             # Validation
@@ -288,3 +291,5 @@ class OvershootTrainer:
             print(f"Epoch {epoch + 1}: Test Accuracy: {100 * correct / total:.2f}%")
             start_time = time.time()
             # import code; code.interact(local=locals())
+            
+        self.save_stats()

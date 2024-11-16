@@ -1,21 +1,14 @@
 import argparse
-import copy
 import os
-import re
-import time
 
-import numpy as np
-import pandas as pd
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 
-from pytorch_lightning.loggers import TensorBoardLogger
-from torch.nn import functional as F
-from torch.utils.data import DataLoader
 
-from optimizers import create_optimizer, optimizers_map
+from optimizers import optimizers_map
 
-from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance, supported_datasets, supported_models
+from misc import init_dataset, init_model, supported_datasets, supported_models
 from trainer_configs import get_trainer_config
 
 from train_new import OvershootTrainer
@@ -23,26 +16,33 @@ from train_new import OvershootTrainer
 
 def main():
     
-    # 1) Create config
+    # 1) Create log writer
+    base_dir = os.path.join("lightning_logs", args.experiment_name, args.job_name)
+    os.makedirs(base_dir, exist_ok=True)
+    log_writer = SummaryWriter(log_dir=os.path.join(base_dir, f"version_{len(os.listdir(base_dir)) + 1}"))
+    
+    # 2) Create config
     trainer_config = get_trainer_config(args.model, args.dataset, args.opt_name, args.high_precision, args.config_override)
     print("-------------------------------")
     print(f"Config: {trainer_config}")
     
-    # 2) Create datatset
+    # 3) Create datatset
     dataset = init_dataset(args.dataset, args.model)
     
-    # 3) Create model
+    # 4) Create model
     model = init_model(args.model, dataset[0], trainer_config)
-    model = model.cuda()
+    if trainer_config.n_gpu > 0:
+        model = model.cuda()
         # Doesn't work inside devana slurn job
         # model = torch.compile(model)
     print("-------------------------------")
     print(f"Model: {model}")
 
-
     # 4) Launch trainer
-    trainer = OvershootTrainer(model, dataset, args, trainer_config)
+    trainer = OvershootTrainer(model, dataset, log_writer, args, trainer_config)
     trainer.main()
+
+    log_writer.close()
 
 
 if __name__ == "__main__":
