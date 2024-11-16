@@ -1,24 +1,20 @@
-import argparse
 import copy
 import os
 import re
 import time
-import random
 
 import numpy as np
 import pandas as pd
 import torch
 
 
-from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-from optimizers import create_optimizer, optimizers_map
+from optimizers import create_optimizer
 
 
-from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance, supported_datasets, supported_models
-from trainer_configs import get_trainer_config
+from misc import get_gpu_stats, compute_model_distance
 
 # ------------------------------------------------------------------------------
 torch.cuda.empty_cache()
@@ -26,7 +22,8 @@ torch.cuda.empty_cache()
 
 
 class OvershootTrainer:
-    def __init__(self, model: torch.nn.Module, dataset, config):
+    def __init__(self, model: torch.nn.Module, dataset, args, config):
+        self.args = args
         self.two_models = args.two_models
         
         self.eval_model = None
@@ -71,7 +68,7 @@ class OvershootTrainer:
             
         if len(self.past_models) > 50:
             self.past_models.pop(0)
-        momentum = self.config.sgd_momentum if "sgd" in args.opt_name else self.config.adam_beta1
+        momentum = self.config.sgd_momentum if "sgd" in self.args.opt_name else self.config.adam_beta1
         return compute_model_distance(latest_base_model, self.past_models, momentum)
             
     def _cosine_similarity(self, sample_size: int = 1000):
@@ -142,8 +139,8 @@ class OvershootTrainer:
         output["loss"].backward()
         optimizer.step()
         optimizer.zero_grad()
-        if self.config.decay_lr:
-            self.base_scheduler.step()
+        for scheduler in self.lr_schedulers:
+            scheduler.step()
             
         if is_same:
             return output["loss"], output["loss"], output["logits"]
@@ -171,9 +168,8 @@ class OvershootTrainer:
                 param2.data = param1.data.clone()
 
             # 3) (Optional) Update learning rates
-            if self.config.decay_lr:
-                self.base_scheduler.step()
-                self.overshoot_scheduler.step()
+            for scheduler in self.lr_schedulers:
+                scheduler.step()
 
             # 4) Update models based on gradients
             for opt in self.optimizers:
@@ -184,10 +180,10 @@ class OvershootTrainer:
 
     def training_step(self, batch, epoch, batch_idx):
         # We compute model distances before model update to have the same behaviour for baseline and overshoot
-        if args.compute_model_distance:
+        if self.args.compute_model_distance:
             model_distance = self._compute_model_distance()
             
-        if args.compute_cosine:
+        if self.args.compute_cosine:
             self._cosine_similarity()
 
             
@@ -203,9 +199,6 @@ class OvershootTrainer:
             "step": self.current_step,
             "epoch": epoch,
             "batch_step": batch_idx,
-            "base_lr": self.base_scheduler.get_last_lr()[-1],
-            "overshoot_lr": self.overshoot_scheduler.get_last_lr()[-1] if self.two_models else self.base_scheduler.get_last_lr()[-1],
-            "td": time.time() - self.last_time,
         }
         for avg in [1, 20, 50, 100]:
             stats[f"base_loss_{avg}"] = float(np.mean(self.train_losses[-avg:]))
@@ -219,12 +212,12 @@ class OvershootTrainer:
             for avg in [1, 20, 50, 100]:
                 stats[f"accuracy_{avg}"] = float(np.mean(self.train_accuracy[-avg:]))
 
-        if args.compute_cosine:
+        if self.args.compute_cosine:
             for avg in [1, 20, 50, 100]:
                 stats[f"update_cosine_similarity_{avg}"] = float(np.mean(self.update_cosine[-avg:]))
                 stats[f"update_cosine_similarity_est_{avg}"] = float(np.mean(self.update_cosine_est[-avg:]))
             
-        if args.compute_model_distance:
+        if self.args.compute_model_distance:
             stats["model_distance"] = model_distance
             
         self.__print_stats(stats)
@@ -236,14 +229,15 @@ class OvershootTrainer:
         
 
     def configure_optimizers(self):
-        optimizers = []
-        for model_name in ["base", "overshoot"] if self.two_models else ["base"]:
-            lr = self.config.lr * (args.overshoot_factor + 1) if model_name == "overshoot" else self.config.lr
-            opt = create_optimizer(args.opt_name, getattr(self, f"{model_name}_model").parameters(), args.overshoot_factor, lr, self.config)
-            lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=self.steps)
-            optimizers.append(opt)
-            setattr(self, f"{model_name}_scheduler", lr_scheduler)
-        self.optimizers = optimizers
+        self.optimizers, self.lr_schedulers = [], []
+        params_lr = [(self.base_model.parameters(), self.config.lr)]
+        if self.two_models:
+            params_lr.append((self.overshoot_model.parameters(), self.config.lr * (self.args.overshoot_factor + 1)))
+            
+        for params, lr in params_lr:
+            self.optimizers.append(create_optimizer(self.args.opt_name, params, self.args.overshoot_factor, lr, self.config))
+            if self.config.decay_lr:
+                self.lr_schedulers.append(torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizers[-1], T_0=self.steps))
             
 
     def on_train_end(self):
@@ -255,7 +249,7 @@ class OvershootTrainer:
 
     def main(self):
         
-        train_dataloader = DataLoader(self.train_dataset, batch_size=self.config.B, num_workers=4, shuffle=False, collate_fn=self.train_dataset.get_batching_fn())
+        train_dataloader = DataLoader(self.train_dataset, batch_size=self.config.B, num_workers=4, shuffle=True, collate_fn=self.train_dataset.get_batching_fn())
         if self.val_dataset is not None:
             val_dataloader = DataLoader(self.val_dataset, batch_size=self.config.B, num_workers=2, collate_fn=self.val_dataset.get_batching_fn())
         if self.test_dataset is not None:
@@ -264,11 +258,13 @@ class OvershootTrainer:
         self.configure_optimizers()
             
         
-        for epoch in range(self.config.epochs):  # Training for 200 epochs
-            # self._set_model_mode(is_training=True)
+        for epoch in range(self.config.epochs):
+            start_time = time.time()
+            
+            # Training
+            self._set_model_mode(is_training=True)
             for batch_id, batch in enumerate(train_dataloader):
-                batch = self._move_batch_to_cuda(batch)
-                self.training_step(batch, epoch, batch_id)
+                self.training_step(self._move_batch_to_cuda(batch), epoch, batch_id)
                 self.current_step += 1
                 if self.current_step >= self.steps:
                     return
@@ -288,108 +284,7 @@ class OvershootTrainer:
                     correct += predicted.eq(batch["labels"]).sum().item()
                     losses.append(outputs["loss"].item())
             self.log_stats(losses, correct / total)
-            import code; code.interact(local=locals())
-
-        
-        
-# -----------------------------------------------------------------------------
-def main():
-    
-    # 1) Create config
-    trainer_config = get_trainer_config(args.model, args.dataset, args.opt_name, args.high_precision, args.config_override)
-    print("-------------------------------")
-    print(f"Config: {trainer_config}")
-    
-    # 2) Create datatset
-    dataset = init_dataset(args.dataset, args.model)
-    
-    # 3) Create model
-    model = init_model(args.model, dataset[0], trainer_config)
-    model = model.cuda()
-        # Doesn't work inside devana slurn job
-        # model = torch.compile(model)
-    print("-------------------------------")
-    print(f"Model: {model}")
-
-
-    # 4) Launch trainer
-    trainer = OvershootTrainer(model, dataset, trainer_config)
-    # pl_trainer_args = argparse.Namespace(
-    #     max_epochs=trainer_config.epochs,
-    #     enable_progress_bar=False,
-    #     enable_checkpointing=False,
-    #     log_every_n_steps=trainer_config.log_every_n_steps,
-    #     accumulate_grad_batches=1 if args.two_models else trainer_config.accumulate_grad_batches,
-    #     logger=TensorBoardLogger(save_dir=os.path.join("lightning_logs", args.experiment_name), name=args.job_name),
-    #     precision="16-mixed" if trainer_config.use_16_bit_precision else None,
-    #     deterministic=True if args.seed else None,
-    #     devices=trainer_config.n_gpu if trainer_config.n_gpu > 1 else "auto",
-    #     strategy="ddp" if trainer_config.n_gpu > 1 else "auto",
-    # )
-    # print("Starting training")
-    # pl.Trainer(**vars(pl_trainer_args)).fit(trainer)
-    trainer.main()
-
-
-if __name__ == "__main__":
-    # We should always observe the same results from:
-    #   1) python train.py --high_precision --seed 1
-    #   2) python train.py --high_precision --seed 1 --two_models --overshoot_factor 0
-    # Sadly deterministic have to use 32-bit precision because of bug in pl.
-
-    # We should observe the same results for:
-    #  1)  python train.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_nesterov --config_override max_steps=160
-    #  2)  python train.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_momentum --two_models --overshoot_factor 0.9 --config_override max_steps=160
-    #  3)  python train.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_overshoot --overshoot_factor 0.9 --config_override max_steps=160
-    # ADD 1: In case of nesterov only overshoot model is expected to be equal
-
-    parser = argparse.ArgumentParser("""Train models using various custom optimizers.
-                For baseline run:
-                    `python train.py --model mlp --dataset mnist --opt_name sgd_momentun`
-                Overshoot with two models implementation: 
-                    `python train.py --model mlp --dataset mnist --opt_name sgd_momentum --two_models --overshoot_factor 3`
-                Overshoot with efficient implementation: 
-                    `python train.py --model mlp --dataset mnist --opt_name sgd_overshoot --overshoot_factor 3`
-                To have deterministic results include: `--seed 42 --high_precision`""")
-    parser.add_argument("--experiment_name", type=str, default="test", help="Folder name to store experiment results")
-    parser.add_argument("--job_name", type=str, default="test", help="Sub-folder name to store experiment results")
-    parser.add_argument("--overshoot_factor", type=float, help="Look-ahead factor when computng gradients")
-    parser.add_argument("--two_models", action=argparse.BooleanOptionalAction, default=False, help="Use process with base and overshoot models")
-    parser.add_argument("--seed", type=int, required=False, help="If specified, use this seed for reproducibility.")
-    parser.add_argument("--opt_name", type=str, required=True, help=f"Supported optimizers are: {', '.join(optimizers_map.keys())}")
-    parser.add_argument("--compute_model_distance", action=argparse.BooleanOptionalAction, required=False)
-    parser.add_argument("--high_precision", action=argparse.BooleanOptionalAction, required=False)
-    parser.add_argument(
-        "--model",
-        type=str,
-        required=True,
-        help=f"Supported models are: {', '.join(supported_models)}",
-    )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        required=True,
-        help=f"Supported datasets are: {', '.join(supported_datasets)}",
-    )
-    parser.add_argument(
-        "--compute_cosine",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Compute cosine similarity between successive vectors.",
-    )
-    parser.add_argument(
-        "--config_override",
-        type=str,
-        nargs="+",
-        default=None,
-        help="Sequence of key-value pairs to override config. E.g. --config_override lr=0.01",
-    )
-    args = parser.parse_args()
-    if args.seed:
-        torch.manual_seed(args.seed)
-    if args.high_precision:
-        torch.set_default_dtype(torch.float64)
-    else:
-        torch.set_float32_matmul_precision("high")
-        
-    main()
+            print(f"Epoch took {(time.time() - start_time)} seconds")
+            print(f"Epoch {epoch + 1}: Test Accuracy: {100 * correct / total:.2f}%")
+            start_time = time.time()
+            # import code; code.interact(local=locals())

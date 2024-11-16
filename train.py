@@ -226,13 +226,13 @@ class OvershootTrainer(pl.LightningModule):
         with torch.no_grad():
             output = self.eval_model.forward(**batch)
         self.val_losses[dataloader_idx].append(output["loss"].item())
-        if self.val_dataset.is_classification():
+        if self.val_dataset and self.val_dataset.is_classification():
             self.val_accuracy[dataloader_idx].append(100 * torch.mean(output["logits"].argmax(dim=-1) == batch["labels"], dtype=float).item())
         
     def on_validation_epoch_end(self):
         self.base_model.train()
         self.val_stats.append({"loss": float(np.mean(self.val_losses[0]))})
-        if self.val_dataset.is_classification():
+        if self.val_dataset and self.val_dataset.is_classification():
             self.val_stats[-1]["accuracy"] = float(np.mean(self.val_accuracy[0]))
         k_v_to_str = lambda k, v: f'{k}: {round(v, 4) if type(v) == float else v}'
         print(f"===Validation=== " + ' | '.join([k_v_to_str(k, v) for k, v in self.val_stats[-1].items()]), flush=True)
@@ -263,6 +263,7 @@ class OvershootTrainer(pl.LightningModule):
             num_nodecay_params = sum(p.numel() for p in nodecay_params)
             print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
             print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
+            optim_groups = getattr(self, f"{model_name}_model").parameters()
             lr = self.config.lr * (args.overshoot_factor + 1) if model_name == "overshoot" else self.config.lr
             if args.opt_name == "nadam":
                 opt = optimizers_map[args.opt_name](
