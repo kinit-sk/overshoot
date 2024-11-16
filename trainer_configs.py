@@ -189,8 +189,9 @@ class ResnetMnistAdamConfig(DefaultConfig):
     
 @dataclass
 class ResnetCifartSgdConfig(DefaultConfig):
-    lr: float = 2e-3 # 4e-3 for cira100
-    epochs: int = 20 # 20 for cira100
+    B: int = 128
+    # lr: float = 2e-3 # 4e-3 for cira100
+    epochs: int = 300
     
 @dataclass
 class ResnetCifartAdamConfig(DefaultConfig):

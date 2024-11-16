@@ -109,7 +109,8 @@ class UnifiedDatasetInterface:
     def __getitem__(self, index):
         if self._batching_fn is not None:
             return index
-        return {"x": self.data[index][0], "labels": self.data[index][1]}
+        element = self.data[index]
+        return {"x": element[0], "labels": element[1]}
 
     def __len__(self):
         return len(self.data)
@@ -155,11 +156,10 @@ def create_cifar(cifar_type: int, val_split: float = 0.1):
     
     train_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.RandomCrop(32, padding=4),                  # Random crop with padding
-        transforms.RandomHorizontalFlip(),                     # Random horizontal flip
-        transforms.ColorJitter(brightness=0.4,                 # Random brightness adjustment
-                            saturation=0.4,                 # Random saturation adjustment
-                            contrast=0.4),                  # Random contrast adjustment
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomRotation(10),
+        transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4),
         transforms.Normalize(mean, std),
     ])
     
@@ -171,9 +171,11 @@ def create_cifar(cifar_type: int, val_split: float = 0.1):
         test = datasets.CIFAR100(root='./.cifar_data', train=False, download=True, transform=test_transform)
     else:
         raise Exception(f"Unssuported cifar type: {cifar_type}. Suported are: 10, 100")
-    val_size = round(len(train_val) * val_split)
-    train, val = random_split(train_val, [len(train_val) - val_size, val_size])
-    return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
+    # val_size = round(len(train_val) * val_split)
+    # train, val = random_split(train_val, [len(train_val) - val_size, val_size])
+    # return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
+    # return UnifiedDatasetInterface(train_val, cifar_type, True), None, UnifiedDatasetInterface(test, cifar_type, True)
+    return UnifiedDatasetInterface(train_val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
     
     
 def create_fasion_mnist(used_for_autoencoder: bool, val_split: float = 0.1):
