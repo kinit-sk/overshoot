@@ -194,8 +194,9 @@ class ResnetCifartSgdConfig(DefaultConfig):
     
 @dataclass
 class ResnetCifartAdamConfig(DefaultConfig):
-    lr: float = 2e-4
-    epochs: int = 20
+    B: int = 128
+    epochs: int = 300
+    # lr: float = 2e-4
     
 @dataclass
 class VaeMnistConfig(DefaultConfig):
