@@ -157,7 +157,6 @@ def create_cifar(cifar_type: int, val_split: float = 0.1):
     train_transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.RandomCrop(32, padding=4),
-        transforms.RandomRotation(10),
         transforms.RandomHorizontalFlip(),
         transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4),
         transforms.Normalize(mean, std),

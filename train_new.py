@@ -156,7 +156,8 @@ class OvershootTrainer:
         with torch.no_grad():
             output_base = self.base_model.forward(**batch)  # only to log base loss
         output_overshoot = self.overshoot_model.forward(**batch)
-        self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
+        output_overshoot["loss"].backward()
+        # self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
 
         if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
 
@@ -175,7 +176,7 @@ class OvershootTrainer:
                 self.overshoot_scheduler.step()
 
             # 4) Update models based on gradients
-            for opt in self.optimizers():
+            for opt in self.optimizers:
                 opt.step()
                 opt.zero_grad()
 
@@ -269,11 +270,6 @@ class OvershootTrainer:
                 batch = self._move_batch_to_cuda(batch)
                 self.training_step(batch, epoch, batch_id)
                 self.current_step += 1
-                if self.current_step % 10 == 0:
-                    print("=============")
-                    print(self.train_stats[-1]["base_loss_1"])
-                    print(torch.mean(batch['x']))
-                    import code; code.interact(local=locals())
                 if self.current_step >= self.steps:
                     return
 
