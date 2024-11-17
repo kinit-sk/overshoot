@@ -154,11 +154,20 @@ def create_cifar(cifar_type: int, val_split: float = 0.1):
         transforms.Normalize(mean, std),
     ])
     
+    # train_transform = transforms.Compose([
+    #     transforms.ToTensor(),
+    #     transforms.RandomCrop(32, padding=4),
+    #     transforms.RandomHorizontalFlip(),
+    #     transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4),
+    #     transforms.Normalize(mean, std),
+    # ])
     train_transform = transforms.Compose([
-        transforms.ToTensor(),
         transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.08),
+        transforms.RandomRotation(5),
+        transforms.RandomPerspective(distortion_scale=0.2, p=0.2),
+        transforms.ToTensor(),
         transforms.Normalize(mean, std),
     ])
     

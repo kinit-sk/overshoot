@@ -35,6 +35,8 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             lr=lr,
             betas=(config.adam_beta1, config.adam_beta2),
             momentum_decay=1000000000000000000000000, # Turn of momentum decay
+            weight_decay=config.weight_decay,
+            decoupled_weight_decay=True,
             foreach=False,
         )
     elif opt_name == "adamW_overshoot_delayed":

@@ -187,17 +187,21 @@ class ResnetMnistAdamConfig(DefaultConfig):
     lr: float = 5e-4
     epochs: int = 2
     
+### TABLE 1: 5nd row config
 @dataclass
 class ResnetCifartSgdConfig(DefaultConfig):
     B: int = 256
-    lr: float = 0.05
-    epochs: int = 350
+    lr: float = 0.01
+    weight_decay: float = 5e-4
+    sgd_momentum: float = 0.99
+    epochs: int = 250
     
+### TABLE 1: 5nd row config
 @dataclass
 class ResnetCifartAdamConfig(DefaultConfig):
     B: int = 256
-    epochs: int = 350
-    # lr: float = 2e-4
+    weight_decay: float = 5e-4
+    epochs: int = 200
     
 ### TABLE 1: 4nd row config
 @dataclass
