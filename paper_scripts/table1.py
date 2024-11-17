@@ -31,6 +31,7 @@ task_name_mapping = {
     "3c3d_cifar10": "3c3d CIFAR-10 (acc)",
     "vae_mnist": "VAE MNIST (loss)",
     "vae_f-mnist": "VAE F-MNIST (loss)",
+    "resnet18_cifar100": "ResNet-18 CIFAR-100 (acc)",
 }
 
 rows_to_drop = [
@@ -50,6 +51,7 @@ def bold_min(row):
     else:
         raise Exception(f"task name have to contain either acc or loss: {row.name}")
         
+    print(row)
     sgd_min = fn_to_use([x[1][0] for x in row.items() if 'SGD' in x[0] or 'CM' in x[0]])
     adam_min = fn_to_use([x[1][0] for x in row.items() if 'Adam' in x[0]])
     return [f"\\textbf{{{val[0]:.2f} \u00B1{val[1]:.2f}}}" if (val[0] == sgd_min or val[0] == adam_min) else f"{val[0]:.2f} \u00B1{val[1]:.2f}" for _, val in row.items()]

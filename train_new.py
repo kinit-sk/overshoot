@@ -225,7 +225,7 @@ class OvershootTrainer:
     def log_stats(self, stats, epoch, epoch_duration, loss, accuracy):
         self.log_writer.add_scalar('test_loss', loss, epoch)    
         self.log_writer.add_scalar('test_accuracy', accuracy, epoch)    
-        stats.append({"test_loss": loss, "test_accuracy": accuracy})
+        stats.append({"loss": loss, "accuracy": accuracy})
         print(f"=== Epoch: {epoch} | Time: {epoch_duration:.2f} | Loss: {np.mean(loss):.4f} | Accuracy: {accuracy:.2f}%")
         
 

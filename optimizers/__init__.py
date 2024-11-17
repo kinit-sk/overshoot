@@ -78,6 +78,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             param_groups,
             lr=lr,
             momentum=config.sgd_momentum,
+            weight_decay=config.weight_decay,
             cosine_target=config.target_cosine_similarity,
             foreach=False,
         )
@@ -86,6 +87,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             param_groups,
             lr=lr,
             momentum=config.sgd_momentum,
+            weight_decay=config.weight_decay,
             overshoot=overshoot_factor,
             foreach=False,
         )
@@ -94,6 +96,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             param_groups,
             lr=lr,
             momentum=0 if opt_name == "sgd" else config.sgd_momentum,
+            weight_decay=config.weight_decay,
             nesterov="nesterov" in opt_name,
             foreach=False,
         )
