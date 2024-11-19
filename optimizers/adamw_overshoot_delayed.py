@@ -266,10 +266,11 @@ class AdamW(Optimizer):
         for group in self.param_groups:
             beta1, beta2 = cast(Tuple[float, float], group["betas"])
             for param in group["params"]:
-                step = _get_value(self.state[param]["step"])
-                overshoot = clamp(step - group["overshoot_delay"], 0, group["overshoot"])
-                denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
-                param.addcdiv_(self.state[param]["exp_avg"], denom, value=group["lr"] * overshoot / (1 - beta1**step))
+                if all([key in self.state[param] for key in ["step", "exp_avg", "exp_avg_sq"]]):
+                    step = _get_value(self.state[param]["step"])
+                    overshoot = clamp(step - group["overshoot_delay"], 0, group["overshoot"])
+                    denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
+                    param.addcdiv_(self.state[param]["exp_avg"], denom, value=group["lr"] * overshoot / (1 - beta1**step))
                 
     # TODO: This is only experimental!
     def move_to_overshoot(self):
@@ -279,10 +280,11 @@ class AdamW(Optimizer):
         for group in self.param_groups:
             beta1, beta2 = cast(Tuple[float, float], group["betas"])
             for param in group["params"]:
-                step = _get_value(self.state[param]["step"])
-                overshoot = clamp(step - group["overshoot_delay"], 0, group["overshoot"])
-                denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
-                param.addcdiv_(self.state[param]["exp_avg"], denom, value=-group["lr"] * overshoot / (1 - beta1**step))
+                if all([key in self.state[param] for key in ["step", "exp_avg", "exp_avg_sq"]]):
+                    step = _get_value(self.state[param]["step"])
+                    overshoot = clamp(step - group["overshoot_delay"], 0, group["overshoot"])
+                    denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
+                    param.addcdiv_(self.state[param]["exp_avg"], denom, value=-group["lr"] * overshoot / (1 - beta1**step))
 
 AdamW.__doc__ = (
     r"""Implements AdamW algorithm.

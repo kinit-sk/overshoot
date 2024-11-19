@@ -78,7 +78,7 @@ class DefaultConfig:
     log_every_n_steps: int = 50
     n_gpu: int = torch.cuda.device_count()
     use_16_bit_precision: bool = torch.cuda.device_count() > 0 # TODO: not used anywhere now
-    use_peft: bool = True
+    use_peft: bool = False
     log_gpu: bool = False
     
     def override(self, override: Optional[Sequence[str]] = None) -> None:
@@ -223,13 +223,13 @@ class VaeFashionConfig(DefaultConfig):
 
 @dataclass
 class GptMnliSgdConfig(DefaultConfig):
-    B: int = 128
+    B: int = 64
     epochs: int = 10
     weight_decay: float = 5e-4
     
 @dataclass
 class GptMnliAdamConfig(DefaultConfig):
-    B: int = 128
+    B: int = 64
     epochs: int = 10
     weight_decay: float = 5e-4
 
