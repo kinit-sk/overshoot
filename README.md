@@ -11,21 +11,21 @@ Stochastic gradient descent based optimization method for faster convergence. Co
 
 To run baseline:
 ```
-python train.py --model mlp --dataset mnist --opt_name sgd_nesterov
+python main.py --model mlp --dataset mnist --opt_name sgd_nesterov
 ```
 To run overshoot with two models implementation:
 ```
-python train.py --model mlp --dataset mnist --opt_name sgd_momentum --two_models --overshoot_factor 0.9
+python main.py --model mlp --dataset mnist --opt_name sgd_momentum --two_models --overshoot_factor 0.9
 ```
 To run overshoot with efficient implementation:
 ```
-python train.py --model mlp --dataset mnist --opt_name sgd_overshoot --overshoot_factor 0.9
+python main.py --model mlp --dataset mnist --opt_name sgd_overshoot --overshoot_factor 0.9
 ```
 To observe the same results include: `--seed 42 --high_precision`.
 
 For detailed description of the args training entry-point run:
 ```
-python train.py --help
+python main.py --help
 ```
 
 ## Monitor experiments
