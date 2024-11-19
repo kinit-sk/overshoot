@@ -42,6 +42,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("vae", "mnist", "adam"): VaeMnistConfig,
         ("vae", "fashion", "sgd"): VaeFashionConfig,
         ("vae", "fashion", "adam"): VaeFashionConfig,
+        ("gpt_hf", "mnli", "sgd"): GptMnliSgdConfig,
+        ("gpt_hf", "mnli", "adam"): GptMnliAdamConfig,
         ("gpt_hf", "sst", "adam"): GptSstAdamConfig,
         ("roberta_hf", "sst", "adam"): RobertaSstAdamConfig,
         ("minilm", "sst", "adam"): MinilmSstAdamConfig,
@@ -75,7 +77,8 @@ class DefaultConfig:
     target_cosine_similarity: float = 0.1
     log_every_n_steps: int = 50
     n_gpu: int = torch.cuda.device_count()
-    use_16_bit_precision: bool = torch.cuda.device_count() > 0
+    use_16_bit_precision: bool = torch.cuda.device_count() > 0 # TODO: not used anywhere now
+    use_peft: bool = True
     log_gpu: bool = False
     
     def override(self, override: Optional[Sequence[str]] = None) -> None:
@@ -217,6 +220,18 @@ class VaeFashionConfig(DefaultConfig):
 ################################################################################
 ########################### LLM classification tasks ###########################
 ################################################################################
+
+@dataclass
+class GptMnliSgdConfig(DefaultConfig):
+    B: int = 128
+    lr: float = 5e-5
+    epochs: int = 3
+    
+@dataclass
+class GptMnliAdamConfig(DefaultConfig):
+    B: int = 128
+    lr: float = 5e-5
+    epochs: int = 3
 
 
 @dataclass

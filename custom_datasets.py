@@ -154,13 +154,6 @@ def create_cifar(cifar_type: int, val_split: float = 0.1):
         transforms.Normalize(mean, std),
     ])
     
-    # train_transform = transforms.Compose([
-    #     transforms.ToTensor(),
-    #     transforms.RandomCrop(32, padding=4),
-    #     transforms.RandomHorizontalFlip(),
-    #     transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4),
-    #     transforms.Normalize(mean, std),
-    # ])
     train_transform = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(p=0.5),
@@ -182,8 +175,8 @@ def create_cifar(cifar_type: int, val_split: float = 0.1):
     # val_size = round(len(train_val) * val_split)
     # train, val = random_split(train_val, [len(train_val) - val_size, val_size])
     # return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
+    # No validation dataset
     return UnifiedDatasetInterface(train_val, cifar_type, True), None, UnifiedDatasetInterface(test, cifar_type, True)
-    # return UnifiedDatasetInterface(train_val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
     
     
 def create_fasion_mnist(used_for_autoencoder: bool, val_split: float = 0.1):
@@ -214,8 +207,8 @@ def create_sst(tokenizer):
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
     train_dataset = UnifiedDatasetInterface(train_data, 2, True, batching_fn=batching)
+    val_dataset = UnifiedDatasetInterface(validation_data, 2, True, batching_fn=batching)
     train_dataset.tokenizer = tokenizer
-    val_dataset =UnifiedDatasetInterface(validation_data, 2, True, batching_fn=batching)
     val_dataset.tokenizer = tokenizer
     return train_dataset, val_dataset, None # TODO: Create Test split
 
@@ -233,45 +226,34 @@ def create_qqp(tokenizer):
         
     train_dataset = UnifiedDatasetInterface(train_data, 2, True, batching_fn=batching)
     train_dataset.tokenizer = tokenizer
-    val_dataset =UnifiedDatasetInterface(validation_data, 2, True, batching_fn=batching)
+    val_dataset = UnifiedDatasetInterface(validation_data, 2, True, batching_fn=batching)
+    val_dataset.tokenizer = tokenizer
+    return train_dataset, val_dataset, None # TODO: Create Test split
+    
+def create_mnli(tokenizer):
+    train_data = load_dataset("nyu-mll/glue", "mnli")['train']
+    validation_data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
+    
+    def batching(self, x):
+        inpts = self.tokenizer([f"{self.data[index]['premise']}  {self.data[index]['hypothesis']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+        input_ids = inpts['input_ids']
+        attention_mask = inpts['attention_mask']
+        outputs = torch.tensor([self.data[index]['label'] for index in x])
+        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
+        
+    train_dataset = UnifiedDatasetInterface(train_data, 3, True, batching_fn=batching)
+    train_dataset.tokenizer = tokenizer
+    val_dataset = UnifiedDatasetInterface(validation_data, 3, True, batching_fn=batching)
     val_dataset.tokenizer = tokenizer
     return train_dataset, val_dataset, None # TODO: Create Test split
         
         
-# class MNLIDataset:
-#     def __init__(self, tokenizer: str) -> None:
-#         self.data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
-#         self.tokenizer = tokenizer
-
-#     def __getitem__(self, index):
-#         return index
-
-#     def __len__(self):
-#         return len(self.data)
-        
-#     def batching(self, x):
-#         inpts = self.tokenizer([f"{self.data[index]['premise']}  {self.data[index]['hypothesis']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
-#         input_ids = inpts['input_ids']
-#         attention_mask = inpts['attention_mask']
-#         outputs = torch.tensor([self.data[index]['label'] for index in x])
-#         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
-        
-#     def is_classification(self):
-#         return True
-        
-#     def n_outputs(self):
-#         return 3
         
 # class MMLUDataset:
 #     def __init__(self, tokenizer) -> None:
 #         self.data = load_dataset("lighteval/mmlu", "college_mathematics")['auxiliary_train']
 #         self.tokenizer = tokenizer
 
-#     def __getitem__(self, index):
-#         return index
-
-#     def __len__(self):
-#         return len(self.data)
         
 #     def batching(self, x):
 #         inpts = self.tokenizer([f"{self.data[index]['question']}  {self.data[index]['choices']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
@@ -280,12 +262,6 @@ def create_qqp(tokenizer):
 #         outputs = torch.tensor([self.data[index]['answer'] for index in x])
 #         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
-#     def is_classification(self):
-#         return True
-        
-#     # TODO: Check if this is correct
-#     def n_outputs(self):
-#         return 4
 
 
 def create_housing_datatset(val_split: float = 0.1):

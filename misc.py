@@ -4,13 +4,19 @@ import numpy as np
 from transformers import (AutoConfig, AutoModelForPreTraining,
                           AutoModelForSequenceClassification, AutoTokenizer)
 
+from peft import (
+    get_peft_model,
+    LoraConfig,
+    TaskType,
+)
+
 from models._2c2d import _2c2d
 from models._3c3d import _3c3d
 from models.resnet import ResNet
 from models.mlp import MLP
 from models.vae import VAE
 from custom_datasets import (NextTokenDataloader,
-                             create_qqp, create_mnist, create_cifar, create_housing_datatset, create_energy_datatset, create_sst, create_fasion_mnist)
+                             create_qqp, create_mnist, create_cifar, create_housing_datatset, create_energy_datatset, create_sst, create_mnli, create_fasion_mnist)
 from models.gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
@@ -90,9 +96,9 @@ def init_dataset(dataset_name, model_name: Optional[str]):
         return create_sst(tokenizer)
     elif dataset_name == "qqp":
         return create_qqp(tokenizer)
+    elif dataset_name == "mnli":
+        return create_mnli(tokenizer=tokenizer)
     # TODO:
-    # elif dataset_name == "mnli":
-    #     return MNLIDataset(tokenizer=tokenizer)
     # elif dataset_name == "mmlu":
     #     return MMLUDataset(tokenizer=tokenizer)
     else:
@@ -145,13 +151,17 @@ def init_model(model_name, datatset, trainer_config):
             model = AutoModelForPreTraining.from_config(config)  # from scratch
         else:
             # config.num_labels = 3 if isinstance(datatset, MNLIDataset) else 2
-            config.num_labels = 2
+            config.num_labels = n_outputs
             model = AutoModelForSequenceClassification.from_pretrained(model_name, config=config)
 
         if (tokenizer.pad_token is None) and (tokenizer.eos_token is not None):
             tokenizer.pad_token = tokenizer.eos_token
         model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
-        model.train()
+
+        if trainer_config.use_peft:
+            peft_config = LoraConfig(task_type=TaskType.SEQ_CLS)
+            model = get_peft_model(model, peft_config)
+            model.print_trainable_parameters()
         return model
     else:
         raise ValueError(f"Model {model_name} not found")
@@ -167,3 +177,9 @@ def get_gpu_stats(n_gpus: int = 0):
 
 def compute_model_distance(ref_model: torch.Tensor, gradient_models: List[torch.Tensor], m: float):
     return sum([np.linalg.norm(ref_model - g_m) * m**i for i, g_m in enumerate(reversed(gradient_models))])
+
+def get_model_size(model):
+    param_size = sum(p.numel() for p in model.parameters() if p.requires_grad) * 4  # Assuming float32
+    buffer_size = sum(p.numel() for p in model.buffers()) * 4
+    size_all_mb = (param_size + buffer_size) / 1024 / 1024
+    return round(size_all_mb, 2)

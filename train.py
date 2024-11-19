@@ -101,8 +101,8 @@ class OvershootTrainer:
     
     def _move_batch_to_cuda(self, batch):
         if self.config.n_gpu > 0:
-            batch['x'] = batch['x'].cuda()
-            batch['labels'] = batch['labels'].cuda()
+            for k in batch.keys():
+                batch[k] = batch[k].cuda()
         return batch
 
 

@@ -8,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from optimizers import optimizers_map
 
-from misc import init_dataset, init_model, supported_datasets, supported_models
+from misc import init_dataset, init_model, supported_datasets, supported_models, get_model_size
 from trainer_configs import get_trainer_config
 
 from train import OvershootTrainer
@@ -37,6 +37,7 @@ def main():
         # model = torch.compile(model)
     print("-------------------------------")
     print(f"Model: {model}")
+    print(f"Model size: {get_model_size(model)}")
 
     # 4) Launch trainer
     trainer = OvershootTrainer(model, dataset, log_writer, args, trainer_config)
