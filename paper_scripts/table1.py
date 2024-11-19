@@ -25,17 +25,19 @@ optimizers_names_mapping = {
 }
 
 task_name_mapping = {
-    "mlp_housing": "MLP Housing (loss)",
+    "mlp_housing": "MLP-CA (loss)",
     "mlp_mnist": "Mnist (acc)",
-    "2c2d_fashion": "2c2c F-MNIST (acc)",
-    "3c3d_cifar10": "3c3d CIFAR-10 (acc)",
-    "vae_mnist": "VAE MNIST (loss)",
-    "vae_f-mnist": "VAE F-MNIST (loss)",
-    "resnet18_cifar100": "ResNet-18 CIFAR-100 (acc)",
+    "2c2d_fashion": "2c2d-FM (acc)",
+    "3c3d_cifar10": "3c3d-C10 (acc)",
+    "vae_mnist": "VAE-M (loss)",
+    "vae_f-mnist": "VAE-FM (loss)",
+    "resnet18_cifar100": "ResNet-C100 (acc) old",
+    "resnet18_cifar100_v2_better_aug_weight_decay_new_sgd": "ResNet-C100 (acc)",
 }
 
 rows_to_drop = [
-    "Mnist (acc)"
+    "Mnist (acc)",
+    "ResNet-C100 (acc) old"
 ]
 columns_to_drop = [
     "SGDA",
