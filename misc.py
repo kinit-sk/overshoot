@@ -29,6 +29,7 @@ supported_datasets = [
     "housing",
     "sst",
     "qqp",
+    "mnli",
     "shakespear",
 ]
 
@@ -161,6 +162,7 @@ def init_model(model_name, datatset, trainer_config):
         if trainer_config.use_peft:
             peft_config = LoraConfig(task_type=TaskType.SEQ_CLS)
             model = get_peft_model(model, peft_config)
+            print("Using peft:")
             model.print_trainable_parameters()
         return model
     else:

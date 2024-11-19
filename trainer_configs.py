@@ -224,14 +224,12 @@ class VaeFashionConfig(DefaultConfig):
 @dataclass
 class GptMnliSgdConfig(DefaultConfig):
     B: int = 128
-    lr: float = 5e-5
-    epochs: int = 3
+    epochs: int = 10
     
 @dataclass
 class GptMnliAdamConfig(DefaultConfig):
     B: int = 128
-    lr: float = 5e-5
-    epochs: int = 3
+    epochs: int = 10
 
 
 @dataclass
