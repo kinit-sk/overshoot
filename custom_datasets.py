@@ -233,6 +233,7 @@ def create_qqp(tokenizer):
 def create_mnli(tokenizer):
     train_data = load_dataset("nyu-mll/glue", "mnli")['train']
     validation_data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
+    # test_data = load_dataset("nyu-mll/glue", "mnli_matched")['test'] # No label in test split
     
     def batching(self, x):
         inpts = self.tokenizer([f"{self.data[index]['premise']}  {self.data[index]['hypothesis']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
@@ -245,7 +246,7 @@ def create_mnli(tokenizer):
     train_dataset.tokenizer = tokenizer
     val_dataset = UnifiedDatasetInterface(validation_data, 3, True, batching_fn=batching)
     val_dataset.tokenizer = tokenizer
-    return train_dataset, val_dataset, None # TODO: Create Test split
+    return train_dataset, val_dataset, None
         
         
         

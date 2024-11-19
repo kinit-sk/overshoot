@@ -225,11 +225,13 @@ class VaeFashionConfig(DefaultConfig):
 class GptMnliSgdConfig(DefaultConfig):
     B: int = 128
     epochs: int = 10
+    weight_decay: float = 5e-4
     
 @dataclass
 class GptMnliAdamConfig(DefaultConfig):
     B: int = 128
     epochs: int = 10
+    weight_decay: float = 5e-4
 
 
 @dataclass
