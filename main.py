@@ -11,7 +11,7 @@ from optimizers import optimizers_map
 from misc import init_dataset, init_model, supported_datasets, supported_models
 from trainer_configs import get_trainer_config
 
-from train_new import OvershootTrainer
+from train import OvershootTrainer
 
 
 def main():
