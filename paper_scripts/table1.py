@@ -44,17 +44,37 @@ columns_to_drop = [
     "AdamA",
 ]
 
-def bold_min(row):
-    # import code; code.interact(local=locals())
-    if "VAE" in row.name or "MLP" in row.name:
-        fn_to_use = min
-    else:
-        fn_to_use = max
+def is_classification(name):
+    return ("VAE" not in name) and ("MLP" not in name)
+    
+def is_sgd(name):
+    return ("SGD" in name) or ("CM" in name) or ("NAG" in name)
+
+
+def process_sub_row(row_name, sub_row):
+    fn_to_use = max if is_classification(row_name) else min
+
+    means = [mean_confidence_interval(values) for _, values in sub_row]
+    best_value = fn_to_use(means, key=lambda x: x[0])[0]
+    better_baseline = fn_to_use([(values, np.mean(values)) for _, values in sub_row[:2]], key=lambda x: x[1])[0]
+    
+    reject_same_dist = [False, False]
+    for _, overshoot_values in sub_row[2:]:
+        alpha = 0.05
+        better_baseline = better_baseline[:min(len(better_baseline), len(overshoot_values))]
+        overshoot_values = overshoot_values[:min(len(better_baseline), len(overshoot_values))]
         
-    print(row)
-    sgd_min = fn_to_use([x[1][0] for x in row.items() if 'SGD' in x[0] or 'CM' in x[0]])
-    adam_min = fn_to_use([x[1][0] for x in row.items() if 'Adam' in x[0]])
-    return [f"\\textbf{{{val[0]:.2f} \u00B1{val[1]:.2f}}}" if (val[0] == sgd_min or val[0] == adam_min) else f"{val[0]:.2f} \u00B1{val[1]:.2f}" for _, val in row.items()]
+        test = stats.ttest_rel(better_baseline, overshoot_values)
+        reject_same_dist.append(test.pvalue < alpha)
+
+    ps = lambda use_star: "*" if use_star else ""
+    return [f"\\textbf{{{mean:.2f}{ps(use_star)} \u00B1{interval:.2f}}}" if mean == best_value else f"{mean:.2f}{ps(use_star)} \u00B1{interval:.2f}" for (mean, interval), use_star in zip(means, reject_same_dist)]
+    
+def process_row(row):
+    sgd_sub_row = process_sub_row(row.name, [item for item in row.items() if is_sgd(item[0])])
+    adam_sub_row = process_sub_row(row.name, [item for item in row.items() if not is_sgd(item[0])])
+    sgd_sub_row.extend(adam_sub_row)
+    return sgd_sub_row
 
 def add_multirow(table: str) -> str:
     table = table.split('\n')
@@ -79,6 +99,9 @@ def mean_confidence_interval(data, confidence_interval: float=0.95):
     confidence_interval = stats.t.interval(confidence_interval, len(data) - 1, loc=mean, scale=sem)
 
     return round(mean, 2), round(mean - confidence_interval[0], 2)
+
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -118,7 +141,8 @@ if __name__ == "__main__":
             if len(resutls)> 1:
                 if task_name == "mlp_housing":
                     resutls = [x * 100 for x in resutls]
-                task_results[optimizers_names_mapping[run_name]] = mean_confidence_interval(resutls)
+                # task_results[optimizers_names_mapping[run_name]] = mean_confidence_interval(resutls)
+                task_results[optimizers_names_mapping[run_name]] = resutls
 
         if len(task_results):
             all_results[task_name] = task_results
@@ -132,15 +156,12 @@ if __name__ == "__main__":
     df.drop(rows_to_drop, inplace=True)
     df.drop(columns_to_drop, axis=1, inplace=True)
 
-    # print(df)
-    # exit()
-    
 
     # Apply the function to each row and create a new DataFrame
-    bolded_df = pd.DataFrame([bold_min(row) for _, row in df.iterrows()], columns=df.columns, index=df.index)
+    processed = pd.DataFrame([process_row(row) for _, row in df.iterrows()], columns=df.columns, index=df.index)
 
     # Convert to LaTeX table with column names, ensuring escape=False
-    latex_table = bolded_df.to_latex(escape=False, column_format='l' + 'p{0.7cm}' * len(df.columns))
+    latex_table = processed.to_latex(escape=False, column_format='l' + 'p{0.7cm}' * len(df.columns))
 
 
     latex_table = add_multirow(latex_table)

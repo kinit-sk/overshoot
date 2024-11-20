@@ -215,7 +215,7 @@ def create_sst(tokenizer):
 
 def create_qqp(tokenizer):
     train_data = load_dataset("nyu-mll/glue", "qqp")['train']
-    validation_data = load_dataset("nyu-mll/glue", "qqp")['train']
+    validation_data = load_dataset("nyu-mll/glue", "qqp")['validation']
     
     def batching(self, x):
         inpts = self.tokenizer([f"{self.data[index]['question1']}  {self.data[index]['question2']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
