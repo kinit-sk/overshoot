@@ -271,6 +271,7 @@ class OvershootTrainer:
                 self.current_step += 1
                 if self.current_step >= self.steps:
                     self.save_stats()
+                    print("Max steps reached. Finished training.")
                     return
 
             # Validation

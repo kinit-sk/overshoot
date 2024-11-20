@@ -236,9 +236,8 @@ class GptMnliAdamConfig(DefaultConfig):
 
 @dataclass
 class GptSstAdamConfig(DefaultConfig):
-    lr: float = 5e-5
-    epochs: int = 3
-    log_every_n_steps: int = 5
+    epochs: int = 20
+    weight_decay: float = 5e-4
     
 @dataclass
 class RobertaSstAdamConfig(DefaultConfig):

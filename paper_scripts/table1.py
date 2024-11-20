@@ -25,19 +25,19 @@ optimizers_names_mapping = {
 }
 
 task_name_mapping = {
-    "mlp_housing": "MLP-CA (loss)",
-    "mlp_mnist": "Mnist (acc)",
-    "2c2d_fashion": "2c2d-FM (acc)",
-    "3c3d_cifar10": "3c3d-C10 (acc)",
-    "vae_mnist": "VAE-M (loss)",
-    "vae_f-mnist": "VAE-FM (loss)",
-    "resnet18_cifar100": "ResNet-C100 (acc) old",
-    "resnet18_cifar100_v2_better_aug_weight_decay_new_sgd": "ResNet-C100 (acc)",
+    "mlp_housing": "MLP-CA",
+    "vae_mnist": "VAE-M",
+    "vae_f-mnist": "VAE-FM",
+    "mlp_mnist": "Mnist",
+    "2c2d_fashion": "2c2d-FM",
+    "3c3d_cifar10": "3c3d-C10",
+    "resnet18_cifar100": "ResNet-C100 old",
+    "resnet18_cifar100_v2_better_aug_weight_decay_new_sgd": "ResNet-C100",
 }
 
 rows_to_drop = [
-    "Mnist (acc)",
-    "ResNet-C100 (acc) old"
+    "Mnist",
+    "ResNet-C100 old"
 ]
 columns_to_drop = [
     "SGDA",
@@ -46,17 +46,27 @@ columns_to_drop = [
 
 def bold_min(row):
     # import code; code.interact(local=locals())
-    if "acc" in row.name:
-        fn_to_use = max
-    elif "loss" in row.name:
+    if "VAE" in row.name or "MLP" in row.name:
         fn_to_use = min
     else:
-        raise Exception(f"task name have to contain either acc or loss: {row.name}")
+        fn_to_use = max
         
     print(row)
     sgd_min = fn_to_use([x[1][0] for x in row.items() if 'SGD' in x[0] or 'CM' in x[0]])
     adam_min = fn_to_use([x[1][0] for x in row.items() if 'Adam' in x[0]])
     return [f"\\textbf{{{val[0]:.2f} \u00B1{val[1]:.2f}}}" if (val[0] == sgd_min or val[0] == adam_min) else f"{val[0]:.2f} \u00B1{val[1]:.2f}" for _, val in row.items()]
+
+def add_multirow(table: str) -> str:
+    table = table.split('\n')
+    table[4] = table[4].replace("MLP", "\\multirow{3}{*}{\\vspace*{-1.0cm} Loss} & MLP").replace(r'\\', r'\\ \cline{2-12}')
+    table[5] = table[5].replace("VAE", "& VAE").replace(r'\\', r'\\ \cline{2-12}')
+    table[6] = table[6].replace("VAE", "& VAE").replace(r'\\', r'\\ \cline{1-12}')
+    
+    table[7] = table[7].replace("2c2d", "\\multirow{3}{*}{\\vspace*{-1.0cm} Acc} & 2c2d").replace(r'\\', r'\\ \cline{2-12}')
+    table[8] = table[8].replace("3c3d", "& 3c3d").replace(r'\\', r'\\ \cline{2-12}')
+    table[9] = table[9].replace("Res", "& Res")
+    return '\n'.join(table)
+
 
 
 def mean_confidence_interval(data, confidence_interval: float=0.95):
@@ -117,6 +127,8 @@ if __name__ == "__main__":
     df = pd.DataFrame(all_results).T
     df = df[list(optimizers_names_mapping.values())]
     df = df.rename(index=task_name_mapping)
+    df = df.reindex(index=task_name_mapping.values())
+
     df.drop(rows_to_drop, inplace=True)
     df.drop(columns_to_drop, axis=1, inplace=True)
 
@@ -131,7 +143,8 @@ if __name__ == "__main__":
     latex_table = bolded_df.to_latex(escape=False, column_format='l' + 'p{0.7cm}' * len(df.columns))
 
 
-    latex_table = latex_table.replace(r'\\', r'\\ \midrule')
+    latex_table = add_multirow(latex_table)
+    # latex_table = latex_table.replace(r'\\', r'\\ \hline')
 
     print(latex_table)
 
