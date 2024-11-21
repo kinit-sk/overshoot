@@ -16,7 +16,7 @@ from models.resnet import ResNet
 from models.mlp import MLP
 from models.vae import VAE
 from custom_datasets import (NextTokenDataloader,
-                             create_qqp, create_mnist, create_cifar, create_housing_datatset, create_energy_datatset, create_sst, create_mnli, create_fasion_mnist)
+                             create_qqp, create_mnist, create_cifar, create_boston_datatset, create_housing_datatset, create_energy_datatset, create_sst, create_mnli, create_fasion_mnist)
 from models.gpt import GPT, GPTConfig, GPTTinyConfig
 from trainer_configs import *
 
@@ -54,6 +54,8 @@ def init_dataset(dataset_name, model_name: Optional[str]):
         return create_cifar(10)
     elif dataset_name == "cifar100":
         return create_cifar(100)
+    elif dataset_name == "boston":
+        return create_boston_datatset()
     elif dataset_name == "housing":
         return create_housing_datatset()
     elif dataset_name == "energy":

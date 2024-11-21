@@ -282,7 +282,7 @@ class OvershootTrainer:
             test_loaders = [x for x in [(val_dataloader, self.val_stats), (test_dataloader, self.test_stats)] if x[0]]
             with torch.no_grad():
                 for loader, stats in test_loaders:
-                    correct, total, losses = 0, 0, []
+                    correct, total, loss = 0, 0, 0
                     for batch in loader:
                         batch = self._move_batch_to_cuda(batch)
                         with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
@@ -290,6 +290,6 @@ class OvershootTrainer:
                         _, predicted = outputs["logits"].max(1)
                         total += batch["labels"].size(0)
                         correct += predicted.eq(batch["labels"]).sum().item()
-                        losses.append(outputs["loss"].item())
-                    self.log_stats(stats, epoch, time.time() - start_time, np.mean(losses), 100 * correct / total)
+                        loss += outputs["loss"].item() * batch['x'].size(0)
+                    self.log_stats(stats, epoch, time.time() - start_time, loss / len(test_dataloader.dataset), 100 * correct / total)
             self.save_stats()

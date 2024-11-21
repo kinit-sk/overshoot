@@ -20,6 +20,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
     dataset_name = reduce(dataset_name, "cifar")
         
     cfg = defaultdict(lambda: DefaultConfig, {
+        ("mlp", "boston", "sgd"): BostonConfig,
+        ("mlp", "boston", "adam"): BostonConfig,
         ("mlp", "housing", "sgd"): HousingConfig, ### TABLE 1: 1nd row config
         ("mlp", "housing", "adam"): HousingConfig, ### TABLE 1: 1nd row config
         ("mlp", "energy", "sgd"): EnergyConfig,
@@ -107,6 +109,14 @@ class DefaultConfig:
 ############################# MLP regression tasks #############################
 ################################################################################
 
+### TABLE 1: 1nd row config
+# When using SGD we do not manage to overfit, but that is fine...
+@dataclass
+class BostonConfig(DefaultConfig):
+    B: int = 32
+    epochs: int = 100
+    mlp_hidden_size = [128, 64, 32]
+    
 ### TABLE 1: 1nd row config
 # When using SGD we do not manage to overfit, but that is fine...
 @dataclass
