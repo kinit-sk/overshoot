@@ -115,7 +115,7 @@ class DefaultConfig:
 class BostonConfig(DefaultConfig):
     B: int = 32
     epochs: int = 100
-    mlp_hidden_size = [128, 64, 32]
+    mlp_hidden_size = [128, 64]
     
 ### TABLE 1: 1nd row config
 # When using SGD we do not manage to overfit, but that is fine...
