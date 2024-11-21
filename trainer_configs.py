@@ -77,7 +77,7 @@ class DefaultConfig:
     target_cosine_similarity: float = 0.1
     log_every_n_steps: int = 50
     n_gpu: int = torch.cuda.device_count()
-    use_16_bit_precision: bool = torch.cuda.device_count() > 0 # TODO: not used anywhere now
+    use_16_bit_precision: bool = torch.cuda.device_count() > 0
     use_peft: bool = True
     log_gpu: bool = False
     
@@ -112,7 +112,6 @@ class DefaultConfig:
 @dataclass
 class HousingConfig(DefaultConfig):
     epochs: int = 200
-    log_every_n_steps: int = 50
     mlp_hidden_size = [200, 150]
         
 @dataclass

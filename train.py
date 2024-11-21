@@ -2,6 +2,7 @@ import copy
 import os
 import re
 import time
+from contextlib import nullcontext
 
 import numpy as np
 import pandas as pd
@@ -126,13 +127,13 @@ class OvershootTrainer:
     def _baseline_training_step(self, batch, batch_idx):
         assert len(self.optimizers) == 1
         optimizer = self.optimizers[0]
-
         base_model, is_same = self._get_base_model()
-        if not is_same:
-            with torch.no_grad():
-                base_output = base_model.forward(**batch)
+        with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
+            if not is_same:
+                with torch.no_grad():
+                    base_output = base_model.forward(**batch)
+            output = self.base_model.forward(**batch)
             
-        output = self.base_model.forward(**batch)
         output["loss"].backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -147,9 +148,10 @@ class OvershootTrainer:
 
     def _two_models_training_step(self, batch, batch_idx):
         assert len(self.optimizers) == 2
-        with torch.no_grad():
-            output_base = self.base_model.forward(**batch)  # only to log base loss
-        output_overshoot = self.overshoot_model.forward(**batch)
+        with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
+            with torch.no_grad():
+                output_base = self.base_model.forward(**batch)  # only to log base loss
+            output_overshoot = self.overshoot_model.forward(**batch)
         output_overshoot["loss"].backward()
         # self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
 
@@ -283,7 +285,8 @@ class OvershootTrainer:
                     correct, total, losses = 0, 0, []
                     for batch in loader:
                         batch = self._move_batch_to_cuda(batch)
-                        outputs = base_model.forward(**batch)
+                        with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
+                            outputs = base_model.forward(**batch)
                         _, predicted = outputs["logits"].max(1)
                         total += batch["labels"].size(0)
                         correct += predicted.eq(batch["labels"]).sum().item()
