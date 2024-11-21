@@ -15,6 +15,7 @@ tasks_to_skip = [
 ]
 
 task_name_mapping = {
+    "vae_f-mnist": "VAE-FM",
     "vae_mnist_replicate": "VAE-M",
     "2c2d_fashion_replicate": "2c2d-FM",
     "3c3d_cifar10_replicate": "3c3d-C10",

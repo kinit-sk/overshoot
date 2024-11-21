@@ -32,9 +32,10 @@ optimizers_names_mapping = {
 # }
 
 task_name_mapping = {
-    "mlp_housing_v3": "MLP",
-    # "2c2d_fashion_replicate": "2c2d-FM",
-    # "3c3d_cifar10_replicate": "3c3d-C10",
+    "mlp_housing_v4": "Housing",
+    "vae_mnist_replicate": "VAE-M",
+    "2c2d_fashion_replicate": "2c2d-FM",
+    "3c3d_cifar10_replicate": "3c3d-C10",
 }
  
 
@@ -50,18 +51,20 @@ def process_sub_row(row_name, sub_row):
     fn_to_use = max if is_classification(row_name) else min
 
     means = [mean_confidence_interval(values) for _, values in sub_row]
-    print(means)
     best_value = fn_to_use(means, key=lambda x: x[0])[0]
     better_baseline = fn_to_use([(values, np.mean(values)) for _, values in sub_row[:2]], key=lambda x: x[1])[0]
     
     reject_same_dist = [False, False]
     for _, overshoot_values in sub_row[2:]:
-        alpha = 0.05
-        better_baseline = better_baseline[:min(len(better_baseline), len(overshoot_values))]
-        overshoot_values = overshoot_values[:min(len(better_baseline), len(overshoot_values))]
-        
-        test = stats.ttest_rel(better_baseline, overshoot_values)
-        reject_same_dist.append(test.pvalue < alpha)
+        if isinstance(overshoot_values, list):
+            alpha = 0.05
+            better_baseline = better_baseline[:min(len(better_baseline), len(overshoot_values))]
+            overshoot_values = overshoot_values[:min(len(better_baseline), len(overshoot_values))]
+            
+            test = stats.ttest_rel(better_baseline, overshoot_values)
+            reject_same_dist.append(test.pvalue < alpha)
+        else:
+            reject_same_dist.append(False)
 
     ps = lambda use_star: "*" if use_star else ""
     return [f"\\textbf{{{mean:.2f}{ps(use_star)} \u00B1{interval:.2f}}}" if mean == best_value else f"{mean:.2f}{ps(use_star)} \u00B1{interval:.2f}" for (mean, interval), use_star in zip(means, reject_same_dist)]
@@ -91,6 +94,8 @@ def add_multirow(table: str) -> str:
 
 
 def mean_confidence_interval(data, confidence_interval: float=0.95):
+    if not isinstance(data, list):
+        return 0, 0
     mean = np.mean(data)
 
     # Calculate standard error of the mean
@@ -127,7 +132,6 @@ if __name__ == "__main__":
             for seeds in os.listdir(run_root):
                 finel_path = os.path.join(run_root, seeds)
                 if os.path.exists(os.path.join(finel_path, "test_stats.csv")):
-                    print(os.path.join(finel_path, "test_stats.csv"))
                     df = pd.read_csv(os.path.join(finel_path, "test_stats.csv"))
                 elif os.path.exists(os.path.join(finel_path, "validation_stats.csv")):
                     df = pd.read_csv(os.path.join(finel_path, "validation_stats.csv"))
