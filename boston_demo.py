@@ -41,14 +41,14 @@ class UnifiedDatasetInterface:
     def get_batching_fn(self):
         return self._batching_fn
 
-def create_housing_datatset(val_split: float = 0.1):
+def create_housing_datatset(val_split: float = 0.2):
     data_url = "http://lib.stat.cmu.edu/datasets/boston"
     raw_df = pd.read_csv(data_url, skiprows=22, header=None)
     raw_df = pd.read_csv(data_url, sep="\\s+", skiprows=22, header=None)
     X = np.hstack([raw_df.values[::2, :], raw_df.values[1::2, :2]])
     y = raw_df.values[1::2, 2]
     
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=val_split, random_state=42)
     # X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val, test_size=val_split, random_state=42)
     
     # Normalize the data

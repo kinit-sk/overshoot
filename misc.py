@@ -47,7 +47,7 @@ supported_models = [
 ]
 
 
-def init_dataset(dataset_name, model_name: Optional[str]):
+def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[str] = None):
     if dataset_name == "mnist":
         return create_mnist(model_name == "vae")
     elif dataset_name == "cifar10":
@@ -55,9 +55,9 @@ def init_dataset(dataset_name, model_name: Optional[str]):
     elif dataset_name == "cifar100":
         return create_cifar(100)
     elif dataset_name == "boston":
-        return create_boston_datatset()
+        return create_boston_datatset(seed=seed if seed else 42)
     elif dataset_name == "housing":
-        return create_housing_datatset()
+        return create_housing_datatset(seed=seed if seed else 42)
     elif dataset_name == "energy":
         return create_energy_datatset()
     elif dataset_name == "f-mnist":

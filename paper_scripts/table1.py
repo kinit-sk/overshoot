@@ -32,9 +32,9 @@ optimizers_names_mapping = {
 # }
 
 task_name_mapping = {
-    "mlp_housing_v4_replicate": "MLP",
-    "2c2d_fashion_replicate": "2c2d-FM",
-    "3c3d_cifar10_replicate": "3c3d-C10",
+    "mlp_housing_v3": "MLP",
+    # "2c2d_fashion_replicate": "2c2d-FM",
+    # "3c3d_cifar10_replicate": "3c3d-C10",
 }
  
 

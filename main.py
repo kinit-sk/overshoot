@@ -27,7 +27,7 @@ def main():
     print(f"Config: {trainer_config}")
     
     # 3) Create datatset
-    dataset = init_dataset(args.dataset, args.model)
+    dataset = init_dataset(args.dataset, args.model, args.seed)
     
     # 4) Create model
     model = init_model(args.model, dataset[0], trainer_config)
