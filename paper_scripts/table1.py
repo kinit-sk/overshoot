@@ -7,42 +7,37 @@ import scipy.stats as stats
 
 
 
-
-
 optimizers_names_mapping = {
     "sgd_baseline": "CM",
     "nesterov": "NAG",
     "sgd_overshoot_3": "SGD3",
     "sgd_overshoot_5": "SGD5",
     "sgd_overshoot_7": "SGD7",
-    "sgd_overshoot_adaptive": "SGDA",
     "adam_baseline": "Adam",
     "nadam": "Nadam",
     "adam_overshoot_3": "Adam3",
     "adam_overshoot_5": "Adam5",
     "adam_overshoot_7": "Adam7",
-    "adam_overshoot_adaptive": "AdamA",
 }
+
+# task_name_mapping = {
+#     "mlp_housing": "MLP-CA",
+#     "vae_mnist": "VAE-M",
+#     "vae_f-mnist": "VAE-FM",
+#     "mlp_mnist": "Mnist",
+#     "2c2d_fashion": "2c2d-FM",
+#     "3c3d_cifar10": "3c3d-C10",
+#     "resnet18_cifar100": "ResNet-C100 old",
+#     "resnet18_cifar100_v2_better_aug_weight_decay_new_sgd": "ResNet-C100",
+# }
 
 task_name_mapping = {
-    "mlp_housing": "MLP-CA",
-    "vae_mnist": "VAE-M",
-    "vae_f-mnist": "VAE-FM",
-    "mlp_mnist": "Mnist",
-    "2c2d_fashion": "2c2d-FM",
-    "3c3d_cifar10": "3c3d-C10",
-    "resnet18_cifar100": "ResNet-C100 old",
-    "resnet18_cifar100_v2_better_aug_weight_decay_new_sgd": "ResNet-C100",
+    "mlp_housing_v4_replicate": "MLP",
+    "2c2d_fashion_replicate": "2c2d-FM",
+    "3c3d_cifar10_replicate": "3c3d-C10",
 }
+ 
 
-rows_to_drop = [
-    "Mnist",
-    "ResNet-C100 old"
-]
-columns_to_drop = [
-    "SGDA",
-    "AdamA",
-]
 
 def is_classification(name):
     return ("VAE" not in name) and ("MLP" not in name)
@@ -55,6 +50,7 @@ def process_sub_row(row_name, sub_row):
     fn_to_use = max if is_classification(row_name) else min
 
     means = [mean_confidence_interval(values) for _, values in sub_row]
+    print(means)
     best_value = fn_to_use(means, key=lambda x: x[0])[0]
     better_baseline = fn_to_use([(values, np.mean(values)) for _, values in sub_row[:2]], key=lambda x: x[1])[0]
     
@@ -71,6 +67,7 @@ def process_sub_row(row_name, sub_row):
     return [f"\\textbf{{{mean:.2f}{ps(use_star)} \u00B1{interval:.2f}}}" if mean == best_value else f"{mean:.2f}{ps(use_star)} \u00B1{interval:.2f}" for (mean, interval), use_star in zip(means, reject_same_dist)]
     
 def process_row(row):
+    print(row.name)
     sgd_sub_row = process_sub_row(row.name, [item for item in row.items() if is_sgd(item[0])])
     adam_sub_row = process_sub_row(row.name, [item for item in row.items() if not is_sgd(item[0])])
     sgd_sub_row.extend(adam_sub_row)
@@ -78,6 +75,10 @@ def process_row(row):
 
 def add_multirow(table: str) -> str:
     table = table.split('\n')
+    if len(table) < 10:
+        print("Warning, multirow skipped")
+        return '\n'.join(table)
+         
     table[4] = table[4].replace("MLP", "\\multirow{3}{*}{\\vspace*{-1.0cm} Loss} & MLP").replace(r'\\', r'\\ \cline{2-12}')
     table[5] = table[5].replace("VAE", "& VAE").replace(r'\\', r'\\ \cline{2-12}')
     table[6] = table[6].replace("VAE", "& VAE").replace(r'\\', r'\\ \cline{1-12}')
@@ -105,57 +106,57 @@ def mean_confidence_interval(data, confidence_interval: float=0.95):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model")
+    parser.add_argument("--root", type=str, default="../lightning_logs/table1")
     args = parser.parse_args()
 
 
-    root = "../lightning_logs/table1"
-
     all_results = {}
-    for task_name in os.listdir(root):
-        task_root = os.path.join(root, task_name)
+    for task_name in os.listdir(args.root):
+        task_root = os.path.join(args.root, task_name)
+        if (not os.path.isdir(task_root)) or (task_name not in task_name_mapping):
+            continue
+        print("Processing:", task_name)
 
         task_results = {}
         for run_name in os.listdir(task_root):
             run_root = os.path.join(task_root, run_name)
-            if not os.path.isdir(run_root):
+            if not os.path.isdir(run_root) or (run_name not in optimizers_names_mapping):
                 continue
             
             resutls = []
             for seeds in os.listdir(run_root):
                 finel_path = os.path.join(run_root, seeds)
-            
-                if "housing" in task_name:
-                    validation_stats = os.path.join(finel_path, "validation_stats.csv")
+                if os.path.exists(os.path.join(finel_path, "test_stats.csv")):
+                    print(os.path.join(finel_path, "test_stats.csv"))
+                    df = pd.read_csv(os.path.join(finel_path, "test_stats.csv"))
+                elif os.path.exists(os.path.join(finel_path, "validation_stats.csv")):
+                    df = pd.read_csv(os.path.join(finel_path, "validation_stats.csv"))
                 else:
-                    validation_stats = os.path.join(finel_path, "test_stats.csv")
-                if not os.path.exists(validation_stats):
+                    print(f"Warning: Path does not exists: {finel_path}")
                     continue
-                
-                df = pd.read_csv(validation_stats)
-                if "accuracy" in df.columns:
+
+                if "accuracy" in df.columns and df["accuracy"].max() > 0:
                     resutls.append(df["accuracy"].max())
                 else:
                     resutls.append(df["loss"].min())
 
-            if len(resutls)> 1:
-                if task_name == "mlp_housing":
+            if resutls:
+                if "housing" in task_name:
                     resutls = [x * 100 for x in resutls]
-                # task_results[optimizers_names_mapping[run_name]] = mean_confidence_interval(resutls)
                 task_results[optimizers_names_mapping[run_name]] = resutls
 
         if len(task_results):
             all_results[task_name] = task_results
             
-    # print(all_results)
     df = pd.DataFrame(all_results).T
-    df = df[list(optimizers_names_mapping.values())]
-    df = df.rename(index=task_name_mapping)
-    df = df.reindex(index=task_name_mapping.values())
-
-    df.drop(rows_to_drop, inplace=True)
-    df.drop(columns_to_drop, axis=1, inplace=True)
-
+    if all([optimizer in df.columns for optimizer in optimizers_names_mapping.values()]):
+        print("Sorting columns")
+        df = df[list(optimizers_names_mapping.values())]
+        
+    
+    row_mapping = {k:v for k, v in task_name_mapping.items() if k in df.index}
+    df = df.rename(index=row_mapping)
+    df = df.reindex(index=row_mapping.values())
 
     # Apply the function to each row and create a new DataFrame
     processed = pd.DataFrame([process_row(row) for _, row in df.iterrows()], columns=df.columns, index=df.index)
