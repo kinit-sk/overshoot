@@ -57,7 +57,8 @@ def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[str] = 
     elif dataset_name == "boston":
         return create_boston_datatset(seed=seed if seed else 42)
     elif dataset_name == "housing":
-        return create_housing_datatset(seed=seed if seed else 42)
+        return create_housing_datatset()
+        # return create_housing_datatset(seed=seed if seed else 42)
     elif dataset_name == "energy":
         return create_energy_datatset()
     elif dataset_name == "f-mnist":

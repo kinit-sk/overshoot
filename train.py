@@ -290,6 +290,6 @@ class OvershootTrainer:
                         _, predicted = outputs["logits"].max(1)
                         total += batch["labels"].size(0)
                         correct += predicted.eq(batch["labels"]).sum().item()
-                        loss += outputs["loss"].item() * batch['x'].size(0)
+                        loss += outputs["loss"].item() * batch["labels"].size(0)
                     self.log_stats(stats, epoch, time.time() - start_time, loss / len(test_dataloader.dataset), 100 * correct / total)
             self.save_stats()

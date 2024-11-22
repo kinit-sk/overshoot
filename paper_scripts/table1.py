@@ -20,23 +20,26 @@ optimizers_names_mapping = {
     "adam_overshoot_7": "Adam7",
 }
 
+task_name_mapping = {
+    "mlp_housing": "MLP-CA",
+    "vae_mnist": "VAE-M",
+    "vae_f-mnist": "VAE-FM",
+    "mlp_mnist": "Mnist",
+    "2c2d_fashion": "2c2d-FM",
+    "3c3d_cifar10": "3c3d-C10",
+    "resnet18_cifar100": "ResNet-C100",
+}
+
 # task_name_mapping = {
-#     "mlp_housing": "MLP-CA",
-#     "vae_mnist": "VAE-M",
-#     "vae_f-mnist": "VAE-FM",
-#     "mlp_mnist": "Mnist",
-#     "2c2d_fashion": "2c2d-FM",
-#     "3c3d_cifar10": "3c3d-C10",
-#     "resnet18_cifar100": "ResNet-C100 old",
-#     "resnet18_cifar100_v2_better_aug_weight_decay_new_sgd": "ResNet-C100",
+#     "mlp_housing_old": "MLP-CA",
+#     "vae_mnist_old": "VAE-M",
+#     "vae_f-mnist_old": "VAE-FM",
+#     "mlp_mnist_old": "Mnist",
+#     "2c2d_fashion_old": "2c2d-FM",
+#     "3c3d_cifar10_old": "3c3d-C10",
+#     "resnet18_cifar100_old": "ResNet-C100",
 # }
 
-task_name_mapping = {
-    "mlp_housing_v4": "Housing",
-    "vae_mnist_replicate": "VAE-M",
-    "2c2d_fashion_replicate": "2c2d-FM",
-    "3c3d_cifar10_replicate": "3c3d-C10",
-}
  
 
 
@@ -55,13 +58,17 @@ def process_sub_row(row_name, sub_row):
     better_baseline = fn_to_use([(values, np.mean(values)) for _, values in sub_row[:2]], key=lambda x: x[1])[0]
     
     reject_same_dist = [False, False]
-    for _, overshoot_values in sub_row[2:]:
+    for name, overshoot_values in sub_row[2:]:
         if isinstance(overshoot_values, list):
+            if len(overshoot_values) != 10:
+                print(f"Warning, not enogh values for {name}. Got {len(overshoot_values)}.")
+            if len(better_baseline) != 10:
+                print(f"Warning, not enogh values for baseline. Got {len(better_baseline)}.")
             alpha = 0.05
-            better_baseline = better_baseline[:min(len(better_baseline), len(overshoot_values))]
+            baseline_prefix = better_baseline[:min(len(better_baseline), len(overshoot_values))]
             overshoot_values = overshoot_values[:min(len(better_baseline), len(overshoot_values))]
             
-            test = stats.ttest_rel(better_baseline, overshoot_values)
+            test = stats.ttest_rel(baseline_prefix, overshoot_values)
             reject_same_dist.append(test.pvalue < alpha)
         else:
             reject_same_dist.append(False)
@@ -70,8 +77,9 @@ def process_sub_row(row_name, sub_row):
     return [f"\\textbf{{{mean:.2f}{ps(use_star)} \u00B1{interval:.2f}}}" if mean == best_value else f"{mean:.2f}{ps(use_star)} \u00B1{interval:.2f}" for (mean, interval), use_star in zip(means, reject_same_dist)]
     
 def process_row(row):
-    print(row.name)
+    print(row.name, "SGD")
     sgd_sub_row = process_sub_row(row.name, [item for item in row.items() if is_sgd(item[0])])
+    print(row.name, "ADAM")
     adam_sub_row = process_sub_row(row.name, [item for item in row.items() if not is_sgd(item[0])])
     sgd_sub_row.extend(adam_sub_row)
     return sgd_sub_row
