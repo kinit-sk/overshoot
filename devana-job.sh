@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=p904-24-3
 #SBATCH --mail-user=<jakub.kopal@kinit.sk>
-#SBATCH --time=09:00:00 # Estimate to increase job priority
+#SBATCH --time=11:00:00 # Estimate to increase job priority
 
 ## Nodes allocation
 #SBATCH --partition=gpu
@@ -16,6 +16,6 @@ conda activate overshoot
 
 for seed in ${SEEDS}; do
     PYTHON_ARGS_FINAL="${PYTHON_ARGS} --seed ${seed}"
-    python train.py ${PYTHON_ARGS_FINAL}
+    python main.py ${PYTHON_ARGS_FINAL}
 done
 
