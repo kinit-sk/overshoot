@@ -50,7 +50,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("roberta_hf", "sst", "adam"): RobertaSstAdamConfig,
         ("minilm", "sst", "adam"): MinilmSstAdamConfig,
         ("bloom_hf", "sst", "adam"): BloomSstAdamConfig,
-        ("gpt_hf", "qqp", "adam"): GptQqpAdamConfig,
+        ("gpt_hf", "qqp", "sgd"): GptQqpConfig,
+        ("gpt_hf", "qqp", "adam"): GptQqpConfig,
         ("roberta_hf", "qqp", "adam"): RobertaQqpAdamConfig,
         ("gpt", "shakespear", "sgd"): GptShakespearConfig, # TODO
         ("gpt", "shakespear", "adam"): GptShakespearConfig,
@@ -233,7 +234,7 @@ class VaeFashionConfig(DefaultConfig):
 @dataclass
 class GptMnliSgdConfig(DefaultConfig):
     B: int = 64
-    epochs: int = 10
+    epochs: int = 20
     weight_decay: float = 5e-4
     
 @dataclass
@@ -265,10 +266,10 @@ class MinilmSstAdamConfig(DefaultConfig):
     
     
 @dataclass
-class GptQqpAdamConfig(DefaultConfig):
-    lr: float = 5e-5
-    epochs: int = 3
-    log_every_n_steps: int = 5
+class GptQqpConfig(DefaultConfig):
+    epochs: int = 10
+    weight_decay: float = 5e-4
+    lr: float = 3e-4
     
 @dataclass
 class RobertaQqpAdamConfig(DefaultConfig):

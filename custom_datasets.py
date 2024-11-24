@@ -229,7 +229,8 @@ def create_qqp(tokenizer):
     train_dataset.tokenizer = tokenizer
     val_dataset = UnifiedDatasetInterface(validation_data, 2, True, batching_fn=batching)
     val_dataset.tokenizer = tokenizer
-    return train_dataset, val_dataset, None # TODO: Create Test split
+    return train_dataset, None, val_dataset # TODO: Create Test split
+    # return train_dataset, val_dataset, None # TODO: Create Test split
     
 def create_mnli(tokenizer):
     train_data = load_dataset("nyu-mll/glue", "mnli")['train']
