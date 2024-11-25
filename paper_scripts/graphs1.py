@@ -8,18 +8,11 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 
 from scipy.ndimage import gaussian_filter1d
+from matplotlib.ticker import FuncFormatter
 
 
 
 
-# task_name_mapping = {
-#     "mlp_housing_v4": "Housing",
-#     "vae_f-mnist": "VAE-FM",
-#     "vae_mnist_replicate": "VAE-M",
-#     "2c2d_fashion_replicate": "2c2d-FM",
-#     "3c3d_cifar10_replicate": "3c3d-C10",
-#     "resnet18_cifar100_v2_better_aug_weight_decay_new_sgd": "ResNet-C100",
-# }
 
 task_2_title = {
     "mlp_housing": "Housing",
@@ -43,11 +36,10 @@ task_2_range = {
 task_2_smooth = {
     "mlp_housing": 20,
     "vae_f-mnist": 20,
-    "vae_mnist": 20,
-    "vae_mnist": 20,
+    "vae_mnist": 22,
     "2c2d_fashion": 40,
-    "3c3d_cifar10": 20,
-    "resnet18_cifar100": 10,
+    "3c3d_cifar10": 14,
+    "resnet18_cifar100": 8,
 }
 
 color_map = {
@@ -73,10 +65,8 @@ algorithm_2_legend = {
 }
 
 
+def plot_data(data, pp, task_name, use_legend=True):
 
-
-def plot_data(data, pp, task_name, use_x_label=True, use_y_label=True, use_legend=True):
-    
     pp.set_yscale('log', base=10)
     min_max = task_2_range[task_name]
     for label, color in color_map.items():
@@ -85,13 +75,12 @@ def plot_data(data, pp, task_name, use_x_label=True, use_y_label=True, use_legen
         
     pp.set_ylim([0, min_max[1]])
     pp.set_yticks(pp.get_yticks()[-4:-2], [round(min_max[0]+c, 2) for c in pp.get_yticks()[-4:-2]])
-    pp.set_title(task_2_title[task_name])
-    if use_x_label:
-        pp.set_xlabel('Batch')
-    if use_y_label:
-        pp.set_ylabel('Training Loss')
+    pp.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: f"{x * 10:.0f}"))
+    pp.set_title(task_2_title[task_name], fontsize=20)
+    
+    
     if use_legend:
-        pp.legend(loc="upper right")
+        pp.legend(loc="upper right", fontsize=16)
 
 def process_run(run_root, smooth_factor):
     run_losses = []
@@ -120,17 +109,21 @@ def process_run(run_root, smooth_factor):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model")
+    parser.add_argument("--root", type=str, default="../lightning_logs/table1")
+    parser.add_argument("--out", type=str, default="train_loss.png")
     args = parser.parse_args()
 
-    root = "../lightning_logs/table1"
+    plt.rc('xtick', labelsize=14)  # X-axis tick labels font size
+    plt.rc('ytick', labelsize=14)  # Y-axis tick labels font size
     fig, axs = plt.subplots(2, 3, figsize=(20, 10))
+    fig.text(0.5, 0.01, 'Training steps', ha='center', fontsize=22)
+    fig.text(0.01, 0.5, 'Loss', va='center', rotation='vertical', fontsize=22)
     all_results = {}
 
 
     task_index = -1
-    for task_name in os.listdir(root):
-        task_root = os.path.join(root, task_name)
+    for task_name in os.listdir(args.root):
+        task_root = os.path.join(args.root, task_name)
         if (not os.path.isdir(task_root)) or (task_name not in task_2_title):
             continue
         
@@ -148,12 +141,11 @@ if __name__ == "__main__":
 
             
         if task_results:
-            use_x_label = task_index % 2 == 1
-            use_y_label = task_index // 2 == 0
             use_legend = task_index == 4
-            plot_data(task_results, axs[task_index % 2, task_index // 2], task_name, use_x_label, use_y_label, use_legend)
+            # use_legend = True
+            plot_data(task_results, axs[task_index % 2, task_index // 2], task_name, use_legend)
 
         print(f"Updated with {task_name}")
-        plt.tight_layout()
-        plt.savefig('out/foo_test.png')
+        plt.tight_layout(rect=[0.02, 0.04, 1, 1])  # Leave space for the global labels
+        plt.savefig(args.out)
             
