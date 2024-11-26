@@ -8,7 +8,7 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 
 from scipy.ndimage import gaussian_filter1d
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 
 
@@ -76,6 +76,7 @@ def plot_data(data, pp, task_name, use_legend=True):
     pp.set_ylim([0, min_max[1]])
     pp.set_yticks(pp.get_yticks()[-4:-2], [round(min_max[0]+c, 2) for c in pp.get_yticks()[-4:-2]])
     pp.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: f"{x * 10:.0f}"))
+    pp.xaxis.set_major_locator(MaxNLocator(nbins=3)) 
     pp.set_title(task_2_title[task_name], fontsize=20)
     
     

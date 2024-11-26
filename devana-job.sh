@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=p904-24-3
 #SBATCH --mail-user=<jakub.kopal@kinit.sk>
-#SBATCH --time=11:00:00 # Estimate to increase job priority
+#SBATCH --time=20:00:00 # Estimate to increase job priority
 
 ## Nodes allocation
 #SBATCH --partition=gpu

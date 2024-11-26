@@ -28,6 +28,7 @@ task_name_mapping = {
     "2c2d_fashion": "2c2d-FM",
     "3c3d_cifar10": "3c3d-C10",
     "resnet18_cifar100": "ResNet-C100",
+    "gpt_hf_qqp": "GPT-2",
 }
 
 # task_name_mapping = {
@@ -94,9 +95,10 @@ def add_multirow(table: str) -> str:
     table[5] = table[5].replace("VAE", "& VAE").replace(r'\\', r'\\ \cline{2-12}')
     table[6] = table[6].replace("VAE", "& VAE").replace(r'\\', r'\\ \cline{1-12}')
     
-    table[7] = table[7].replace("2c2d", "\\multirow{3}{*}{\\vspace*{-1.0cm} Acc} & 2c2d").replace(r'\\', r'\\ \cline{2-12}')
+    table[7] = table[7].replace("2c2d", "\\multirow{4}{*}{\\vspace*{-1.0cm} Acc} & 2c2d").replace(r'\\', r'\\ \cline{2-12}')
     table[8] = table[8].replace("3c3d", "& 3c3d").replace(r'\\', r'\\ \cline{2-12}')
-    table[9] = table[9].replace("Res", "& Res")
+    table[9] = table[9].replace("Res", "& Res").replace(r'\\', r'\\ \cline{2-12}')
+    table[10] = table[10].replace("GPT", "& GPT")
     return '\n'.join(table)
 
 
