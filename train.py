@@ -45,7 +45,7 @@ class OvershootTrainer:
             self.last_update, self.last_update_est = None, None
             self.update_cosine, self.update_cosine_est = [0], [0]
         if self.args.compute_model_distance:
-            self.past_models = []
+            self.past_weights = []
         print("-----------------------------------------------")
         print("Total training steps: ", self.steps)
         print(f"Epoch steps: {len(self.train_dataset) // (config.B * max(1, config.n_gpu))}")
@@ -58,20 +58,22 @@ class OvershootTrainer:
         print("-----------------------------------------------")
 
     def _compute_model_distance(self):
-        if self.args.overshoot_factor and self.args.two_models == False:
-            raise Exception("Model distance computation only makes sense with two models or zero overshoot.")
             
-        latest_base_model = torch.cat([p.data.view(-1).cpu() for p in self.base_model.parameters()])
+        latest_base_model, _ = self._get_base_model()
+        latest_base_weights = torch.cat([p.data.view(-1).cpu() for p in latest_base_model.parameters()])
+        
         if self.two_models:
-            self.past_models.append(torch.cat([p.data.view(-1).cpu() for p in self.overshoot_model.parameters()]))
+            self.past_weights.append(torch.cat([p.data.view(-1).cpu() for p in self.overshoot_model.parameters()]))
         else:
-            self.past_models.append(latest_base_model)
+            self.past_weights.append(torch.cat([p.data.view(-1).cpu() for p in self.base_model.parameters()]))
             
-        if len(self.past_models) > 50:
-            self.past_models.pop(0)
+        if len(self.past_weights) > 50:
+            self.past_weights.pop(0)
             
         decay_factor = self.config.sgd_momentum if "sgd" in self.args.opt_name else self.config.adam_beta1
-        return compute_model_distance(latest_base_model, self.past_models, decay_factor)
+        x =  compute_model_distance(latest_base_weights, self.past_weights, decay_factor)
+        # import code; code.interact(local=locals())
+        return x
             
     def _cosine_similarity(self, sample_size: int = 1000):
         params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])
@@ -134,11 +136,15 @@ class OvershootTrainer:
     def _baseline_training_step(self, batch, batch_idx):
         assert len(self.optimizers) == 1
         optimizer = self.optimizers[0]
-        base_model, is_same = self._get_base_model()
-        with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
+        
+        if self.args.compute_base_model_loss:
+            base_model, is_same = self._get_base_model()
             if not is_same:
-                with torch.no_grad():
-                    base_output = base_model.forward(**batch)
+                with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
+                    with torch.no_grad():
+                        base_output = base_model.forward(**batch)
+                    
+        with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
             output = self.base_model.forward(**batch)
             
         output["loss"].backward()
@@ -147,10 +153,10 @@ class OvershootTrainer:
         for scheduler in self.lr_schedulers:
             scheduler.step()
             
-        if is_same:
-            return output["loss"], output["loss"], output["logits"]
-        else:
+        if self.args.compute_base_model_loss and not is_same:
             return base_output["loss"], output["loss"], base_output["logits"]
+        else:
+            return output["loss"], output["loss"], output["logits"]
 
 
     def _two_models_training_step(self, batch, batch_idx):

@@ -14,7 +14,8 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 
 task_2_title = {
-    "mlp_housing": "Housing",
+    # "mlp_housing": "Housing",
+    "mlp_housing_all": "Housing",
     # "vae_f-mnist": "VAE-FM",
     # "vae_mnist": "VAE-M",
     # "2c2d_fashion": "2c2d-FM",
@@ -60,7 +61,9 @@ def process_run(run_root):
     distances = pd.read_csv(training_stats, on_bad_lines='skip')['model_distance'].to_numpy()
     test_loss = pd.read_csv(test_stats, on_bad_lines='skip')['loss'].to_numpy()
 
-    return np.mean(distances[50:]), test_loss.min()
+    # min = np.mean(np.partition(test_loss, 20)[:20])
+    minn = test_loss.min()
+    return np.mean(distances[50:]), minn
 
     if run_losses:
         min_len = min([len(x) for x in run_losses])
@@ -98,7 +101,8 @@ if __name__ == "__main__":
             run_root = os.path.join(task_root, run_name)
             if os.path.isdir(run_root):
                 distance, loss = process_run(run_root)
-                task_results.append((int(run_name.split('_')[-1]), distance, loss))
+                # task_results.append((int(run_name.split('_')[-1]), distance, loss))
+                task_results.append((float(run_name.split('_')[-1]), distance, loss))
 
         print(task_results)
 

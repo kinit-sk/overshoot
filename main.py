@@ -73,6 +73,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, required=False, help="If specified, use this seed for reproducibility.")
     parser.add_argument("--opt_name", type=str, required=True, help=f"Supported optimizers are: {', '.join(optimizers_map.keys())}")
     parser.add_argument("--compute_model_distance", action=argparse.BooleanOptionalAction, required=False)
+    parser.add_argument("--compute_base_model_loss", action=argparse.BooleanOptionalAction, required=False, default=True)
     parser.add_argument("--high_precision", action=argparse.BooleanOptionalAction, required=False)
     parser.add_argument(
         "--model",

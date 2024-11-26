@@ -182,7 +182,7 @@ def get_gpu_stats(n_gpus: int = 0):
 
 def compute_model_distance(ref_model: torch.Tensor, gradient_models: List[torch.Tensor], decay_factor: float):
     assert 0 < decay_factor < 1
-    return sum([np.linalg.norm(ref_model - g_m) * decay_factor**i for i, g_m in enumerate(reversed(gradient_models))])
+    return sum([np.linalg.norm(ref_model - g_m) * decay_factor**i for i, g_m in enumerate(reversed(gradient_models))]).item()
 
 def get_model_size(model):
     param_size = sum(p.numel() for p in model.parameters() if p.requires_grad) * 4  # Assuming float32
