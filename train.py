@@ -40,9 +40,12 @@ class OvershootTrainer:
         self.train_losses, self.train_accuracy = [], []
         self.overshoot_losses = []
         # Cosine gradient statistics
-        self.previous_params, self.previous_params_est = None, None
-        self.last_update, self.last_update_est = None, None
-        self.update_cosine, self.update_cosine_est = [0], [0]
+        if self.args.compute_cosine:
+            self.previous_params, self.previous_params_est = None, None
+            self.last_update, self.last_update_est = None, None
+            self.update_cosine, self.update_cosine_est = [0], [0]
+        if self.args.compute_model_distance:
+            self.past_models = []
         print("-----------------------------------------------")
         print("Total training steps: ", self.steps)
         print(f"Epoch steps: {len(self.train_dataset) // (config.B * max(1, config.n_gpu))}")
@@ -55,6 +58,9 @@ class OvershootTrainer:
         print("-----------------------------------------------")
 
     def _compute_model_distance(self):
+        if self.args.overshoot_factor and self.args.two_models == False:
+            raise Exception("Model distance computation only makes sense with two models or zero overshoot.")
+            
         latest_base_model = torch.cat([p.data.view(-1).cpu() for p in self.base_model.parameters()])
         if self.two_models:
             self.past_models.append(torch.cat([p.data.view(-1).cpu() for p in self.overshoot_model.parameters()]))
@@ -63,8 +69,9 @@ class OvershootTrainer:
             
         if len(self.past_models) > 50:
             self.past_models.pop(0)
-        momentum = self.config.sgd_momentum if "sgd" in self.args.opt_name else self.config.adam_beta1
-        return compute_model_distance(latest_base_model, self.past_models, momentum)
+            
+        decay_factor = self.config.sgd_momentum if "sgd" in self.args.opt_name else self.config.adam_beta1
+        return compute_model_distance(latest_base_model, self.past_models, decay_factor)
             
     def _cosine_similarity(self, sample_size: int = 1000):
         params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])
@@ -248,19 +255,37 @@ class OvershootTrainer:
             pd.DataFrame(self.val_stats).to_csv(os.path.join(self.log_writer.log_dir, "validation_stats.csv"), index=False)
         if self.test_dataset:
             pd.DataFrame(self.test_stats).to_csv(os.path.join(self.log_writer.log_dir, "test_stats.csv"), index=False)
+
+    def validation(self, epoch, start_time):
+        self._set_model_mode(is_training=False)
+        base_model, _ = self._get_base_model()
+        test_loaders = [x for x in [(self.val_dataloader, self.val_stats), (self.test_dataloader, self.test_stats)] if x[0]]
+        with torch.no_grad():
+            for loader, stats in test_loaders:
+                correct, total, loss = 0, 0, 0
+                for batch in loader:
+                    batch = self._move_batch_to_cuda(batch)
+                    with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
+                        outputs = base_model.forward(**batch)
+                    _, predicted = outputs["logits"].max(1)
+                    total += batch["labels"].size(0)
+                    correct += predicted.eq(batch["labels"]).sum().item()
+                    loss += outputs["loss"].item() * batch["labels"].size(0)
+                self.log_stats(stats, epoch, time.time() - start_time, loss / len(loader.dataset), 100 * correct / total)
+        self.save_stats()
             
 
     def main(self):
         self.configure_optimizers()
         train_dataloader = DataLoader(self.train_dataset, batch_size=self.config.B, num_workers=4, shuffle=True, collate_fn=self.train_dataset.get_batching_fn())
         if self.val_dataset:
-            val_dataloader = DataLoader(self.val_dataset, batch_size=self.config.B, num_workers=2, shuffle=False, collate_fn=self.val_dataset.get_batching_fn())
+            self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.config.B, num_workers=2, shuffle=False, collate_fn=self.val_dataset.get_batching_fn())
         else:
-            val_dataloader = None
+            self.val_dataloader = None
         if self.test_dataset:
-            test_dataloader = DataLoader(self.test_dataset, batch_size=self.config.B, num_workers=2, shuffle=False, collate_fn=self.test_dataset.get_batching_fn())
+            self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.config.B, num_workers=2, shuffle=False, collate_fn=self.test_dataset.get_batching_fn())
         else:
-            test_dataloader = None
+            self.test_dataloader = None
             
         
         for epoch in range(self.config.epochs):
@@ -272,24 +297,8 @@ class OvershootTrainer:
                 self.training_step(self._move_batch_to_cuda(batch), epoch, batch_id)
                 self.current_step += 1
                 if self.current_step >= self.steps:
-                    self.save_stats()
+                    self.validation(epoch, start_time)
                     print("Max steps reached. Finished training.")
                     return
 
-            # Validation
-            self._set_model_mode(is_training=False)
-            base_model, _ = self._get_base_model()
-            test_loaders = [x for x in [(val_dataloader, self.val_stats), (test_dataloader, self.test_stats)] if x[0]]
-            with torch.no_grad():
-                for loader, stats in test_loaders:
-                    correct, total, loss = 0, 0, 0
-                    for batch in loader:
-                        batch = self._move_batch_to_cuda(batch)
-                        with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
-                            outputs = base_model.forward(**batch)
-                        _, predicted = outputs["logits"].max(1)
-                        total += batch["labels"].size(0)
-                        correct += predicted.eq(batch["labels"]).sum().item()
-                        loss += outputs["loss"].item() * batch["labels"].size(0)
-                    self.log_stats(stats, epoch, time.time() - start_time, loss / len(loader.dataset), 100 * correct / total)
-            self.save_stats()
+            self.validation(epoch, start_time)
