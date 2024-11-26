@@ -16,3 +16,4 @@ distances/processed_distances
 sequential.sh
 sequential2.sh
 devana-batch-jobs.sh
+paper_scripts/*.png
