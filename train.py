@@ -71,9 +71,10 @@ class OvershootTrainer:
             self.past_weights.pop(0)
             
         decay_factor = self.config.sgd_momentum if "sgd" in self.args.opt_name else self.config.adam_beta1
-        x =  compute_model_distance(latest_base_weights, self.past_weights, decay_factor)
-        # import code; code.interact(local=locals())
-        return x
+        if (self.current_step + 1) % 50 == 0:
+            return compute_model_distance(latest_base_weights, self.past_weights, decay_factor)
+        else:
+            return -1
             
     def _cosine_similarity(self, sample_size: int = 1000):
         params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])

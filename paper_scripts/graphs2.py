@@ -14,9 +14,11 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 
 task_2_title = {
-    # "mlp_housing": "Housing",
-    "mlp_housing_all": "Housing",
-    # "vae_f-mnist": "VAE-FM",
+    # "mlp_housing": "Housing_42",
+    # "mlp_housing_seed_420": "Housing_420",
+    # "mlp_housing_seed_421": "Housing_421",
+    # "mlp_housing_all": "Housing_old",
+    "2c2d_f-mnist": "2c2d",
     # "vae_mnist": "VAE-M",
     # "2c2d_fashion": "2c2d-FM",
     # "3c3d_cifar10": "3c3d-C10",
@@ -41,29 +43,42 @@ def plot_data(data, pp, title):
 
     # Set labels and title
     pp.set_title(title, fontsize=20)
-    cbar = fig.colorbar(scatter, ax=pp, orientation="vertical", label="Test loss")
+    cbar = fig.colorbar(scatter, ax=pp, orientation="vertical", label="Train loss")
     cbar.ax.tick_params(labelsize=8)  # Adjust color bar tick size
 
 def process_run(run_root):
-    run_losses = []
-    training_stats = os.path.join(run_root, "version_1", "training_stats.csv")
-    test_stats = os.path.join(run_root, "version_1", "test_stats.csv")
-    
-    if not os.path.exists(training_stats):
-        print(f"Warning, file {training_stats} does not exists")
-        return
-        
-    if not os.path.exists(test_stats):
-        print(f"Warning, file {test_stats} does not exists")
-        return
-        
-        
-    distances = pd.read_csv(training_stats, on_bad_lines='skip')['model_distance'].to_numpy()
-    test_loss = pd.read_csv(test_stats, on_bad_lines='skip')['loss'].to_numpy()
+    # training_stats = os.path.join(run_root, "version_1", "training_stats.csv")
+    # test_stats = os.path.join(run_root, "version_1", "test_stats.csv")
 
-    # min = np.mean(np.partition(test_loss, 20)[:20])
-    minn = test_loss.min()
-    return np.mean(distances[50:]), minn
+    run_distances, run_losses = [], []
+    for seed_id in os.listdir(run_root):
+        training_stats = os.path.join(run_root, seed_id, "training_stats.csv")
+        test_stats = os.path.join(run_root, seed_id, "test_stats.csv")
+    
+        if not os.path.exists(training_stats):
+            print(f"Warning, file {training_stats} does not exists")
+            continue
+            
+        if not os.path.exists(test_stats):
+            print(f"Warning, file {test_stats} does not exists")
+            continue
+        
+        train_stats = pd.read_csv(training_stats, on_bad_lines='skip')
+        
+        distances = train_stats['model_distance'].to_numpy()
+        distances = distances[distances != -1]
+        
+        loss = train_stats['base_loss_100'].to_numpy()
+        # loss = np.mean(np.partition(loss, 100)[:100])
+        loss = loss.mean()
+        # loss = loss.min()
+
+        run_distances.append(np.mean(distances[50:]))
+        run_losses.append(loss)
+        
+    # return np.mean(distances[50:]), minn 
+    # import code; code.interact(local=locals())
+    return np.mean(run_distances), np.mean(run_losses)
 
     if run_losses:
         min_len = min([len(x) for x in run_losses])
@@ -98,13 +113,14 @@ if __name__ == "__main__":
         task_index += 1
         task_results = []
         for run_name in os.listdir(task_root):
+            if '15' in run_name or '14' in run_name or '13' in run_name:
+                continue
             run_root = os.path.join(task_root, run_name)
             if os.path.isdir(run_root):
                 distance, loss = process_run(run_root)
                 # task_results.append((int(run_name.split('_')[-1]), distance, loss))
                 task_results.append((float(run_name.split('_')[-1]), distance, loss))
 
-        print(task_results)
 
         plot_data(task_results, axs[task_index % 2, task_index // 2], task_2_title[task_name])
 
