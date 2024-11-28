@@ -9,6 +9,7 @@ from optimizers.adamw_overshoot_delayed import AdamW as OvershootAdamW_delayed
 from optimizers.adamw_overshoot_adaptive import AdamW as OvershootAdamW_adaptive
 
 optimizers_map = {
+    "sgd": torch.optim.SGD,
     "sgd_momentum": torch.optim.SGD,
     "sgd_nesterov": torch.optim.SGD,
     "sgd_overshoot": SGDO,
