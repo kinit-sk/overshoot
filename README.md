@@ -1,6 +1,6 @@
 # Overshoot
 
-Stochastic gradient descent based optimization method for faster convergence. Compute gradients using model shifted in the direction of the current momentum.
+Stochastic gradient descent based optimization method. Compute gradients using model shifted in the direction of the current momentum.
 
 ## Requirements
 
