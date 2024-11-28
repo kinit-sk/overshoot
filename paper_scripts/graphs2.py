@@ -14,14 +14,13 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 
 task_2_title = {
-    # "mlp_housing": "Housing_42",
-    # "mlp_housing_seed_420": "Housing_420",
-    # "mlp_housing_seed_421": "Housing_421",
-    # "mlp_housing_all": "Housing_old",
+    "mlp_housing": "Housing_42",
+    "mlp_housing_seed_420": "Housing_420",
+    "mlp_housing_seed_421": "Housing_421",
+    "mlp_housing_all": "Housing_old",
     "2c2d_f-mnist": "2c2d",
     # "vae_mnist": "VAE-M",
-    # "2c2d_fashion": "2c2d-FM",
-    # "3c3d_cifar10": "3c3d-C10",
+    "3c3d_cifar10": "3c3d-C10",
     # "resnet18_cifar100": "ResNet-C100",
 }
 
@@ -70,8 +69,8 @@ def process_run(run_root):
         
         loss = train_stats['base_loss_100'].to_numpy()
         # loss = np.mean(np.partition(loss, 100)[:100])
+        # loss = np.log(loss).mean()
         loss = loss.mean()
-        # loss = loss.min()
 
         run_distances.append(np.mean(distances[50:]))
         run_losses.append(loss)
@@ -113,8 +112,8 @@ if __name__ == "__main__":
         task_index += 1
         task_results = []
         for run_name in os.listdir(task_root):
-            if '15' in run_name or '14' in run_name or '13' in run_name:
-                continue
+            # if '15' in run_name or '14' in run_name or '13' in run_name:
+            #     continue
             run_root = os.path.join(task_root, run_name)
             if os.path.isdir(run_root):
                 distance, loss = process_run(run_root)

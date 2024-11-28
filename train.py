@@ -231,6 +231,9 @@ class OvershootTrainer:
             
         if self.args.compute_model_distance:
             stats["model_distance"] = model_distance
+
+        if hasattr(self.optimizers[0], "_overshoot_new"):
+            stats["adaptive_overshoot"] = self.optimizers[0]._overshoot_new
             
         self.train_stats.append(stats)
         if self.current_step % self.config.log_every_n_steps == 0:

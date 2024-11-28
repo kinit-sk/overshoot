@@ -32,8 +32,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("mlp", "cifar", "adam"): MlpCifarSgdConfig, # TODO
         ("2c2d", "mnist", "sgd"): _2c2dMnistSgdConfig,
         ("2c2d", "mnist", "adam"): _2c2dMnistAdamConfig,
-        ("2c2d", "fashion", "sgd"): _2c2dFashionSgdConfig, ### TABLE 1: 2nd row config
-        ("2c2d", "fashion", "adam"): _2c2dFashionAdamConfig, ### TABLE 1: 2nd row config
+        ("2c2d", "f-mnist", "sgd"): _2c2dFashionSgdConfig, ### TABLE 1: 2nd row config
+        ("2c2d", "f-mnist", "adam"): _2c2dFashionAdamConfig, ### TABLE 1: 2nd row config
         ("3c3d", "cifar", "sgd"): _3c3dCifarSgdConfig, ### TABLE 1: 3nd row config
         ("3c3d", "cifar", "adam"): _3c3dCifarAdamConfig, ### TABLE 1: 3nd row config
         ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
@@ -42,8 +42,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("resnet", "cifar", "adam"): ResnetCifartAdamConfig,
         ("vae", "mnist", "sgd"): VaeMnistConfig,
         ("vae", "mnist", "adam"): VaeMnistConfig,
-        ("vae", "fashion", "sgd"): VaeFashionConfig,
-        ("vae", "fashion", "adam"): VaeFashionConfig,
+        ("vae", "f-mnist", "sgd"): VaeFashionConfig,
+        ("vae", "f-mnist", "adam"): VaeFashionConfig,
         ("gpt_hf", "mnli", "sgd"): GptMnliSgdConfig,
         ("gpt_hf", "mnli", "adam"): GptMnliAdamConfig,
         ("gpt_hf", "sst", "adam"): GptSstAdamConfig,
