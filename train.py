@@ -30,8 +30,7 @@ class OvershootTrainer:
         self.base_model = model
         if args.two_models:
             self.overshoot_model = copy.deepcopy(model)
-        self.train_dataset, self.val_dataset, self.test_dataset = dataset
-        self.steps = int(round(config.B + config.epochs * len(self.train_dataset) // config.B // max(1, config.n_gpu)))
+        self.steps = int(round(config.B + config.epochs * len(dataset[0]) // config.B // max(1, config.n_gpu)))
         if config.max_steps:
             self.steps = min(self.steps, config.max_steps)
         self.config = config
@@ -46,15 +45,23 @@ class OvershootTrainer:
             self.update_cosine, self.update_cosine_est = [0], [0]
         if self.args.compute_model_distance:
             self.past_weights = []
+            
+        # Load Dataloaders
+        self.val_dataloader, self.test_dataloader = None, None
+        self.train_dataloader = DataLoader(dataset[0], batch_size=self.config.B, num_workers=4, shuffle=True, collate_fn=dataset[0].get_batching_fn())
+        if dataset[1]:
+            self.val_dataloader = DataLoader(dataset[1], batch_size=self.config.B, num_workers=2, shuffle=False, collate_fn=dataset[1].get_batching_fn())
+        if dataset[2]:
+            self.test_dataloader = DataLoader(dataset[2], batch_size=self.config.B, num_workers=2, shuffle=False, collate_fn=dataset[2].get_batching_fn())
         print("-----------------------------------------------")
         print("Total training steps: ", self.steps)
-        print(f"Epoch steps: {len(self.train_dataset) // (config.B * max(1, config.n_gpu))}")
+        print(f"Epoch steps: {len(self.train_dataloader.dataset) // (config.B * max(1, config.n_gpu))}")
         print("--")
-        print(f"Train dataset size: {len(self.train_dataset)}")
-        if self.val_dataset:
-            print(f"Valid dataset size: {len(self.val_dataset)}")
-        if self.test_dataset:
-            print(f"Test dataset size: {len(self.test_dataset)}")
+        print(f"Train dataset size: {len(self.train_dataloader.dataset)}")
+        if self.val_dataloader:
+            print(f"Valid dataset size: {len(self.val_dataloader.dataset)}")
+        if self.test_dataloader:
+            print(f"Test dataset size: {len(self.test_dataloader.dataset)}")
         print("-----------------------------------------------")
 
     def _compute_model_distance(self):
@@ -211,13 +218,14 @@ class OvershootTrainer:
             "step": self.current_step,
             "epoch": epoch,
             "batch_step": batch_idx,
+            "wall_time": time.time() - self.trainig_start_time,
         }
         for avg in [1, 20, 50, 100]:
             stats[f"base_loss_{avg}"] = float(np.mean(self.train_losses[-avg:]))
             stats[f"overshoot_loss_{avg}"] = float(np.mean(self.overshoot_losses[-avg:])) # For baseline same as base loss
 
                 
-        if self.train_dataset.is_classification():
+        if self.train_dataloader.dataset.is_classification():
             self.train_accuracy.append(100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item())
             if len(self.train_accuracy) > 100:
                 self.train_accuracy.pop(0)
@@ -244,11 +252,15 @@ class OvershootTrainer:
             for k, v in stats.items():
                 self.log_writer.add_scalar(k, v, self.current_step)    
 
-    def log_stats(self, stats, epoch, epoch_duration, loss, accuracy):
-        self.log_writer.add_scalar('test_loss', loss, epoch)    
-        self.log_writer.add_scalar('test_accuracy', accuracy, epoch)    
-        stats.append({"loss": loss, "accuracy": accuracy})
-        print(f"=== Epoch: {epoch} | Time: {epoch_duration:.2f} | Loss: {np.mean(loss):.4f} | Accuracy: {accuracy:.2f}%")
+    def log_stats(self, name, stats, epoch, loss, accuracy):
+        now = time.time()
+        wall_time, epoch_duration = now - self.trainig_start_time, now - self.epoch_start
+        stats.append({"loss": loss, "wall_time": wall_time})
+        self.log_writer.add_scalar(f'{name}_loss', loss, epoch)    
+        if accuracy:
+            self.log_writer.add_scalar(f'{name}_accuracy', accuracy, epoch)    
+            stats[-1]["accuracy"] = accuracy
+        print(f"=== Epoch: {epoch} | Wall Time: {wall_time:.2f} | Epoch Time: {epoch_duration:.2f} | Loss: {np.mean(loss):.4f}" + (f" | Accuracy: {accuracy:.2f}%" if accuracy else ""))
         
 
     def configure_optimizers(self):
@@ -264,54 +276,47 @@ class OvershootTrainer:
 
     def save_stats(self):
         pd.DataFrame(self.train_stats).to_csv(os.path.join(self.log_writer.log_dir, "training_stats.csv"), index=False)
-        if self.val_dataset:
+        if self.val_stats:
             pd.DataFrame(self.val_stats).to_csv(os.path.join(self.log_writer.log_dir, "validation_stats.csv"), index=False)
-        if self.test_dataset:
+        if self.test_stats:
             pd.DataFrame(self.test_stats).to_csv(os.path.join(self.log_writer.log_dir, "test_stats.csv"), index=False)
 
-    def validation(self, epoch, start_time):
+    def validation(self, epoch):
         self._set_model_mode(is_training=False)
         base_model, _ = self._get_base_model()
-        test_loaders = [x for x in [(self.val_dataloader, self.val_stats), (self.test_dataloader, self.test_stats)] if x[0]]
+        test_loaders = [x for x in [(self.val_dataloader, self.val_stats, "validation"), (self.test_dataloader, self.test_stats, "test")] if x[0]]
         with torch.no_grad():
-            for loader, stats in test_loaders:
+            for loader, stats, name in test_loaders:
                 correct, total, loss = 0, 0, 0
                 for batch in loader:
                     batch = self._move_batch_to_cuda(batch)
                     with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
                         outputs = base_model.forward(**batch)
                     _, predicted = outputs["logits"].max(1)
-                    total += batch["labels"].size(0)
-                    correct += predicted.eq(batch["labels"]).sum().item()
                     loss += outputs["loss"].item() * batch["labels"].size(0)
-                self.log_stats(stats, epoch, time.time() - start_time, loss / len(loader.dataset), 100 * correct / total)
+                    if loader.dataset.is_classification():
+                        total += batch["labels"].size(0)
+                        correct += predicted.eq(batch["labels"]).sum().item()
+                accuracy = 100 * correct / total if loader.dataset.is_classification() else None
+                self.log_stats(name, stats, epoch, loss / len(loader.dataset), accuracy)
         self.save_stats()
             
 
     def main(self):
         self.configure_optimizers()
-        train_dataloader = DataLoader(self.train_dataset, batch_size=self.config.B, num_workers=4, shuffle=True, collate_fn=self.train_dataset.get_batching_fn())
-        if self.val_dataset:
-            self.val_dataloader = DataLoader(self.val_dataset, batch_size=self.config.B, num_workers=2, shuffle=False, collate_fn=self.val_dataset.get_batching_fn())
-        else:
-            self.val_dataloader = None
-        if self.test_dataset:
-            self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.config.B, num_workers=2, shuffle=False, collate_fn=self.test_dataset.get_batching_fn())
-        else:
-            self.test_dataloader = None
-            
         
+        self.trainig_start_time = time.time()
         for epoch in range(self.config.epochs):
-            start_time = time.time()
+            self.epoch_start = time.time()
             
             # Training
             self._set_model_mode(is_training=True)
-            for batch_id, batch in enumerate(train_dataloader):
+            for batch_id, batch in enumerate(self.train_dataloader):
                 self.training_step(self._move_batch_to_cuda(batch), epoch, batch_id)
                 self.current_step += 1
                 if self.current_step >= self.steps:
-                    self.validation(epoch, start_time)
+                    self.validation(epoch)
                     print("Max steps reached. Finished training.")
                     return
 
-            self.validation(epoch, start_time)
+            self.validation(epoch)

@@ -406,6 +406,7 @@ def _fused_sgd(
     maximize: bool,
     has_sparse_grad: bool,
 ) -> None:
+    raise Exception("Fused Overshoot SGD is not supported")
     if not params:
         return
     if has_sparse_grad:
