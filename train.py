@@ -224,6 +224,9 @@ class OvershootTrainer:
             for avg in [1, 20, 50, 100]:
                 stats[f"accuracy_{avg}"] = float(np.mean(self.train_accuracy[-avg:]))
 
+        for i, scheduler in enumerate(self.lr_schedulers):
+            stats[f"lr_{i}"] = scheduler.get_last_lr()[-1]
+
         if self.args.compute_cosine:
             for avg in [1, 20, 50, 100]:
                 stats[f"update_cosine_similarity_{avg}"] = float(np.mean(self.update_cosine[-avg:]))
@@ -256,7 +259,7 @@ class OvershootTrainer:
             
         for params, lr in params_lr:
             self.optimizers.append(create_optimizer(self.args.opt_name, params, self.args.overshoot_factor, lr, self.config))
-            if self.config.decay_lr:
+            if self.config.use_lr_scheduler:
                 self.lr_schedulers.append(torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizers[-1], T_0=self.steps))
 
     def save_stats(self):

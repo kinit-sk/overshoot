@@ -113,7 +113,7 @@ class OvershootTrainer(pl.LightningModule):
                 base_output = copy.deepcopy(self.base_model).forward(**batch)
                 self.optimizers().move_to_overshoot()
         output = self.base_model.forward(**batch)
-        if self.config.decay_lr:
+        if self.config.use_lr_scheduler:
             self.base_scheduler.step()
         if hasattr(self.optimizers(), "move_to_base"):
             return base_output["loss"], output["loss"], base_output["logits"]
@@ -139,7 +139,7 @@ class OvershootTrainer(pl.LightningModule):
                 param2.data = param1.data.clone()
 
             # 3) (Optional) Update learning rates
-            if self.config.decay_lr:
+            if self.config.use_lr_scheduler:
                 self.base_scheduler.step()
                 self.overshoot_scheduler.step()
 

@@ -71,7 +71,7 @@ class DefaultConfig:
     lr: float = 0.001
     epochs: int = 50
     max_steps: Optional[int] = None
-    decay_lr: bool = False
+    use_lr_scheduler: bool = False
     adam_beta1: float = 0.9
     adam_beta2: float = 0.999
     sgd_momentum: float = 0.9
