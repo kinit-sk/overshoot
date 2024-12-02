@@ -14,14 +14,12 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 
 task_2_title = {
-    "mlp_housing": "Housing_42",
-    "mlp_housing_seed_420": "Housing_420",
-    "mlp_housing_seed_421": "Housing_421",
-    "mlp_housing_all": "Housing_old",
-    "2c2d_f-mnist": "2c2d",
-    # "vae_mnist": "VAE-M",
+    "mlp_housing": "MLP-CA",
+    "2c2d_f-mnist": "2c2d-FM",
     "3c3d_cifar10": "3c3d-C10",
-    # "resnet18_cifar100": "ResNet-C100",
+    "vae_mnist": "VAE-M",
+    "vae_f-mnist": "VAE-FM",
+    "resnet18_cifar100": "ResNet-C100",
 }
 
 
@@ -33,7 +31,11 @@ def plot_data(data, pp, title):
     values = [x[2] for x in data]
 
     # Create a scatter plot
-    scatter = pp.scatter(x_coords, y_coords, c=values, cmap="viridis", s=200)
+    # scatter = pp.scatter(x_coords, y_coords, c=values, cmap="gray", s=160)
+    # cbar = plt.colorbar(scatter, orientation='horizontal', ax=pp, pad=0.2)
+    # cbar.set_label('Color Intensity')
+     
+    scatter = pp.scatter(x_coords, y_coords, c=values, cmap="viridis", s=160)
 
     # Add text inside the dots
     # for item in data:
@@ -42,7 +44,8 @@ def plot_data(data, pp, title):
 
     # Set labels and title
     pp.set_title(title, fontsize=20)
-    cbar = fig.colorbar(scatter, ax=pp, orientation="vertical", label="Train loss")
+    # cbar = fig.colorbar(scatter, ax=pp, orientation="vertical", label="Train loss")
+    cbar = fig.colorbar(scatter, ax=pp, orientation="horizontal", label="Train loss")
     cbar.ax.tick_params(labelsize=8)  # Adjust color bar tick size
 
 def process_run(run_root):
@@ -67,12 +70,15 @@ def process_run(run_root):
         distances = train_stats['model_distance'].to_numpy()
         distances = distances[distances != -1]
         
-        loss = train_stats['base_loss_100'].to_numpy()
+        
+        loss = train_stats['base_loss_1'].to_numpy()
+        # loss = train_stats['overshoot_loss_1'].to_numpy()
         # loss = np.mean(np.partition(loss, 100)[:100])
         # loss = np.log(loss).mean()
+        # import code; code.interact(local=locals())
         loss = loss.mean()
 
-        run_distances.append(np.mean(distances[50:]))
+        run_distances.append(np.mean(distances))
         run_losses.append(loss)
         
     # return np.mean(distances[50:]), minn 
@@ -96,18 +102,15 @@ if __name__ == "__main__":
 
     plt.rc('xtick', labelsize=14)  # X-axis tick labels font size
     plt.rc('ytick', labelsize=14)  # Y-axis tick labels font size
-    fig, axs = plt.subplots(2, 3, figsize=(20, 10))
+    fig, axs = plt.subplots(1, 6, figsize=(40, 6))
     fig.text(0.5, 0.01, 'Overshoot factros', ha='center', fontsize=22)
     fig.text(0.01, 0.5, 'Awd', va='center', rotation='vertical', fontsize=22)
     all_results = {}
 
 
     task_index = -1
-    for task_name in os.listdir(args.root):
+    for task_name in [task_name for task_name in task_2_title if os.path.isdir(os.path.join(args.root, task_name))]:
         task_root = os.path.join(args.root, task_name)
-        if (not os.path.isdir(task_root)) or (task_name not in task_2_title):
-            continue
-        
         print(f"Processing {task_name}")
         task_index += 1
         task_results = []
@@ -121,7 +124,8 @@ if __name__ == "__main__":
                 task_results.append((float(run_name.split('_')[-1]), distance, loss))
 
 
-        plot_data(task_results, axs[task_index % 2, task_index // 2], task_2_title[task_name])
+        # plot_data(task_results, axs[task_index % 2, task_index // 2], task_2_title[task_name])
+        plot_data(task_results, axs[task_index], task_2_title[task_name])
 
 
         print(f"Updated with {task_name}")
