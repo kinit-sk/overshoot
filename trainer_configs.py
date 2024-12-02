@@ -52,6 +52,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("bloom_hf", "sst", "adam"): BloomSstAdamConfig,
         ("gpt_hf", "qqp", "sgd"): GptQqpConfig,
         ("gpt_hf", "qqp", "adam"): GptQqpConfig,
+        ("bert_hf", "qqp", "sgd"): BertQqpConfig,
+        ("bert_hf", "qqp", "adam"): BertQqpConfig,
         ("roberta_hf", "qqp", "adam"): RobertaQqpAdamConfig,
         ("gpt", "shakespear", "sgd"): GptShakespearConfig, # TODO
         ("gpt", "shakespear", "adam"): GptShakespearConfig,
@@ -272,10 +274,16 @@ class GptQqpConfig(DefaultConfig):
     lr: float = 3e-4
     
 @dataclass
+class BertQqpConfig(DefaultConfig):
+    epochs: int = 20
+    weight_decay: float = 5e-4
+    lr: float = 3e-4
+    
+@dataclass
 class RobertaQqpAdamConfig(DefaultConfig):
-    lr: float = 2e-5
-    epochs: int = 2
-    log_every_n_steps: int = 5
+    epochs: int = 10
+    weight_decay: float = 5e-4
+    lr: float = 3e-4
 
 
 ################################################################################

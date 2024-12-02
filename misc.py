@@ -69,6 +69,7 @@ def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[str] = 
         "gpt_hf": "openai-community/gpt2",
         "gpt": "openai-community/gpt2",
         "gpt_tiny": "openai-community/gpt2",
+        "bert_hf": "google-bert/bert-base-uncased",
         "roberta_hf": "FacebookAI/roberta-base",
         "xlm_roberta_hf": "FacebookAI/xlm-roberta-base",
         "bloom_hf": "bigscience/bloom-560m",
@@ -80,6 +81,7 @@ def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[str] = 
         "gpt_hf": 1024,
         "gpt": 1024,
         "gpt_tiny": 256,
+        "bert_hf": 512,
         "roberta_hf": 512,
         "xlm_roberta_hf": 512,
         "bloom_hf": 512,
@@ -112,6 +114,7 @@ def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[str] = 
 def init_model(model_name, datatset, trainer_config):
     model_map = {
         "gpt_hf": "openai-community/gpt2",
+        "bert_hf": "google-bert/bert-base-uncased",
         "roberta_hf": "FacebookAI/roberta-base",
         "xlm_roberta_hf": "FacebookAI/xlm-roberta-base",
         "bloom_hf": "bigscience/bloom-560m",
@@ -142,13 +145,15 @@ def init_model(model_name, datatset, trainer_config):
         model_name = model_map[model_name]
         config = AutoConfig.from_pretrained(model_name)
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        if "gpt" in model_name:
-            config.resid_pdrop = 0
-            config.embd_pdrop = 0
-            config.attn_pdrop = 0
-        else:
-            config.hidden_dropout_prob = 0.0  # Default is 0.1
-            config.attention_probs_dropout_prob = 0.0  # Default is 0.1
+
+        # Keep dropout
+        # if "gpt" in model_name:
+        #     config.resid_pdrop = 0
+        #     config.embd_pdrop = 0
+        #     config.attn_pdrop = 0
+        # else:
+        #     config.hidden_dropout_prob = 0.0  # Default is 0.1
+        #     config.attention_probs_dropout_prob = 0.0  # Default is 0.1
         config.ignore_mismatched_sizes = True
 
         if isinstance(datatset, NextTokenDataloader):
@@ -163,7 +168,7 @@ def init_model(model_name, datatset, trainer_config):
         model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
 
         if trainer_config.use_peft:
-            peft_config = LoraConfig(task_type=TaskType.SEQ_CLS)
+            peft_config = LoraConfig(task_type=TaskType.SEQ_CLS, lora_dropout=0.1)
             model = get_peft_model(model, peft_config)
             print("Using peft:")
             model.print_trainable_parameters()

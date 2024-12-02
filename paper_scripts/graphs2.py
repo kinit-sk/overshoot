@@ -30,23 +30,24 @@ def plot_data(data, pp, title):
     y_coords = [x[1] for x in data]
     values = [x[2] for x in data]
 
-    # Create a scatter plot
-    # scatter = pp.scatter(x_coords, y_coords, c=values, cmap="gray", s=160)
-    # cbar = plt.colorbar(scatter, orientation='horizontal', ax=pp, pad=0.2)
-    # cbar.set_label('Color Intensity')
      
-    scatter = pp.scatter(x_coords, y_coords, c=values, cmap="viridis", s=160)
+    scatter = pp.scatter(x_coords, y_coords, c=values, cmap="viridis", s=500)
+    # scatter = pp.scatter(x_coords, y_coords, c=values, cmap="gray", s=240)
 
-    # Add text inside the dots
-    # for item in data:
-    #     pp.text(item[0], item[1], f"{100 * item[2]:.2f}", color="white", ha="center", va="center", fontsize=6)
+    cbar = fig.colorbar(scatter, ax=pp, orientation="horizontal", label="Train loss", location='top', pad=0.11, format="{x:.2f}")
+    # cbar = fig.colorbar(scatter, ax=pp, orientation="horizontal", label="Train loss", location='top', pad=0.12)
+
+    pp.set_title(title, fontsize=28, pad=100)
+    cbar.set_label("Train loss", fontsize=24)
+    
+    cbar.ax.tick_params(labelsize=18)
+    pp.xaxis.set_tick_params(labelsize=18)
+    pp.yaxis.set_tick_params(labelsize=18)
+    
+    cbar.ax.xaxis.set_label_position('bottom')
+    cbar.ax.xaxis.set_ticks_position('bottom')
 
 
-    # Set labels and title
-    pp.set_title(title, fontsize=20)
-    # cbar = fig.colorbar(scatter, ax=pp, orientation="vertical", label="Train loss")
-    cbar = fig.colorbar(scatter, ax=pp, orientation="horizontal", label="Train loss")
-    cbar.ax.tick_params(labelsize=8)  # Adjust color bar tick size
 
 def process_run(run_root):
     # training_stats = os.path.join(run_root, "version_1", "training_stats.csv")
@@ -102,9 +103,9 @@ if __name__ == "__main__":
 
     plt.rc('xtick', labelsize=14)  # X-axis tick labels font size
     plt.rc('ytick', labelsize=14)  # Y-axis tick labels font size
-    fig, axs = plt.subplots(1, 6, figsize=(40, 6))
-    fig.text(0.5, 0.01, 'Overshoot factros', ha='center', fontsize=22)
-    fig.text(0.01, 0.5, 'Awd', va='center', rotation='vertical', fontsize=22)
+    fig, axs = plt.subplots(1, 6, figsize=(40, 8))
+    fig.text(0.5, 0.01, 'Overshoot factor', ha='center', fontsize=40)
+    fig.text(0.01, 0.5, 'Average weighted distance', va='center', rotation='vertical', fontsize=34)
     all_results = {}
 
 
@@ -129,6 +130,6 @@ if __name__ == "__main__":
 
 
         print(f"Updated with {task_name}")
-        plt.tight_layout(rect=[0.02, 0.04, 1, 1])  # Leave space for the global labels
+        plt.tight_layout(rect=[0.02, 0.07, 1, 1])  # Leave space for the global labels
         plt.savefig(args.out)
             
