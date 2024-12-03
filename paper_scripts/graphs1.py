@@ -98,9 +98,7 @@ def process_run(run_root, smooth_factor):
             continue
         key = "overshoot_loss_1" if args.overshoot_loss else "base_loss_1"
         losses = pd.read_csv(stats_path, on_bad_lines='skip')[key].to_numpy()
-        # losses = pd.read_csv(stats_path, on_bad_lines='skip')['base_loss_1'].to_numpy()
         # losses = pd.read_csv(stats_path, on_bad_lines='skip')['overshoot_loss_100'].to_numpy()
-        # losses = pd.read_csv(stats_path, on_bad_lines='skip')['overshoot_loss_1'].to_numpy()
          
         losses = losses[:(len(losses) // 10) * 10] # Make dividable by 20
         losses = losses.reshape(-1, 10).mean(axis=1)
@@ -134,10 +132,7 @@ if __name__ == "__main__":
 
     task_index = -1
     for task_name in [task_name for task_name in task_2_title if os.path.isdir(os.path.join(args.root, task_name))]:
-    # for task_name in os.listdir(args.root):
         task_root = os.path.join(args.root, task_name)
-        # if (not os.path.isdir(task_root)) or (task_name not in task_2_title):
-        #     continue
         
         print(f"Processing {task_name}")
         task_index += 1
