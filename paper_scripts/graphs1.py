@@ -15,12 +15,13 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 
 task_2_title = {
-    "mlp_housing": "Housing",
+    "mlp_housing": "MLP-CA",
+    "2c2d_f-mnist": "2c2d-FM",
     "vae_f-mnist": "VAE-FM",
-    "vae_mnist": "VAE-M",
-    "2c2d_fashion": "2c2d-FM",
     "3c3d_cifar10": "3c3d-C10",
+    "vae_mnist": "VAE-M",
     "resnet18_cifar100": "ResNet-C100",
+    # "gpt_hf_qqp": "GPT-2-GLUE",
 }
 
 
@@ -28,18 +29,20 @@ task_2_range = {
     "mlp_housing": (0.1, 1),
     "vae_f-mnist": (22, 30),
     "vae_mnist": (26, 60),
-    "2c2d_fashion": (0.0, 2),
+    "2c2d_f-mnist": (0.0, 2),
     "3c3d_cifar10": (0.25, 4),
     "resnet18_cifar100": (0.0, 4),
+    # "gpt_hf_qqp": (0.35, 1),
 }
 
 task_2_smooth = {
     "mlp_housing": 20,
     "vae_f-mnist": 20,
     "vae_mnist": 22,
-    "2c2d_fashion": 40,
+    "2c2d_f-mnist": 40,
     "3c3d_cifar10": 14,
     "resnet18_cifar100": 8,
+    "gpt_hf_qqp": 10,
 }
 
 color_map = {
@@ -55,13 +58,13 @@ color_map = {
 
 algorithm_2_legend = {
     "sgd_baseline": "SGD CM",
-    "sgd_overshoot_3": r"SGD $\gamma=3$",
-    "sgd_overshoot_5": r"SGD $\gamma=5$",
-    "sgd_overshoot_7": r"SGD $\gamma=7$",
+    "sgd_overshoot_3": r"SGDO($\gamma=3)$",
+    "sgd_overshoot_5": r"SGDO($\gamma=5)$",
+    "sgd_overshoot_7": r"SGDO($\gamma=7)$",
     "adam_baseline": "Adam",
-    "adam_overshoot_3": r"Adam $\gamma=3$",
-    "adam_overshoot_5": r"Adam $\gamma=5$",
-    "adam_overshoot_7": r"Adam $\gamma=7$",
+    "adam_overshoot_3": r"AdamO($\gamma=3)$",
+    "adam_overshoot_5": r"AdamO($\gamma=5)$",
+    "adam_overshoot_7": r"AdamO($\gamma=7)$",
 }
 
 
@@ -70,6 +73,8 @@ def plot_data(data, pp, task_name, use_legend=True):
     pp.set_yscale('log', base=10)
     min_max = task_2_range[task_name]
     for label, color in color_map.items():
+        if not label in data:
+            continue
         line_style = 'dotted' if "baseline" in label else 'solid'
         pp.plot(data[label] - min_max[0], label=algorithm_2_legend[label], color=color, linestyle=line_style, linewidth=1.5)
         
@@ -91,7 +96,11 @@ def process_run(run_root, smooth_factor):
         if not os.path.exists(stats_path):
             print(f"Warning, file {stats_path} does not exists")
             continue
-        losses = pd.read_csv(stats_path, on_bad_lines='skip')['base_loss_1'].to_numpy()
+        key = "overshoot_loss_1" if args.overshoot_loss else "base_loss_1"
+        losses = pd.read_csv(stats_path, on_bad_lines='skip')[key].to_numpy()
+        # losses = pd.read_csv(stats_path, on_bad_lines='skip')['base_loss_1'].to_numpy()
+        # losses = pd.read_csv(stats_path, on_bad_lines='skip')['overshoot_loss_100'].to_numpy()
+        # losses = pd.read_csv(stats_path, on_bad_lines='skip')['overshoot_loss_1'].to_numpy()
          
         losses = losses[:(len(losses) // 10) * 10] # Make dividable by 20
         losses = losses.reshape(-1, 10).mean(axis=1)
@@ -111,6 +120,7 @@ def process_run(run_root, smooth_factor):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=str, default="../lightning_logs/table1")
+    parser.add_argument("--overshoot_loss", action=argparse.BooleanOptionalAction, required=False)
     parser.add_argument("--out", type=str, default="train_loss.png")
     args = parser.parse_args()
 
@@ -118,15 +128,16 @@ if __name__ == "__main__":
     plt.rc('ytick', labelsize=14)  # Y-axis tick labels font size
     fig, axs = plt.subplots(2, 3, figsize=(20, 10))
     fig.text(0.5, 0.01, 'Training steps', ha='center', fontsize=22)
-    fig.text(0.01, 0.5, 'Loss', va='center', rotation='vertical', fontsize=22)
+    fig.text(0.01, 0.5, 'Training loss', va='center', rotation='vertical', fontsize=22)
     all_results = {}
 
 
     task_index = -1
-    for task_name in os.listdir(args.root):
+    for task_name in [task_name for task_name in task_2_title if os.path.isdir(os.path.join(args.root, task_name))]:
+    # for task_name in os.listdir(args.root):
         task_root = os.path.join(args.root, task_name)
-        if (not os.path.isdir(task_root)) or (task_name not in task_2_title):
-            continue
+        # if (not os.path.isdir(task_root)) or (task_name not in task_2_title):
+        #     continue
         
         print(f"Processing {task_name}")
         task_index += 1
@@ -148,5 +159,8 @@ if __name__ == "__main__":
 
         print(f"Updated with {task_name}")
         plt.tight_layout(rect=[0.02, 0.04, 1, 1])  # Leave space for the global labels
-        plt.savefig(args.out)
+        if args.overshoot_loss:
+            plt.savefig(f"{args.out[:-4]}_overshoot.png")
+        else:
+            plt.savefig(args.out)
             
