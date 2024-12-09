@@ -22,7 +22,11 @@ def main():
     log_writer = SummaryWriter(log_dir=os.path.join(base_dir, f"version_{len(os.listdir(base_dir)) + 1}"))
     
     # 2) Create config
-    trainer_config = get_trainer_config(args.model, args.dataset, args.opt_name, args.high_precision, args.config_override)
+    trainer_config = get_trainer_config(args.model, args.dataset, args.opt_name, args.config_override)
+    if trainer_config.precision == "high":
+        torch.set_default_dtype(torch.float64)
+    else:
+        torch.set_float32_matmul_precision("high")
     print("-------------------------------")
     print(f"Config: {trainer_config}")
     
@@ -48,14 +52,14 @@ def main():
 
 if __name__ == "__main__":
     # We should always observe the same results from:
-    #   1) python main.py --high_precision --seed 1
-    #   2) python main.py --high_precision --seed 1 --two_models --overshoot_factor 0
+    #   1) python main.py --seed 1 --config_override precision=high
+    #   2) python main.py --seed 1 --two_models --overshoot_factor 0 --config_override precision=high
     # Sadly deterministic have to use 32-bit precision because of bug in pl.
 
     # We should observe the same results for:
-    #  1)  python main.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_nesterov --config_override max_steps=160
-    #  2)  python main.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_momentum --two_models --overshoot_factor 0.9 --config_override max_steps=160
-    #  3)  python main.py --high_precision --model mlp --dataset mnist --seed 1 --opt_name sgd_overshoot --overshoot_factor 0.9 --config_override max_steps=160
+    #  1)  python main.py --model mlp --dataset mnist --seed 1 --opt_name sgd_nesterov --config_override precision=high max_steps=160
+    #  2)  python main.py --model mlp --dataset mnist --seed 1 --opt_name sgd_momentum --two_models --overshoot_factor 0.9 --config_override precision=high max_steps=160
+    #  3)  python main.py --model mlp --dataset mnist --seed 1 --opt_name sgd_overshoot --overshoot_factor 0.9 --config_override precision=high max_steps=160
     # ADD 1: In case of nesterov only overshoot model is expected to be equal
 
     parser = argparse.ArgumentParser("""Train models using various custom optimizers.
@@ -65,7 +69,7 @@ if __name__ == "__main__":
                     `python main.py --model mlp --dataset mnist --opt_name sgd_momentum --two_models --overshoot_factor 3`
                 Overshoot with efficient implementation: 
                     `python main.py --model mlp --dataset mnist --opt_name sgd_overshoot --overshoot_factor 3`
-                To have deterministic results include: `--seed 42 --high_precision`""")
+                To have deterministic results include: `--seed 42 --config_override precision=high`""")
     parser.add_argument("--experiment_name", type=str, default="test", help="Folder name to store experiment results")
     parser.add_argument("--job_name", type=str, default="test", help="Sub-folder name to store experiment results")
     parser.add_argument("--overshoot_factor", type=float, help="Look-ahead factor when computng gradients")
@@ -74,7 +78,6 @@ if __name__ == "__main__":
     parser.add_argument("--opt_name", type=str, required=True, help=f"Supported optimizers are: {', '.join(optimizers_map.keys())}")
     parser.add_argument("--compute_model_distance", action=argparse.BooleanOptionalAction, required=False)
     parser.add_argument("--compute_base_model_loss", action=argparse.BooleanOptionalAction, required=False, default=True)
-    parser.add_argument("--high_precision", action=argparse.BooleanOptionalAction, required=False)
     parser.add_argument(
         "--model",
         type=str,
@@ -103,9 +106,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.seed:
         torch.manual_seed(args.seed)
-    if args.high_precision:
-        torch.set_default_dtype(torch.float64)
-    else:
-        torch.set_float32_matmul_precision("high")
-        
     main()

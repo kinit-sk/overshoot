@@ -21,7 +21,7 @@ To run overshoot with efficient implementation:
 ```
 python main.py --model mlp --dataset mnist --opt_name sgd_overshoot --overshoot_factor 0.9
 ```
-To observe the same results include: `--seed 42 --high_precision`.
+To observe the same results include: `--seed 42 --config_override precision=high`.
 
 For detailed description of the args training entry-point run:
 ```

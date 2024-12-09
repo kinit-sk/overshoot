@@ -142,6 +142,12 @@ class OvershootTrainer:
         text = ' | '.join([k_v_to_str(k, v) for k, v in stats.items() if not re.search(r"(loss|accuracy|similarity|est)_[0-9][0-9]+$", k)])
         print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ''), flush=True)
 
+    def model_forward_(self, model, batch):
+        if self.config.n_gpu and self.config.precision == "16-mixed":
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                return model.forward(**batch)
+        return model.forward(**batch)
+
     def _baseline_training_step(self, batch, batch_idx):
         assert len(self.optimizers) == 1
         optimizer = self.optimizers[0]
@@ -149,13 +155,10 @@ class OvershootTrainer:
         if self.args.compute_base_model_loss:
             base_model, is_same = self._get_base_model()
             if not is_same:
-                with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
-                    with torch.no_grad():
-                        base_output = base_model.forward(**batch)
+                with torch.no_grad():
+                    base_output = self.model_forward_(base_model, batch)
                     
-        with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
-            output = self.base_model.forward(**batch)
-            
+        output = self.model_forward_(self.base_model, batch)
         output["loss"].backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -170,10 +173,10 @@ class OvershootTrainer:
 
     def _two_models_training_step(self, batch, batch_idx):
         assert len(self.optimizers) == 2
-        with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
-            with torch.no_grad():
-                output_base = self.base_model.forward(**batch)  # only to log base loss
-            output_overshoot = self.overshoot_model.forward(**batch)
+        with torch.no_grad():
+            output_base = self.model_forward_(self.base_model, batch) # only to log base loss
+            
+        output_overshoot = self.model_forward_(self.overshoot_model, batch)
         output_overshoot["loss"].backward()
         # self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
 
@@ -291,8 +294,7 @@ class OvershootTrainer:
                 correct, total, loss = 0, 0, 0
                 for batch in loader:
                     batch = self._move_batch_to_cuda(batch)
-                    with (torch.autocast("cuda", dtype=torch.bfloat16) if self.config.use_16_bit_precision else nullcontext()):
-                        outputs = base_model.forward(**batch)
+                    outputs = self.model_forward_(base_model, batch)
                     _, predicted = outputs["logits"].max(1)
                     loss += outputs["loss"].item() * batch["labels"].size(0)
                     if loader.dataset.is_classification():

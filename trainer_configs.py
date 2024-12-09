@@ -1,6 +1,6 @@
 import torch
 from dataclasses import dataclass
-from typing import Optional, Sequence, get_type_hints, get_args
+from typing import Optional, Sequence, Literal, get_type_hints, get_args
 from collections import defaultdict
 
 
@@ -11,7 +11,7 @@ from collections import defaultdict
 # lr: float =  1e-5 # For LLM classification finetuning
 
 
-def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_high_precision: bool, override: Optional[Sequence[str]] = None):
+def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, override: Optional[Sequence[str]] = None):
 
     reduce = lambda x, substring: substring if substring in x else x
     model_name = reduce(model_name, "resnet")
@@ -19,7 +19,7 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
     opt_name = reduce(opt_name, "adam")
     dataset_name = reduce(dataset_name, "cifar")
         
-    cfg = defaultdict(lambda: DefaultConfig, {
+    return defaultdict(lambda: DefaultConfig, {
         ("mlp", "boston", "sgd"): BostonConfig,
         ("mlp", "boston", "adam"): BostonConfig,
         ("mlp", "housing", "sgd"): HousingConfig, ### TABLE 1: 1nd row config
@@ -61,10 +61,6 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, use_hi
         ("gpt", "gutenberg", "adam"): GptGutenbergConfig,
     })[model_name, dataset_name, opt_name]().override(override)
 
-    if use_high_precision:
-        cfg.use_16_bit_precision = False
-    return cfg
-
 
 @dataclass
 class DefaultConfig:
@@ -82,7 +78,7 @@ class DefaultConfig:
     target_cosine_similarity: float = 0.1
     log_every_n_steps: int = 50
     n_gpu: int = torch.cuda.device_count()
-    use_16_bit_precision: bool = torch.cuda.device_count() > 0
+    precision: Literal["16-mixed", "default", "high"] = "16-mixed" if torch.cuda.device_count() > 0 else "default"
     use_peft: bool = True
     log_gpu: bool = False
     
@@ -96,6 +92,14 @@ class DefaultConfig:
                 continue
             override_type = get_type_hints(DefaultConfig)[key]
             args = get_args(override_type)
+            
+            if override_type.__name__ == 'Literal':
+                if not value in args:
+                    raise ValueError(f"{key} must be one of {args}")
+                else:
+                    setattr(self, key, value)
+                    continue
+                    
             if len(args):
                 override_type = args[0]
             if override_type is bool:
