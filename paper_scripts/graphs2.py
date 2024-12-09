@@ -15,10 +15,10 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 task_2_title = {
     "mlp_housing": "MLP-CA",
+    "vae_f-mnist": "VAE-FM",
+    "vae_mnist": "VAE-M",
     "2c2d_f-mnist": "2c2d-FM",
     "3c3d_cifar10": "3c3d-C10",
-    "vae_mnist": "VAE-M",
-    "vae_f-mnist": "VAE-FM",
     "resnet18_cifar100": "ResNet-C100",
 }
 
@@ -36,11 +36,11 @@ def plot_data(data_90, data_95, task_index, title):
         scatter = pp.scatter(x_coords, y_coords, c=values, cmap="viridis", s=500)
         # scatter = pp.scatter(x_coords, y_coords, c=values, cmap="gray", s=240)
 
-        cbar = fig.colorbar(scatter, ax=pp, orientation="horizontal", label="Train loss", location='top', pad=0.13, format="{x:.2f}")
+        cbar = fig.colorbar(scatter, ax=pp, orientation="horizontal", location='top', pad=0.13, format="{x:.2f}")
 
         if i == 0:
             pp.set_title(title, fontsize=28, pad=100)
-        cbar.set_label("Train loss", fontsize=24)
+        cbar.set_label("Training loss", fontsize=24)
         
         cbar.ax.tick_params(labelsize=18)
         pp.xaxis.set_tick_params(labelsize=18)

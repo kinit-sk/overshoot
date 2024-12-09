@@ -22,10 +22,9 @@ optimizers_names_mapping = {
 
 task_name_mapping = {
     "mlp_housing": "MLP-CA",
-    "vae_mnist": "VAE-M",
     "vae_f-mnist": "VAE-FM",
-    "mlp_mnist": "Mnist",
-    "2c2d_fashion": "2c2d-FM",
+    "vae_mnist": "VAE-M",
+    "2c2d_f-mnist": "2c2d-FM",
     "3c3d_cifar10": "3c3d-C10",
     "resnet18_cifar100": "ResNet-C100",
     "gpt_hf_qqp": "GPT-2",
@@ -126,10 +125,8 @@ if __name__ == "__main__":
 
 
     all_results = {}
-    for task_name in os.listdir(args.root):
+    for task_name in [task_name for task_name in task_name_mapping if os.path.isdir(os.path.join(args.root, task_name))]:
         task_root = os.path.join(args.root, task_name)
-        if (not os.path.isdir(task_root)) or (task_name not in task_name_mapping):
-            continue
         print("Processing:", task_name)
 
         task_results = {}
