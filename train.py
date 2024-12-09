@@ -159,8 +159,15 @@ class OvershootTrainer:
                     base_output = self.model_forward_(base_model, batch)
                     
         output = self.model_forward_(self.base_model, batch)
-        output["loss"].backward()
-        optimizer.step()
+        if len(self.scalers) == 1:
+            self.scalers[0].scale(output["loss"]).backward()
+            self.scalers[0].step(optimizer)
+            self.scalers[0].update()
+        else:
+            output["loss"].backward()
+            optimizer.step()
+        
+        
         optimizer.zero_grad()
         for scheduler in self.lr_schedulers:
             scheduler.step()
@@ -172,12 +179,15 @@ class OvershootTrainer:
 
 
     def _two_models_training_step(self, batch, batch_idx):
-        assert len(self.optimizers) == 2
+        assert len(self.optimizers) == 2 and (len(self.scalers) == 0 or len(self.scalers) == 2) 
         with torch.no_grad():
             output_base = self.model_forward_(self.base_model, batch) # only to log base loss
             
         output_overshoot = self.model_forward_(self.overshoot_model, batch)
-        output_overshoot["loss"].backward()
+        if len(self.scalers):
+            self.scalers[1].scale(output_overshoot["loss"]).backward()
+        else:
+            output_overshoot["loss"].backward()
         # self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
 
         if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
@@ -196,8 +206,12 @@ class OvershootTrainer:
                 scheduler.step()
 
             # 4) Update models based on gradients
-            for opt in self.optimizers:
-                opt.step()
+            for i, opt in enumerate(self.optimizers):
+                if len(self.scalers):
+                    self.scalers[i].step(opt)
+                    self.scalers[i].update()
+                else:
+                    opt.step()
                 opt.zero_grad()
 
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
@@ -268,12 +282,15 @@ class OvershootTrainer:
         
 
     def configure_optimizers(self):
-        self.optimizers, self.lr_schedulers = [], []
+        self.optimizers, self.scalers, self.lr_schedulers = [], [], []
         params_lr = [(self.base_model.parameters(), self.config.lr)]
         if self.two_models:
             params_lr.append((self.overshoot_model.parameters(), self.config.lr * (self.args.overshoot_factor + 1)))
             
         for params, lr in params_lr:
+             # TODO: Scaler for two model is not working
+            if self.config.precision == "16-mixed" and self.two_models == False:
+                self.scalers.append(torch.GradScaler(device="cuda"))
             self.optimizers.append(create_optimizer(self.args.opt_name, params, self.args.overshoot_factor, lr, self.config))
             if self.config.use_lr_scheduler:
                 self.lr_schedulers.append(torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizers[-1], T_0=self.steps))
