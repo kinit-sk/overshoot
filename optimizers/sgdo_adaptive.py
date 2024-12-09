@@ -180,17 +180,19 @@ class SGDO(Optimizer):
     def move_to_base(self):
         if len(self.state) == 0:
             return
-        for group in self.param_groups:
-            for param in group["params"]:
-                # param.add_(self.state[param]["momentum_buffer"], alpha=group["lr"] * group["overshoot"])
-                param.add_(self.state[param]["momentum_buffer"], alpha=group["lr"] * self._overshoot_new)
+        with torch.no_grad():
+            for group in self.param_groups:
+                for param in group["params"]:
+                    # param.add_(self.state[param]["momentum_buffer"], alpha=group["lr"] * group["overshoot"])
+                    param.add_(self.state[param]["momentum_buffer"], alpha=group["lr"] * self._overshoot_new)
                 
     def move_to_overshoot(self):
         if len(self.state) == 0:
             return
-        for group in self.param_groups:
-            for param in group["params"]:
-                param.add_(self.state[param]["momentum_buffer"], alpha=-group["lr"] * self._overshoot_new)
+        with torch.no_grad():
+            for group in self.param_groups:
+                for param in group["params"]:
+                    param.add_(self.state[param]["momentum_buffer"], alpha=-group["lr"] * self._overshoot_new)
 
 
 SGDO.__doc__ = (

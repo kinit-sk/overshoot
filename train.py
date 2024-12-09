@@ -125,14 +125,15 @@ class OvershootTrainer:
 
 
     def _get_base_model(self):
-        if len(self.optimizers) != 1 or not hasattr(self.optimizers[0], "move_to_base"):
+        assert self.two_models == (len(self.optimizers) > 1)
+        if self.two_models or not hasattr(self.optimizers[0], "move_to_base") or not hasattr(self.optimizers[0], "move_to_overshoot"):
             return self.base_model, True
-        with torch.no_grad():
-            self.optimizers[0].move_to_base()
-            # !!! For some reason when performing the inference on base_model, training breaks
-            # This deep copy is only needed when using GPT with 16-bit precision
-            base_model = copy.deepcopy(self.base_model)
-            self.optimizers[0].move_to_overshoot()
+        self.optimizers[0].move_to_base()
+        # !!! For some reason when performing the inference on base_model, training breaks
+        # This deep copy is only needed when using GPT with 16-bit precision
+        # TODO: Figure out why this deep copy is needed (maybe inference is not read only?)
+        base_model = copy.deepcopy(self.base_model)
+        self.optimizers[0].move_to_overshoot()
         return base_model, False
 
     # This just prints stats to console. Shouldn't be this complicated

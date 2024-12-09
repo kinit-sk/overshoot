@@ -265,31 +265,33 @@ class AdamW(Optimizer):
 
     # TODO: This is only experimental!
     def move_to_base(self):
-        for group in self.param_groups:
-            beta1, beta2 = cast(Tuple[float, float], group["betas"])
-            for param in group["params"]:
-                if param.grad is None:
-                    continue
-                if len(self.state[param]) == 0:
-                    return
-                step_t = self.state[param]["step"]
-                step = _get_value(step_t)
-                denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
-                param.addcdiv_(self.state[param]["exp_avg"], denom, value=group["lr"] * group["overshoot"] / (1 - beta1**step))
+        with torch.no_grad():
+            for group in self.param_groups:
+                beta1, beta2 = cast(Tuple[float, float], group["betas"])
+                for param in group["params"]:
+                    if param.grad is None:
+                        continue
+                    if len(self.state[param]) == 0:
+                        return
+                    step_t = self.state[param]["step"]
+                    step = _get_value(step_t)
+                    denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
+                    param.addcdiv_(self.state[param]["exp_avg"], denom, value=group["lr"] * group["overshoot"] / (1 - beta1**step))
                 
     # TODO: This is only experimental!
     def move_to_overshoot(self):
-        for group in self.param_groups:
-            beta1, beta2 = cast(Tuple[float, float], group["betas"])
-            for param in group["params"]:
-                if param.grad is None:
-                    continue
-                if len(self.state[param]) == 0:
-                    return
-                step_t = self.state[param]["step"]
-                step = _get_value(step_t)
-                denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
-                param.addcdiv_(self.state[param]["exp_avg"], denom, value=-group["lr"] * group["overshoot"] / (1 - beta1**step))
+        with torch.no_grad():
+            for group in self.param_groups:
+                beta1, beta2 = cast(Tuple[float, float], group["betas"])
+                for param in group["params"]:
+                    if param.grad is None:
+                        continue
+                    if len(self.state[param]) == 0:
+                        return
+                    step_t = self.state[param]["step"]
+                    step = _get_value(step_t)
+                    denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
+                    param.addcdiv_(self.state[param]["exp_avg"], denom, value=-group["lr"] * group["overshoot"] / (1 - beta1**step))
 
 AdamW.__doc__ = (
     r"""Implements AdamW algorithm.
