@@ -5,7 +5,7 @@ from optimizers.sgdo_adaptive import SGDO as SGDO_adaptive
 from optimizers.adamw_overshoot_replication import AdamW as OvershootAdamW_replication
 from optimizers.adamw_overshoot_full_approximation import AdamW as OvershootAdamW_full_approximation
 from optimizers.adamw_overshoot_denom_approximation import AdamW as OvershootAdamW_denom_approximation
-from optimizers.adamw_overshoot_delayed import AdamW as OvershootAdamW_delayed
+from optimizers.adamw_overshoot_delayed import AdamO as OvershootAdamW_delayed
 from optimizers.adamw_overshoot_adaptive import AdamW as OvershootAdamW_adaptive
 
 optimizers_map = {
@@ -29,7 +29,8 @@ optimizers_map = {
 
 
 
-def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
+def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config, foreach=None):
+    foreach = True
     if opt_name == "nadam":
         opt = optimizers_map[opt_name](
             param_groups,
@@ -38,7 +39,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             momentum_decay=1000000000000000000000000, # Turn of momentum decay
             weight_decay=config.weight_decay,
             decoupled_weight_decay=True,
-            foreach=False,
+            foreach=foreach,
         )
     elif opt_name == "adamW_overshoot_delayed":
         opt = optimizers_map[opt_name](
@@ -48,7 +49,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             weight_decay=config.weight_decay,
             overshoot=overshoot_factor,
             overshoot_delay=config.overshoot_delay,
-            foreach=False,
+            foreach=foreach
         )
     elif opt_name == "adamW_overshoot_adaptive":
         opt = optimizers_map[opt_name](
@@ -57,7 +58,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             betas=(config.adam_beta1, config.adam_beta2),
             weight_decay=config.weight_decay,
             cosine_target=config.target_cosine_similarity,
-            foreach=False,
+            foreach=foreach
         )
     elif opt_name.startswith("adamW_overshoot"):
         opt = optimizers_map[opt_name](
@@ -66,7 +67,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             betas=(config.adam_beta1, config.adam_beta2),
             weight_decay=config.weight_decay,
             overshoot=overshoot_factor,
-            foreach=False,
+            foreach=foreach,
         )
     elif "adam" in opt_name:
         config.adam_beta1 *= "zero" not in opt_name
@@ -75,6 +76,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             lr=lr,
             betas=(config.adam_beta1, config.adam_beta2),
             weight_decay=config.weight_decay,
+            foreach=foreach,
         )
     elif "sgd_adaptive" in opt_name:
         opt = optimizers_map[opt_name](
@@ -83,7 +85,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             momentum=config.sgd_momentum,
             weight_decay=config.weight_decay,
             cosine_target=config.target_cosine_similarity,
-            foreach=False,
+            foreach=foreach,
         )
     elif "sgd_overshoot" in opt_name:
         opt = optimizers_map[opt_name](
@@ -92,7 +94,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             momentum=config.sgd_momentum,
             weight_decay=config.weight_decay,
             overshoot=overshoot_factor,
-            foreach=False,
+            foreach=foreach,
         )
     elif "sgd" in opt_name:
         opt = optimizers_map[opt_name](
@@ -101,7 +103,7 @@ def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config):
             momentum=0 if opt_name == "sgd" else config.sgd_momentum,
             weight_decay=config.weight_decay,
             nesterov="nesterov" in opt_name,
-            foreach=False,
+            foreach=foreach,
         )
     else:
         raise Exception(f"Optimizer {opt_name} not recognized.")
