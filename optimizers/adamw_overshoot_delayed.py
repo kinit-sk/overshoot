@@ -351,7 +351,7 @@ def _single_tensor_adamo(
         exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
         if capturable or differentiable:
-            raise Exception("AdamO for caprutable not implemented.")
+            raise Exception("AdamO for capturable not implemented.")
             step = step_t
 
             bias_correction1 = 1 - beta1**step
@@ -405,7 +405,9 @@ def _single_tensor_adamo(
             clamp = lambda x, l, h: max(min(x, h), l)
             overshoot_old = clamp(step - 1 - overshoot_delay, 0, overshoot)
             overshoot_new = clamp(step - overshoot_delay, 0, overshoot)
-            grad.mul_(-step_size * overshoot_old * (1 - beta1) / beta1).add_(exp_avg, alpha=-step_size * (overshoot_new - overshoot_old/beta1 + 1))
+            gc = overshoot_old * (1 - beta1) / beta1
+            mc = overshoot_new - overshoot_old/beta1 + 1
+            grad.mul_(-step_size * gc).add_(exp_avg, alpha=-step_size * mc)
             param.addcdiv_(grad, denom)
 
         # Lastly, switch back to complex view
@@ -525,7 +527,7 @@ def _multi_tensor_adamo(
         bias_correction2_sqrt: Union[Tuple[Tensor, ...], List[Tensor]]
 
         if capturable:
-            raise Exception("AdamO for caprutable not implemented.")
+            raise Exception("AdamO for capturable not implemented.")
             bias_correction1 = torch._foreach_pow(beta1, device_state_steps)
             bias_correction2 = torch._foreach_pow(beta2, device_state_steps)
             # foreach_sub doesn't allow a scalar as the first arg
