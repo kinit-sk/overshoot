@@ -263,33 +263,27 @@ class AdamW(Optimizer):
         return loss
 
 
-    # TODO: This is only experimental!
+    @torch.no_grad()
     def move_to_base(self):
-        with torch.no_grad():
-            for group in self.param_groups:
-                beta1, beta2 = cast(Tuple[float, float], group["betas"])
-                for param in group["params"]:
-                    if param.grad is None:
-                        continue
-                    if len(self.state[param]) == 0:
-                        return
-                    step_t = self.state[param]["step"]
-                    step = _get_value(step_t)
+        if len(self.state) == 0:
+            return
+        for group in self.param_groups:
+            beta1, beta2 = cast(Tuple[float, float], group["betas"])
+            for param in group["params"]:
+                if all([key in self.state[param] for key in ["step", "exp_avg", "exp_avg_sq"]]):
+                    step = _get_value(self.state[param]["step"])
                     denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
                     param.addcdiv_(self.state[param]["exp_avg"], denom, value=group["lr"] * group["overshoot"] / (1 - beta1**step))
                 
-    # TODO: This is only experimental!
+    @torch.no_grad()
     def move_to_overshoot(self):
-        with torch.no_grad():
-            for group in self.param_groups:
-                beta1, beta2 = cast(Tuple[float, float], group["betas"])
-                for param in group["params"]:
-                    if param.grad is None:
-                        continue
-                    if len(self.state[param]) == 0:
-                        return
-                    step_t = self.state[param]["step"]
-                    step = _get_value(step_t)
+        if len(self.state) == 0:
+            return
+        for group in self.param_groups:
+            beta1, beta2 = cast(Tuple[float, float], group["betas"])
+            for param in group["params"]:
+                if all([key in self.state[param] for key in ["step", "exp_avg", "exp_avg_sq"]]):
+                    step = _get_value(self.state[param]["step"])
                     denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
                     param.addcdiv_(self.state[param]["exp_avg"], denom, value=-group["lr"] * group["overshoot"] / (1 - beta1**step))
 
@@ -423,10 +417,10 @@ def _single_tensor_adamw(
 
         # Decay the first and second moment running average coefficient
         exp_avg.lerp_(grad, 1 - beta1)
-        exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
         if capturable or differentiable:
             raise Exception("Not implemented")
+            exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
             step = step_t
 
             bias_correction1 = 1 - beta1**step
@@ -467,20 +461,15 @@ def _single_tensor_adamw(
             step_size = lr / bias_correction1
 
             bias_correction2_sqrt = bias_correction2**0.5
-
-            if amsgrad:
-                # Maintains the maximum of all 2nd moment running avg. till now
-                torch.maximum(max_exp_avg_sqs[i], exp_avg_sq, out=max_exp_avg_sqs[i])
-
-                # Use the max. for normalizing running avg. of gradient
-                denom = (max_exp_avg_sqs[i].sqrt() / bias_correction2_sqrt).add_(eps)
-            else:
-                denom = (exp_avg_sq.sqrt() / (1 - beta2**step)**0.5).add_(eps)
-
-            param.addcdiv_(exp_avg, denom, value=-lr * (overshoot + 1) / (1 - beta1**step))
+            
             if step > 1:
-                param.addcdiv_(exp_avg, denom, value=-lr * (-overshoot) / (beta1 - beta1**step))
-                param.addcdiv_(grad, denom, value=-lr * overshoot * (1 - beta1) / (beta1 - beta1**step))
+                denom_old = (exp_avg_sq.sqrt() / (1 - beta2**(step-1))**0.5).add_(eps)
+                param.addcdiv_(exp_avg, denom_old, value=-lr * (-overshoot) / (beta1 - beta1**step))
+                param.addcdiv_(grad, denom_old, value=-lr * overshoot * (1 - beta1) / (beta1 - beta1**step))
+                
+            exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+            denom = (exp_avg_sq.sqrt() / (1 - beta2**step)**0.5).add_(eps)
+            param.addcdiv_(exp_avg, denom, value=-lr * (overshoot + 1) / (1 - beta1**step))
 
         # Lastly, switch back to complex view
         if amsgrad and torch.is_complex(params[i]):

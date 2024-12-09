@@ -1,8 +1,9 @@
 # mypy: allow-untyped-defs
-from typing import cast, List, Optional
+from typing import cast, List, Optional, Tuple
 
 import torch
 from torch import Tensor
+from torch.nn import functional as F
 from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
 from torch.optim.optimizer import (
     _default_to_fused_or_foreach,
@@ -24,7 +25,7 @@ class SGDO(Optimizer):
         params,
         lr: float = 1e-3,
         momentum: float = 0,
-        overshoot: float = 0,
+        cosine_target: float = 0,
         dampening: float = 0,
         weight_decay: float = 0,
         *,
@@ -33,6 +34,9 @@ class SGDO(Optimizer):
         differentiable: bool = False,
         fused: Optional[bool] = None,
     ):
+        self._overshoot_old = 0
+        self._overshoot_new = 0
+        self._cosine_target = cosine_target
         if lr < 0.0:
             raise ValueError(f"Invalid learning rate: {lr}")
         if momentum < 0.0:
@@ -43,7 +47,7 @@ class SGDO(Optimizer):
         defaults = dict(
             lr=lr,
             momentum=momentum,
-            overshoot=overshoot,
+            # overshoot=overshoot,
             dampening=dampening,
             weight_decay=weight_decay,
             maximize=maximize,
@@ -51,7 +55,7 @@ class SGDO(Optimizer):
             differentiable=differentiable,
             fused=fused,
         )
-        if overshoot > 0 and (momentum <= 0 or dampening != 0):
+        if (momentum <= 0 or dampening != 0):
             raise ValueError("Overshoot momentum requires a momentum and zero dampening")
         super().__init__(params, defaults)
 
@@ -110,6 +114,33 @@ class SGDO(Optimizer):
             with torch.enable_grad():
                 loss = closure()
 
+            
+        # ----
+        # Adjust overshoot based on update cosine similarity
+        sample_size = 1000
+        if not hasattr(self, "update_cosine"):
+            self.update_cosine = 0
+        all_params = torch.cat([p.data.view(-1).cpu() for group in self.param_groups for p in group["params"]])
+        if not hasattr(self, "random_indices"):
+            self.random_indices = torch.randint(0, all_params.size(0), (sample_size,))
+        params = all_params[self.random_indices]
+        if hasattr(self, "previous_params"):
+            update = params - self.previous_params
+            if hasattr(self, "last_update"):
+                similarity = F.cosine_similarity(self.last_update, update, dim=0)
+                if not torch.isnan(similarity):
+                    self.update_cosine = 0.9 * self.update_cosine + 0.1 * similarity.item()
+            self.last_update = update
+        self.previous_params = params
+        
+        self._overshoot_old = self._overshoot_new
+        if self.update_cosine < self._cosine_target:
+            self._overshoot_new -= 0.01
+        else:
+            self._overshoot_new += 0.01
+        # ----
+        
+
         for group in self.param_groups:
             params: List[Tensor] = []
             grads: List[Tensor] = []
@@ -124,7 +155,8 @@ class SGDO(Optimizer):
                 grads,
                 momentum_buffer_list,
                 weight_decay=group["weight_decay"],
-                overshoot=group["overshoot"],
+                # overshoot=group["overshoot"],
+                overshoot = (self._overshoot_old, self._overshoot_new),
                 momentum=group["momentum"],
                 lr=group["lr"],
                 dampening=group["dampening"],
@@ -144,24 +176,22 @@ class SGDO(Optimizer):
 
         return loss
         
-    # TODO: This is only experimental!
-    def move_to_base(self, wait: bool = False):
+    @torch.no_grad()
+    def move_to_base(self):
         if len(self.state) == 0:
             return
-        with torch.no_grad():
-            for group in self.param_groups:
-                for param in group["params"]:
-                    if "momentum_buffer" in self.state[param]:
-                        param.add_(self.state[param]["momentum_buffer"], alpha=group["lr"] * group["overshoot"])
+        for group in self.param_groups:
+            for param in group["params"]:
+                # param.add_(self.state[param]["momentum_buffer"], alpha=group["lr"] * group["overshoot"])
+                param.add_(self.state[param]["momentum_buffer"], alpha=group["lr"] * self._overshoot_new)
                 
+    @torch.no_grad()
     def move_to_overshoot(self):
         if len(self.state) == 0:
             return
-        with torch.no_grad():
-            for group in self.param_groups:
-                for param in group["params"]:
-                    if "momentum_buffer" in self.state[param]:
-                        param.add_(self.state[param]["momentum_buffer"], alpha=-group["lr"] * group["overshoot"])
+        for group in self.param_groups:
+            for param in group["params"]:
+                param.add_(self.state[param]["momentum_buffer"], alpha=-group["lr"] * self._overshoot_new)
 
 
 SGDO.__doc__ = (
@@ -197,7 +227,7 @@ def sgd(
     *,
     weight_decay: float,
     momentum: float,
-    overshoot: float,
+    overshoot: Tuple[float, float],
     lr: float,
     dampening: float,
     maximize: bool,
@@ -264,7 +294,7 @@ def _single_tensor_sgd(
     *,
     weight_decay: float,
     momentum: float,
-    overshoot: float,
+    overshoot: Tuple[float, float],
     lr: float,
     dampening: float,
     maximize: bool,
@@ -288,7 +318,8 @@ def _single_tensor_sgd(
                 buf.mul_(momentum).add_(grad, alpha=1 - dampening)
 
             if overshoot:
-                grad.mul_(overshoot / momentum).add_(buf, alpha=1 + overshoot - (overshoot / momentum))
+                # grad.mul_(overshoot / momentum).add_(buf, alpha=1 + overshoot - (overshoot / momentum))
+                grad.mul_(overshoot[0] / momentum).add_(buf, alpha=1 + overshoot[1] - (overshoot[0] / momentum))
             else:
                 grad = buf
 
@@ -408,7 +439,6 @@ def _fused_sgd(
     maximize: bool,
     has_sparse_grad: bool,
 ) -> None:
-    raise Exception("Fused Overshoot SGD is not supported")
     if not params:
         return
     if has_sparse_grad:

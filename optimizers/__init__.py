@@ -1,12 +1,12 @@
 import torch
 
-from optimizers.sgdo import SGDO
-from optimizers.sgdo_adaptive import SGDO as SGDO_adaptive
-from optimizers.adamw_overshoot_replication import AdamW as OvershootAdamW_replication
-from optimizers.adamw_overshoot_full_approximation import AdamW as OvershootAdamW_full_approximation
-from optimizers.adamw_overshoot_denom_approximation import AdamW as OvershootAdamW_denom_approximation
+from optimizers.sgd_overshoot import SGDO
+from optimizers.backups2.sgdo_adaptive import SGDO as SGDO_adaptive
+from optimizers.backups2.adamw_overshoot_replication import AdamW as OvershootAdamW_replication
+from optimizers.backups2.adamw_overshoot_full_approximation import AdamW as OvershootAdamW_full_approximation
+from optimizers.backups2.adamw_overshoot_denom_approximation import AdamW as OvershootAdamW_denom_approximation
 from optimizers.adamw_overshoot_delayed import AdamO as OvershootAdamW_delayed
-from optimizers.adamw_overshoot_adaptive import AdamW as OvershootAdamW_adaptive
+from optimizers.backups2.adamw_overshoot_adaptive import AdamW as OvershootAdamW_adaptive
 
 optimizers_map = {
     "sgd": torch.optim.SGD,
@@ -30,7 +30,7 @@ optimizers_map = {
 
 
 def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config, foreach=None):
-    foreach = True
+    foreach=False
     if opt_name == "nadam":
         opt = optimizers_map[opt_name](
             param_groups,
