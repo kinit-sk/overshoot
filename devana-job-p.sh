@@ -19,7 +19,7 @@ for seed in ${SEEDS}; do
     python main.py ${PYTHON_ARGS_FINAL} & # Launch processes in parallel
     
     # Wait to not conflict about gpu resources with previous process
-    sleep 30
+    sleep 10
 done
 
 wait

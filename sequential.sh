@@ -27,11 +27,50 @@ cp trainer_configs.py "lightning_logs/${EXPERIMENT_NAME}/"
 cp custom_datasets.py "lightning_logs/${EXPERIMENT_NAME}/"
 
 
-OVERSHOOT=(3 5 7)
-for SEED in "${SEEDS[@]}"; do
-    python train.py ${PYTHON_ARGS_BASE} --job_name baseline --opt_name sgd_momentum  --seed ${SEED} --baseline
-    for FACTOR in "${OVERSHOOT[@]}"; do
-        python train.py ${PYTHON_ARGS_BASE} --job_name overshoot_${FACTOR} --opt_name sgd_momentum --overshoot_factor ${FACTOR} --seed ${SEED}
-    done
+# OVERSHOOT=(3 5 7)
+# for SEED in "${SEEDS[@]}"; do
+#     python main.py ${PYTHON_ARGS_BASE} --job_name sgd_momentum --opt_name sgd_momentum  --seed ${SEED} --config_override log_every_n_steps=4
+#     python main.py ${PYTHON_ARGS_BASE} --job_name sgd_overshoot_3 --opt_name sgd_overshoot --overshoot_factor 3 --seed ${SEED} --config_override log_every_n_steps=4
+#     python main.py ${PYTHON_ARGS_BASE} --job_name sgd_overshoot_5 --opt_name sgd_overshoot --overshoot_factor 5 --seed ${SEED} --config_override log_every_n_steps=4
+#     python main.py ${PYTHON_ARGS_BASE} --job_name sgd_overshoot_7 --opt_name sgd_overshoot --overshoot_factor 7 --seed ${SEED} --config_override log_every_n_steps=4
     
-done  
+    
+#     python main.py ${PYTHON_ARGS_BASE} --job_name adamW --opt_name adamW  --seed ${SEED} --config_override log_every_n_steps=4
+#     python main.py ${PYTHON_ARGS_BASE} --job_name adamW_overshoot_3 --opt_name adamW_overshoot_delayed --overshoot_factor 3 --seed ${SEED} --config_override log_every_n_steps=4
+#     python main.py ${PYTHON_ARGS_BASE} --job_name adamW_overshoot_5 --opt_name adamW_overshoot_delayed --overshoot_factor 5 --seed ${SEED} --config_override log_every_n_steps=4
+#     python main.py ${PYTHON_ARGS_BASE} --job_name adamW_overshoot_7 --opt_name adamW_overshoot_delayed --overshoot_factor 7 --seed ${SEED} --config_override log_every_n_steps=4
+# done
+
+
+SEED="10"
+
+python main.py ${PYTHON_ARGS_BASE} --job_name no_sch_baseline --opt_name sgd_momentum  --seed ${SEED}  &
+sleep 10
+
+# python main.py ${PYTHON_ARGS_BASE} --job_name no_sch_overshoot_7_two  --opt_name sgd_momentum --two_models --overshoot_factor 7  --seed ${SEED} &
+# sleep 10
+
+python main.py ${PYTHON_ARGS_BASE} --job_name no_sch_overshoot_7  --opt_name sgd_overshoot_v2 --overshoot_factor 0.007  --seed ${SEED}  &
+sleep 10
+
+
+
+python main.py ${PYTHON_ARGS_BASE} --job_name yes_sch_baseline --opt_name sgd_momentum  --seed ${SEED} --config_override use_lr_scheduler=True &
+sleep 10
+
+# python main.py ${PYTHON_ARGS_BASE} --job_name yes_sch_overshoot_7_two  --opt_name sgd_momentum --two_models --overshoot_factor 7  --seed ${SEED} --config_override use_lr_scheduler=True &
+# sleep 10
+
+python main.py ${PYTHON_ARGS_BASE} --job_name yes_sch_overshoot_7  --opt_name sgd_overshoot_v2 --overshoot_factor 0.007  --seed ${SEED} --config_override use_lr_scheduler=True &
+sleep 10
+
+
+
+
+wait
+echo "All Python processes have completed."
+
+
+# python main.py ${PYTHON_ARGS_BASE} --job_name adamW_overshoot_3 --opt_name adamW_overshoot_delayed --overshoot_factor 3 --seed ${SEED} --config_override log_every_n_steps=4
+# python main.py ${PYTHON_ARGS_BASE} --job_name adamW_overshoot_5 --opt_name adamW_overshoot_delayed --overshoot_factor 5 --seed ${SEED} --config_override log_every_n_steps=4
+# python main.py ${PYTHON_ARGS_BASE} --job_name adamW_overshoot_7 --opt_name adamW_overshoot_delayed --overshoot_factor 7 --seed ${SEED} --config_override log_every_n_steps=4
