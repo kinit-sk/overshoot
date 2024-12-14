@@ -519,8 +519,9 @@ def _multi_tensor_adamo(
             device_exp_avg_sqs, device_grads, device_grads, 1 - beta2
         )
 
-        # # Delete the local intermediate since it won't be used anymore to save on peak memory
+        # AdaW: `Delete the local intermediate since it won't be used anymore to save on peak memory`
         # del device_grads
+        # AdamO: We use `device_grads` to store gradient and momentum linear combination
 
         bias_correction1: Union[Tuple[Tensor, ...], List[Tensor]]
         bias_correction2: Union[Tuple[Tensor, ...], List[Tensor]]
@@ -566,14 +567,12 @@ def _multi_tensor_adamo(
             # at this point, exp_avg_sq_sqrt = - (1 - beta^t) * [sqrt(exp_avg_sq / (1 - beta2^t)) + eps] / lr
             torch._foreach_addcdiv_(device_params, device_exp_avgs, exp_avg_sq_sqrt)
         else:
-            bias_correction1 = [
-                1 - beta1 ** _get_value(step) for step in device_state_steps
-            ]
-            bias_correction2 = [
-                1 - beta2 ** _get_value(step) for step in device_state_steps
-            ]
+            steps = [_get_value(step) for step in device_state_steps]
+            bias_correction1 = [1 - beta1 ** step for step in steps]
+            bias_correction2 = [1 - beta2 ** step for step in steps]
+            overshoot_old = [max(min(step - 1 - overshoot_delay, overshoot), 0) for step in steps]
+            overshoot_new = [max(min(step - overshoot_delay, overshoot), 0) for step in steps]
 
-            # step_size = _stack_if_compiling([(lr / bc) * -1 for bc in bias_correction1])
 
             bias_correction2_sqrt = [
                 bc**0.5 for bc in bias_correction2  # type: ignore[arg-type]
@@ -593,19 +592,17 @@ def _multi_tensor_adamo(
             torch._foreach_div_(exp_avg_sq_sqrt, bias_correction2_sqrt)
             torch._foreach_add_(exp_avg_sq_sqrt, eps)
 
-            # OLD
+            # # OLD
+            # step_size = _stack_if_compiling([(lr / bc) * -1 for bc in bias_correction1])
             # torch._foreach_addcdiv_(
             #     device_params,
             #     device_exp_avgs,
             #     exp_avg_sq_sqrt,
             #     step_size,  # type: ignore[arg-type]
             # )
+            # return
 
             # NEW
-            clamp = lambda x_list, l, h: [max(min(x, h), l) for x in x_list]
-            overshoot_old = clamp([step - 1 - overshoot_delay for step in device_state_steps], 0, overshoot)
-            overshoot_new = clamp([step - overshoot_delay for step in device_state_steps], 0, overshoot)
-
             # 1) Multiply gradinets
             torch._foreach_mul_(
                 device_grads,
@@ -613,14 +610,10 @@ def _multi_tensor_adamo(
             )
             
             # 2) Add momenutm multiplication
-            torch._foreach_add_(
-                device_grads,
-                torch._foreach_mul(
-                    device_exp_avgs,
-                    _stack_if_compiling([(-lr / bc) * (o_new - o_old/beta1 + 1) for bc, o_old, o_new in zip(bias_correction1, overshoot_old, overshoot_new)]),
-                    )
-            )
-            
+            # TODO: No torch._foreach_ operation for G = G + scalar * M
+            for g, m, bc, o_old, o_new in zip(device_grads, device_exp_avgs, bias_correction1, overshoot_old, overshoot_new):
+                g.add_(m, alpha=(-lr / bc) * (o_new - o_old/beta1 + 1))
+
             # 3) Divide by second moments
             torch._foreach_addcdiv_(
                 device_params,
