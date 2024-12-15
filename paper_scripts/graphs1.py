@@ -21,19 +21,19 @@ task_2_title = {
     "3c3d_cifar10": "3c3d-C10",
     "vae_mnist": "VAE-M",
     "resnet18_cifar100": "ResNet-C100",
-    # "gpt_hf_qqp": "GPT-2-GLUE",
+    "gpt_hf_qqp": "GPT-2-GLUE",
 }
 
 
 
 task_2_range_train = {
-    "mlp_housing": (0.1, 1),
+    "mlp_housing": (0.11, 0.25),
     "vae_f-mnist": (22, 30),
     "vae_mnist": (26, 60),
     "2c2d_f-mnist": (0.0, 2),
     "3c3d_cifar10": (0.25, 4),
     "resnet18_cifar100": (0.0, 4),
-    "gpt_hf_qqp": (0.35, 1),
+    "gpt_hf_qqp": (0.1, 1),
 }
 
 task_2_range_test = {
@@ -58,13 +58,13 @@ task_2_smooth = {
 
 color_map = {
     "sgd_baseline": [1, 0, 0],
-    "sgd_overshoot_3": [0.6, 0.4, 0],
-    "sgd_overshoot_5": [0.6, 0, 0.4],
-    "sgd_overshoot_7": [0.6, 0.2, 0.2],
+    "sgd_overshoot_3": [0.8, 0.4, 0],
+    "sgd_overshoot_5": [0.6, 0.2, 0.2],
+    "sgd_overshoot_7": [0.8, 0, 0.4],
     "adam_baseline": [0, 0, 1],
-    "adam_overshoot_3": [0.4, 0, 0.6],
-    "adam_overshoot_5": [0, 0.4, 0.6],
-    "adam_overshoot_7": [0.2, 0.2, 0.6],
+    "adam_overshoot_3": [0.4, 0, 0.8],
+    "adam_overshoot_5": [0.2, 0.2, 0.6],
+    "adam_overshoot_7": [0.0, 0.4, 0.8],
 }
 
 algorithm_2_legend = {
@@ -79,7 +79,7 @@ algorithm_2_legend = {
 }
 
 
-def plot_data(data, pp, task_name, use_legend=True):
+def plot_data(data, pp, task_name):
 
     pp.set_yscale('log', base=10)
     task_2_range = task_2_range_test if args.loss_type == "test" else task_2_range_train
@@ -91,7 +91,7 @@ def plot_data(data, pp, task_name, use_legend=True):
         pp.plot(data[label] - min_max[0], label=algorithm_2_legend[label], color=color, linestyle=line_style, linewidth=1.5)
         
     pp.set_ylim([0, min_max[1]])
-    if "resnet" in task_name:
+    if args.loss_type == "test" and ("resnet" in task_name or "gpt" in task_name):
         pp.set_yticks(pp.get_yticks()[-5:-2], [round(min_max[0]+c, 2) for c in pp.get_yticks()[-5:-2]])
     else:
         pp.set_yticks(pp.get_yticks()[-4:-2], [round(min_max[0]+c, 2) for c in pp.get_yticks()[-4:-2]])
@@ -101,9 +101,6 @@ def plot_data(data, pp, task_name, use_legend=True):
     pp.xaxis.set_major_locator(MaxNLocator(nbins=3)) 
     pp.set_title(task_2_title[task_name], fontsize=20)
     
-    
-    if use_legend:
-        pp.legend(loc="upper right", fontsize=16)
 
 def process_run(run_root, smooth_factor):
     run_losses = []
@@ -147,7 +144,7 @@ if __name__ == "__main__":
 
     plt.rc('xtick', labelsize=14)  # X-axis tick labels font size
     plt.rc('ytick', labelsize=14)  # Y-axis tick labels font size
-    fig, axs = plt.subplots(2, 3, figsize=(20, 10))
+    fig, axs = plt.subplots(2, 4, figsize=(20, 10))
     if args.loss_type == "test":
         fig.text(0.5, 0.01, 'Epochs', ha='center', fontsize=22)
         fig.text(0.01, 0.5, 'Test loss', va='center', rotation='vertical', fontsize=22)
@@ -163,6 +160,7 @@ if __name__ == "__main__":
         
         print(f"Processing {task_name}")
         task_index += 1
+        task_index += task_index == 6
         task_results = {}
         for run_name in os.listdir(task_root):
             run_root = os.path.join(task_root, run_name)
@@ -175,10 +173,15 @@ if __name__ == "__main__":
 
             
         if task_results:
-            use_legend = task_index == 4
-            # use_legend = True
-            plot_data(task_results, axs[task_index % 2, task_index // 2], task_name, use_legend)
+            plot_data(task_results, axs[task_index % 2, task_index // 2], task_name)
 
+        handles, labels = axs[0, 0].get_legend_handles_labels()
+        legend = axs[0, -1].legend(handles, labels, loc="center",  frameon=False, fontsize=16) 
+        for line in legend.get_lines():
+            line.set_linewidth(3)
+        
+        
+        axs[0, -1].axis('off') 
         print(f"Updated with {task_name}")
         plt.tight_layout(rect=[0.02, 0.04, 1, 1])  # Leave space for the global labels
         plt.savefig(f"graph1_{args.loss_type}_loss.png")
