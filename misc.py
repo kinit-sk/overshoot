@@ -168,7 +168,7 @@ def init_model(model_name, datatset, trainer_config):
         model.config.pad_token_id = tokenizer.get_vocab()[tokenizer.pad_token]
 
         if trainer_config.use_peft:
-            peft_config = LoraConfig(task_type=TaskType.SEQ_CLS, lora_dropout=0.1)
+            peft_config = LoraConfig(task_type=TaskType.SEQ_CLS, r=6, lora_dropout=0.1)
             model = get_peft_model(model, peft_config)
             print("Using peft:")
             model.print_trainable_parameters()
