@@ -13,11 +13,12 @@ f4 = 5.56789422e-09 * np.exp(2.19141010e+01 * x)            # f(x) = e^(17.52 * 
 # Plot the functions with a logarithmic scale on the y-axis
 plt.figure(figsize=(6, 4))
 plt.subplots_adjust(top=0.99, bottom=0.13) 
-plt.plot(x, f1, label="Classical momentum")
-plt.plot(x, f2, label="Nesterov's momentum")
-plt.plot(x, f3, label="SGD without momentum")
+
+plt.plot(x, f1, label="Classical momentum", linewidth=2)
+plt.plot(x, f2, label="Nesterov's momentum", linewidth=2)
+plt.plot(x, f3, label="SGD without momentum", linewidth=2)
 # plt.plot(x, f4, label="Estimated lower bound optimal setting*", linestyle="--",)
-plt.plot(x, f4, label="Lower bound optimal setting estimate*", linestyle="--")
+plt.plot(x, f4, label="Optimal setting estimate*", linestyle="--", linewidth=2)
 
 
 # Fill the area above f3
@@ -32,7 +33,8 @@ plt.yscale("symlog")
 # plt.xlim(0, 1)
 plt.ylim(top=200)
 # plt.title("Overshoot equivalence for SGD")
-plt.legend(loc="upper left")
+plt.legend(loc="upper left", fontsize=13)
 plt.grid(True, which="both", linestyle="--", linewidth=0.5)
-plt.show()
+plt.savefig("sgd_overshoot_eq.png")
+# plt.show()
 
