@@ -2,7 +2,7 @@ import copy
 import os
 import re
 import time
-from contextlib import nullcontext
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -159,7 +159,7 @@ class OvershootTrainer:
         )
         print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ""), flush=True)
 
-    def model_forward_(self, model, batch):
+    def model_forward_(self, model, batch: dict):
         if self.config.n_gpu and self.config.precision == "16-mixed":
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 return model.forward(**batch)
@@ -187,7 +187,7 @@ class OvershootTrainer:
         else:
             return output["loss"], output["loss"], output["logits"]
 
-    def _two_models_training_step(self, batch, batch_idx):
+    def _two_models_training_step(self, batch: dict, batch_idx: int):
         assert len(self.optimizers) == 2
         with torch.no_grad():
             output_base = self.model_forward_(self.base_model, batch)  # only to log base loss
@@ -218,7 +218,7 @@ class OvershootTrainer:
 
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
-    def training_step(self, batch, epoch, batch_idx):
+    def training_step(self, batch: int, epoch: int, batch_idx: int):
         # We compute model distances before model update to have the same behaviour for baseline and overshoot
         if self.args.compute_model_distance:
             model_distance = self._compute_model_distance()
@@ -275,7 +275,7 @@ class OvershootTrainer:
             for k, v in stats.items():
                 self.log_writer.add_scalar(k, v, self.current_step)
 
-    def log_stats(self, name, stats, epoch, loss, accuracy):
+    def log_stats(self, name: str, stats: Sequence, epoch: int, loss: float, accuracy: float):
         now = time.time()
         wall_time, epoch_duration = now - self.trainig_start_time, now - self.epoch_start
         stats.append({"loss": loss, "wall_time": wall_time})
@@ -312,7 +312,7 @@ class OvershootTrainer:
         if self.test_stats:
             pd.DataFrame(self.test_stats).to_csv(os.path.join(self.log_writer.log_dir, "test_stats.csv"), index=False)
 
-    def validation(self, epoch):
+    def validation(self, epoch: int):
         self._set_model_mode(is_training=False)
         base_model, _ = self._get_base_model()
         test_loaders = [
