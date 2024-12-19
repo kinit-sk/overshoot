@@ -1,25 +1,21 @@
-from typing import Optional, List
-import numpy as np
+from typing import List, Optional
 
+import numpy as np
+from peft import LoraConfig, TaskType, get_peft_model
 from transformers import (AutoConfig, AutoModelForPreTraining,
                           AutoModelForSequenceClassification, AutoTokenizer)
 
-from peft import (
-    get_peft_model,
-    LoraConfig,
-    TaskType,
-)
-
+from custom_datasets import (NextTokenDataloader, create_boston_datatset,
+                             create_cifar, create_energy_datatset,
+                             create_fasion_mnist, create_housing_datatset,
+                             create_mnist, create_mnli, create_qqp, create_sst)
 from models._2c2d import _2c2d
 from models._3c3d import _3c3d
-from models.resnet import ResNet
-from models.mlp import MLP
-from models.vae import VAE
-from custom_datasets import (NextTokenDataloader,
-                             create_qqp, create_mnist, create_cifar, create_boston_datatset, create_housing_datatset, create_energy_datatset, create_sst, create_mnli, create_fasion_mnist)
 from models.gpt import GPT, GPTConfig, GPTTinyConfig
+from models.mlp import MLP
+from models.resnet import ResNet
+from models.vae import VAE
 from trainer_configs import *
-
 
 supported_datasets = [
     "mnist",
@@ -37,9 +33,7 @@ supported_models = [
     "mlp",
     "2c2d",
     "3c3d",
-    "resnet18"
-    "resnet50"
-    "vae",
+    "resnet18" "resnet50" "vae",
     "gpt",
     "roberta_hf",
     "bloom_hf",
@@ -63,7 +57,7 @@ def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[str] = 
         return create_energy_datatset()
     elif dataset_name == "f-mnist":
         return create_fasion_mnist(model_name == "vae")
-        
+
     assert model_name
     model_map = {
         "gpt_hf": "openai-community/gpt2",
@@ -92,7 +86,7 @@ def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[str] = 
     tokenizer = AutoTokenizer.from_pretrained(model_map[model_name])
     if (tokenizer.pad_token is None) and (tokenizer.eos_token is not None):
         tokenizer.pad_token = tokenizer.eos_token
-        
+
     if dataset_name == "shakespear":
         # return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="tiny_shakespear_")
         return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="tiny_shakespear.txt")
@@ -109,8 +103,8 @@ def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[str] = 
     #     return MMLUDataset(tokenizer=tokenizer)
     else:
         raise ValueError(f"Dataset {dataset_name} not found")
-        
-        
+
+
 def init_model(model_name, datatset, trainer_config):
     model_map = {
         "gpt_hf": "openai-community/gpt2",
@@ -120,7 +114,7 @@ def init_model(model_name, datatset, trainer_config):
         "bloom_hf": "bigscience/bloom-560m",
         "mdeberta_hf": "microsoft/mdeberta-v3-base",
         "t5_hf": "google-t5/t5-base",
-        "minilm": "microsoft/MiniLM-L12-H384-uncased"
+        "minilm": "microsoft/MiniLM-L12-H384-uncased",
     }
     n_outputs = datatset.n_outputs()
 
@@ -176,6 +170,7 @@ def init_model(model_name, datatset, trainer_config):
     else:
         raise ValueError(f"Model {model_name} not found")
 
+
 def get_gpu_stats(n_gpus: int = 0):
     gpu_info = ""
     for gpu_index in range(n_gpus):
@@ -187,7 +182,10 @@ def get_gpu_stats(n_gpus: int = 0):
 
 def compute_model_distance(ref_model: torch.Tensor, gradient_models: List[torch.Tensor], decay_factor: float):
     assert 0 < decay_factor < 1
-    return sum([np.linalg.norm(ref_model - g_m) * decay_factor**i for i, g_m in enumerate(reversed(gradient_models))]).item()
+    return sum(
+        [np.linalg.norm(ref_model - g_m) * decay_factor**i for i, g_m in enumerate(reversed(gradient_models))]
+    ).item()
+
 
 def get_model_size(model):
     param_size = sum(p.numel() for p in model.parameters() if p.requires_grad) * 4  # Assuming float32
