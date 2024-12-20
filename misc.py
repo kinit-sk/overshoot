@@ -6,7 +6,7 @@ from transformers import (AutoConfig, AutoModelForPreTraining,
                           AutoModelForSequenceClassification, AutoTokenizer)
 
 from custom_datasets import (NextTokenDataloader, create_boston_datatset,
-                             create_cifar, create_energy_datatset,
+                             create_cifar, create_energy_datatset, create_imbd,
                              create_fasion_mnist, create_housing_datatset,
                              create_mnist, create_mnli, create_qqp, create_sst)
 from models._2c2d import _2c2d
@@ -96,6 +96,8 @@ def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[str] = 
         return create_sst(tokenizer)
     elif dataset_name == "qqp":
         return create_qqp(tokenizer)
+    elif dataset_name == "imdb":
+        return create_imbd(tokenizer)
     elif dataset_name == "mnli":
         return create_mnli(tokenizer=tokenizer)
     # TODO:

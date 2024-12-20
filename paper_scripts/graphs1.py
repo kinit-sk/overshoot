@@ -33,7 +33,7 @@ task_2_range_train = {
     "2c2d_f-mnist": (0.0, 2),
     "3c3d_cifar10": (0.25, 4),
     "resnet18_cifar100": (0.0, 4),
-    "gpt_hf_qqp": (0.1, 1),
+    "gpt_hf_qqp": (0.11, 1),
 }
 
 task_2_range_test = {
@@ -144,7 +144,7 @@ if __name__ == "__main__":
 
     plt.rc('xtick', labelsize=14)  # X-axis tick labels font size
     plt.rc('ytick', labelsize=14)  # Y-axis tick labels font size
-    fig, axs = plt.subplots(2, 4, figsize=(20, 10))
+    fig, axs = plt.subplots(2, 4, figsize=(20, 8))
     if args.loss_type == "test":
         fig.text(0.5, 0.01, 'Epochs', ha='center', fontsize=22)
         fig.text(0.01, 0.5, 'Test loss', va='center', rotation='vertical', fontsize=22)
@@ -176,7 +176,7 @@ if __name__ == "__main__":
             plot_data(task_results, axs[task_index % 2, task_index // 2], task_name)
 
         handles, labels = axs[0, 0].get_legend_handles_labels()
-        legend = axs[0, -1].legend(handles, labels, loc="center",  frameon=False, fontsize=16) 
+        legend = axs[0, -1].legend(handles, labels, loc="center",  frameon=False, fontsize=17) 
         for line in legend.get_lines():
             line.set_linewidth(3)
         

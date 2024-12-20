@@ -249,6 +249,22 @@ def create_mnli(tokenizer):
     val_dataset = UnifiedDatasetInterface(validation_data, 3, True, batching_fn=batching)
     val_dataset.tokenizer = tokenizer
     return train_dataset, val_dataset, None
+    
+def create_imbd(tokenizer):
+    dataset = load_dataset("imdb")
+    
+    def batching(self, x):
+        inpts = self.tokenizer([self.data[index]['text'] for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
+        input_ids = inpts['input_ids']
+        attention_mask = inpts['attention_mask']
+        outputs = torch.tensor([self.data[index]['label'] for index in x])
+        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
+        
+    train_dataset = UnifiedDatasetInterface(dataset['train'], 2, True, batching_fn=batching)
+    train_dataset.tokenizer = tokenizer
+    val_dataset = UnifiedDatasetInterface(dataset['train'], 2, True, batching_fn=batching)
+    val_dataset.tokenizer = tokenizer
+    return train_dataset, val_dataset, None
         
         
         

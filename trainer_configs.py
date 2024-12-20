@@ -54,6 +54,7 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
         ("gpt_hf", "qqp", "adam"): GptQqpConfig,
         ("bert_hf", "qqp", "sgd"): BertQqpConfig,
         ("bert_hf", "qqp", "adam"): BertQqpConfig,
+        ("bert_hf", "imdb", "adam"): BertImdbConfig,
         ("roberta_hf", "qqp", "adam"): RobertaQqpAdamConfig,
         ("gpt", "shakespear", "sgd"): GptShakespearConfig, # TODO
         ("gpt", "shakespear", "adam"): GptShakespearConfig,
@@ -282,6 +283,13 @@ class BertQqpConfig(DefaultConfig):
     epochs: int = 20
     weight_decay: float = 5e-4
     lr: float = 3e-4
+    
+@dataclass
+class BertImdbConfig(DefaultConfig):
+    epochs: int = 10
+    # weight_decay: float = 5e-4
+    lr: float = 5e-5
+    use_peft: bool = False
     
 @dataclass
 class RobertaQqpAdamConfig(DefaultConfig):
