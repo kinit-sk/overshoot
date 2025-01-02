@@ -33,7 +33,8 @@ echo "SGD efficient vs two models OK"
 # 2) Test efficient implementation vs nesterov
 cat /tmp/nesterov_no_time | sed 's/ base_loss_1: [0-9]*.[0-9]* |//' | grep -v "Epoch" > /tmp/nesterov_no_base
 cat /tmp/efficient_no_time | sed 's/ base_loss_1: [0-9]*.[0-9]* |//' | grep -v "Epoch" > /tmp/efficient_no_base
-diff /tmp/efficient_no_base /tmp/nesterov_no_base > /dev/null
+# diff /tmp/efficient_no_base /tmp/nesterov_no_base > /dev/null
+diff /tmp/efficient_no_base /tmp/nesterov_no_base
 echo "Efficient vs nesterov OK"
 
 
