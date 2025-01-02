@@ -694,6 +694,7 @@ def _fused_adamw(
     differentiable: bool,
     has_complex: bool,  # Needed for consistency.
 ) -> None:
+    raise Exception("Not implemented")
     if not params:
         return
     if differentiable:

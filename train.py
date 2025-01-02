@@ -251,9 +251,9 @@ class OvershootTrainer:
                 np.mean(self.overshoot_losses[-avg:])
             )  # For baseline same as base loss
 
-        if self.train_dataloader.dataset.is_classification():
+        if self.train_dataloader.dataset.is_classification():  # type: ignore
             self.train_accuracy.append(
-                100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()
+                100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()  # type: ignore
             )
             if len(self.train_accuracy) > 100:
                 self.train_accuracy.pop(0)
@@ -320,14 +320,12 @@ class OvershootTrainer:
     def validation(self, epoch: int):
         self._set_model_mode(is_training=False)
         base_model, _ = self._get_base_model()
-        test_loaders: List[Tuple[DataLoader[UnifiedDatasetInterface], List[dict], str]] = [
-            x
-            for x in [
-                (self.val_dataloader, self.val_stats, "validation"),
-                (self.test_dataloader, self.test_stats, "test"),
-            ]
-            if x[0]
-        ]
+        test_loaders: List[Tuple[DataLoader[UnifiedDatasetInterface], List[dict], str]] = []
+        if self.val_dataloader:
+            test_loaders.append((self.val_dataloader, self.val_stats, "validation"))
+        if self.test_dataloader:
+            test_loaders.append((self.test_dataloader, self.test_stats, "test"))
+            
         with torch.no_grad():
             for loader, stats, name in test_loaders:
                 correct, total, loss = 0, 0, 0
@@ -336,11 +334,11 @@ class OvershootTrainer:
                     outputs = self.model_forward_(base_model, batch)
                     _, predicted = outputs["logits"].max(1)
                     loss += outputs["loss"].item() * batch["labels"].size(0)
-                    if loader.dataset.is_classification():
+                    if loader.dataset.is_classification():  # type: ignore
                         total += batch["labels"].size(0)
                         correct += predicted.eq(batch["labels"]).sum().item()
-                accuracy = 100 * correct / total if loader.dataset.is_classification() else None
-                self.log_stats(name, stats, epoch, loss / len(loader.dataset), accuracy)
+                accuracy = 100 * correct / total if loader.dataset.is_classification() else None  # type: ignore
+                self.log_stats(name, stats, epoch, loss / len(loader.dataset), accuracy)  # type: ignore
         self.save_stats()
 
     def main(self):

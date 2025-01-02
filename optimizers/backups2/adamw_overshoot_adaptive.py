@@ -714,6 +714,7 @@ def _fused_adamw(
     differentiable: bool,
     has_complex: bool,  # Needed for consistency.
 ) -> None:
+    raise Exception("not implemented")
     if not params:
         return
     if differentiable:
@@ -848,7 +849,7 @@ def adamw(
     elif foreach and not torch.jit.is_scripting():
         func = _multi_tensor_adamw
     else:
-        func = _single_tensor_adamw
+        func = _single_tensor_adamw # type: ignore
 
     func(
         params,

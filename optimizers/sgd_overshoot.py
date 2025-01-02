@@ -233,7 +233,7 @@ def sgd(
     if foreach and not torch.jit.is_scripting():
         func = _multi_tensor_sgd
     elif fused and not torch.jit.is_scripting():
-        func = _fused_sgd
+        func = _fused_sgd # type: ignore
     else:
         func = _single_tensor_sgd
 

@@ -264,9 +264,9 @@ def sgd(
     if foreach and not torch.jit.is_scripting():
         func = _multi_tensor_sgd
     elif fused and not torch.jit.is_scripting():
-        func = _fused_sgd
+        func = _fused_sgd # type: ignore
     else:
-        func = _single_tensor_sgd
+        func = _single_tensor_sgd # type: ignore
 
     func(
         params,
@@ -274,7 +274,7 @@ def sgd(
         momentum_buffer_list,
         weight_decay=weight_decay,
         momentum=momentum,
-        overshoot=overshoot,
+        overshoot=overshoot, # type: ignore
         lr=lr,
         dampening=dampening,
         has_sparse_grad=has_sparse_grad,
@@ -335,12 +335,13 @@ def _multi_tensor_sgd(
     *,
     weight_decay: float,
     momentum: float,
-    overshoot: float,
+    overshoot: Tuple[float, float],
     lr: float,
     dampening: float,
     maximize: bool,
     has_sparse_grad: bool,
 ):
+    raise Exception("Not implemented")
     assert grad_scale is None and found_inf is None
 
     if len(params) == 0:
@@ -439,6 +440,7 @@ def _fused_sgd(
     maximize: bool,
     has_sparse_grad: bool,
 ) -> None:
+    raise Exception("Not implemented")
     if not params:
         return
     if has_sparse_grad:

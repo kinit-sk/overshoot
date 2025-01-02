@@ -41,7 +41,7 @@ supported_models = [
 ]
 
 
-def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[str] = None):
+def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[int] = None):
     if dataset_name == "mnist":
         return create_mnist(model_name == "vae")
     elif dataset_name == "cifar10":
@@ -184,9 +184,9 @@ def get_gpu_stats(n_gpus: int = 0):
 
 def compute_model_distance(ref_model: torch.Tensor, gradient_models: List[torch.Tensor], decay_factor: float):
     assert 0 < decay_factor < 1
-    x = sum(
+    return float(sum(
         [np.linalg.norm(ref_model - g_m) * decay_factor**i for i, g_m in enumerate(reversed(gradient_models))]
-    ).item()
+    ))
 
 
 def get_model_size(model):

@@ -1,6 +1,6 @@
 import torch
 from dataclasses import dataclass
-from typing import Optional, Sequence, Literal, get_type_hints, get_args
+from typing import Optional, Sequence, Literal, get_type_hints, get_args, Self
 from collections import defaultdict
 
 
@@ -83,7 +83,7 @@ class DefaultConfig:
     use_peft: bool = True
     log_gpu: bool = False
     
-    def override(self, override: Optional[Sequence[str]] = None) -> DefaultConfig:
+    def override(self, override: Optional[Sequence[str]] = None) -> Self:
         if override is None:
             return self
             
