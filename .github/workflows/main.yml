@@ -34,6 +34,6 @@ jobs:
       - name: Test overshoot equivalence
         run: .github/workflows/test_equivalence.sh
         
-      - name: Mypy static type checking
+      - name: Mypy static type check
         run: mypy main.py
 
