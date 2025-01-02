@@ -2,7 +2,7 @@ import copy
 import os
 import re
 import time
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -10,9 +10,9 @@ import torch
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
+from custom_datasets import UnifiedDatasetInterface
 from misc import compute_model_distance, get_gpu_stats
 from optimizers import create_optimizer
-from custom_datasets import UnifiedDatasetInterface
 
 # ------------------------------------------------------------------------------
 torch.cuda.empty_cache()
@@ -20,7 +20,14 @@ torch.cuda.empty_cache()
 
 
 class OvershootTrainer:
-    def __init__(self, model: torch.nn.Module, dataset: Tuple[UnifiedDatasetInterface, Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface]] , log_writer, args, config):
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        dataset: Tuple[UnifiedDatasetInterface, Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface]],
+        log_writer,
+        args,
+        config,
+    ):
         self.log_writer = log_writer
         self.args = args
         self.two_models = args.two_models
@@ -42,13 +49,13 @@ class OvershootTrainer:
         if self.args.compute_cosine:
             self.previous_params, self.previous_params_est = torch.empty(0), torch.empty(0)
             self.last_update, self.last_update_est = torch.empty(0), torch.empty(0)
-            self.update_cosine, self.update_cosine_est = [0.], [0.]
+            self.update_cosine, self.update_cosine_est = [0.0], [0.0]
         if self.args.compute_model_distance:
             self.past_weights: List[torch.Tensor] = []
 
         # Load Dataloaders
-        self.val_dataloader : Optional[DataLoader[UnifiedDatasetInterface]] = None
-        self.test_dataloader : Optional[DataLoader[UnifiedDatasetInterface]] = None
+        self.val_dataloader: Optional[DataLoader[UnifiedDatasetInterface]] = None
+        self.test_dataloader: Optional[DataLoader[UnifiedDatasetInterface]] = None
         self.train_dataloader: DataLoader[UnifiedDatasetInterface] = DataLoader(
             dataset[0], batch_size=self.config.B, num_workers=4, shuffle=True, collate_fn=dataset[0].get_batching_fn()
         )
@@ -70,13 +77,13 @@ class OvershootTrainer:
             )
         print("-----------------------------------------------")
         print("Total training steps: ", self.steps)
-        print(f"Epoch steps: {len(self.train_dataloader.dataset) // (config.B * max(1, config.n_gpu))}") # type: ignore
+        print(f"Epoch steps: {len(self.train_dataloader.dataset) // (config.B * max(1, config.n_gpu))}")  # type: ignore
         print("--")
-        print(f"Train dataset size: {len(self.train_dataloader.dataset)}") # type: ignore
+        print(f"Train dataset size: {len(self.train_dataloader.dataset)}")  # type: ignore
         if self.val_dataloader:
-            print(f"Valid dataset size: {len(self.val_dataloader.dataset)}") # type: ignore
+            print(f"Valid dataset size: {len(self.val_dataloader.dataset)}")  # type: ignore
         if self.test_dataloader:
-            print(f"Test dataset size: {len(self.test_dataloader.dataset)}") # type: ignore
+            print(f"Test dataset size: {len(self.test_dataloader.dataset)}")  # type: ignore
         print("-----------------------------------------------")
 
     def _compute_model_distance(self):
@@ -103,10 +110,10 @@ class OvershootTrainer:
         if not hasattr(self, "random_indices"):
             self.random_indices = torch.randint(0, params.size(0), (sample_size,))
         params_est = params[self.random_indices]
-        if self.previous_params.numel(): # non empty
+        if self.previous_params.numel():  # non empty
             update = params - self.previous_params
             update_est = params_est - self.previous_params_est
-            if self.last_update.numel(): # non empty
+            if self.last_update.numel():  # non empty
                 similarity = F.cosine_similarity(self.last_update, update, dim=0)
                 similarity_est = F.cosine_similarity(self.last_update_est, update_est, dim=0)
                 for arr, new in [(self.update_cosine, similarity), (self.update_cosine_est, similarity_est)]:
@@ -154,7 +161,7 @@ class OvershootTrainer:
 
     # This just prints stats to console. Shouldn't be this complicated
     def __print_stats(self, stats):
-        k_v_to_str = lambda k, v: f"{k}: {round(v, 4) if type(v) == float else v}"
+        k_v_to_str = lambda k, v: f"{k}: {round(v, 4) if isinstance(v, float) else v}"
         text = " | ".join(
             [
                 k_v_to_str(k, v)
@@ -189,8 +196,7 @@ class OvershootTrainer:
 
         if self.args.compute_base_model_loss and not is_same:
             return base_output["loss"], output["loss"], base_output["logits"]
-        else:
-            return output["loss"], output["loss"], output["logits"]
+        return output["loss"], output["loss"], output["logits"]
 
     def _two_models_training_step(self, batch: dict, batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(self.optimizers) == 2
@@ -271,8 +277,9 @@ class OvershootTrainer:
         if self.args.compute_model_distance:
             stats["model_distance"] = model_distance
 
-        if hasattr(self.optimizers[0], "_overshoot_new"):
-            stats["adaptive_overshoot"] = self.optimizers[0]._overshoot_new
+        # Adaptive overshoot not used any more
+        # if hasattr(self.optimizers[0], "_overshoot_new"):
+        #     stats["adaptive_overshoot"] = self.optimizers[0]._overshoot_new
 
         self.train_stats.append(stats)
         if self.current_step % self.config.log_every_n_steps == 0:
@@ -325,7 +332,7 @@ class OvershootTrainer:
             test_loaders.append((self.val_dataloader, self.val_stats, "validation"))
         if self.test_dataloader:
             test_loaders.append((self.test_dataloader, self.test_stats, "test"))
-            
+
         with torch.no_grad():
             for loader, stats, name in test_loaders:
                 correct, total, loss = 0, 0, 0
