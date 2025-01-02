@@ -2,7 +2,7 @@ import copy
 import os
 import re
 import time
-from typing import Sequence
+from typing import Optional, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 
 from misc import compute_model_distance, get_gpu_stats
 from optimizers import create_optimizer
+from custom_datasets import UnifiedDatasetInterface
 
 # ------------------------------------------------------------------------------
 torch.cuda.empty_cache()
@@ -19,7 +20,7 @@ torch.cuda.empty_cache()
 
 
 class OvershootTrainer:
-    def __init__(self, model: torch.nn.Module, dataset, log_writer, args, config):
+    def __init__(self, model: torch.nn.Module, dataset: Tuple[UnifiedDatasetInterface, Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface]] , log_writer, args, config):
         self.log_writer = log_writer
         self.args = args
         self.two_models = args.two_models
@@ -30,21 +31,25 @@ class OvershootTrainer:
         if config.max_steps:
             self.steps = min(self.steps, config.max_steps)
         self.config = config
-        self.train_stats, self.val_stats, self.test_stats = [], [], []
+        self.train_stats: List[dict] = []
+        self.val_stats: List[dict] = []
+        self.test_stats: List[dict] = []
+        self.train_losses: List[float] = []
+        self.train_accuracy: List[float] = []
+        self.overshoot_losses: List[float] = []
         self.current_step = 0
-        self.train_losses, self.train_accuracy = [], []
-        self.overshoot_losses = []
         # Cosine gradient statistics
         if self.args.compute_cosine:
-            self.previous_params, self.previous_params_est = None, None
-            self.last_update, self.last_update_est = None, None
-            self.update_cosine, self.update_cosine_est = [0], [0]
+            self.previous_params, self.previous_params_est = torch.empty(0), torch.empty(0)
+            self.last_update, self.last_update_est = torch.empty(0), torch.empty(0)
+            self.update_cosine, self.update_cosine_est = [0.], [0.]
         if self.args.compute_model_distance:
-            self.past_weights = []
+            self.past_weights: List[torch.Tensor] = []
 
         # Load Dataloaders
-        self.val_dataloader, self.test_dataloader = None, None
-        self.train_dataloader = DataLoader(
+        self.val_dataloader : Optional[DataLoader[UnifiedDatasetInterface]] = None
+        self.test_dataloader : Optional[DataLoader[UnifiedDatasetInterface]] = None
+        self.train_dataloader: DataLoader[UnifiedDatasetInterface] = DataLoader(
             dataset[0], batch_size=self.config.B, num_workers=4, shuffle=True, collate_fn=dataset[0].get_batching_fn()
         )
         if dataset[1]:
@@ -65,13 +70,13 @@ class OvershootTrainer:
             )
         print("-----------------------------------------------")
         print("Total training steps: ", self.steps)
-        print(f"Epoch steps: {len(self.train_dataloader.dataset) // (config.B * max(1, config.n_gpu))}")
+        print(f"Epoch steps: {len(self.train_dataloader.dataset) // (config.B * max(1, config.n_gpu))}") # type: ignore
         print("--")
-        print(f"Train dataset size: {len(self.train_dataloader.dataset)}")
+        print(f"Train dataset size: {len(self.train_dataloader.dataset)}") # type: ignore
         if self.val_dataloader:
-            print(f"Valid dataset size: {len(self.val_dataloader.dataset)}")
+            print(f"Valid dataset size: {len(self.val_dataloader.dataset)}") # type: ignore
         if self.test_dataloader:
-            print(f"Test dataset size: {len(self.test_dataloader.dataset)}")
+            print(f"Test dataset size: {len(self.test_dataloader.dataset)}") # type: ignore
         print("-----------------------------------------------")
 
     def _compute_model_distance(self):
@@ -98,15 +103,15 @@ class OvershootTrainer:
         if not hasattr(self, "random_indices"):
             self.random_indices = torch.randint(0, params.size(0), (sample_size,))
         params_est = params[self.random_indices]
-        if self.previous_params is not None:
+        if self.previous_params.numel(): # non empty
             update = params - self.previous_params
             update_est = params_est - self.previous_params_est
-            if self.last_update is not None:
+            if self.last_update.numel(): # non empty
                 similarity = F.cosine_similarity(self.last_update, update, dim=0)
                 similarity_est = F.cosine_similarity(self.last_update_est, update_est, dim=0)
                 for arr, new in [(self.update_cosine, similarity), (self.update_cosine_est, similarity_est)]:
                     if not torch.isnan(new):
-                        arr.append(new.item())
+                        arr.append(float(new.item()))
                         if len(arr) > 100:
                             arr.pop(0)
             self.last_update = update
@@ -165,7 +170,7 @@ class OvershootTrainer:
                 return model.forward(**batch)
         return model.forward(**batch)
 
-    def _baseline_training_step(self, batch, batch_idx):
+    def _baseline_training_step(self, batch, batch_idx) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(self.optimizers) == 1
         optimizer = self.optimizers[0]
 
@@ -187,7 +192,7 @@ class OvershootTrainer:
         else:
             return output["loss"], output["loss"], output["logits"]
 
-    def _two_models_training_step(self, batch: dict, batch_idx: int):
+    def _two_models_training_step(self, batch: dict, batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(self.optimizers) == 2
         with torch.no_grad():
             output_base = self.model_forward_(self.base_model, batch)  # only to log base loss
@@ -218,7 +223,7 @@ class OvershootTrainer:
 
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
-    def training_step(self, batch: int, epoch: int, batch_idx: int):
+    def training_step(self, batch: dict, epoch: int, batch_idx: int):
         # We compute model distances before model update to have the same behaviour for baseline and overshoot
         if self.args.compute_model_distance:
             model_distance = self._compute_model_distance()
@@ -275,7 +280,7 @@ class OvershootTrainer:
             for k, v in stats.items():
                 self.log_writer.add_scalar(k, v, self.current_step)
 
-    def log_stats(self, name: str, stats: Sequence, epoch: int, loss: float, accuracy: float):
+    def log_stats(self, name: str, stats: List[dict], epoch: int, loss: float, accuracy: Optional[float]):
         now = time.time()
         wall_time, epoch_duration = now - self.trainig_start_time, now - self.epoch_start
         stats.append({"loss": loss, "wall_time": wall_time})
@@ -315,7 +320,7 @@ class OvershootTrainer:
     def validation(self, epoch: int):
         self._set_model_mode(is_training=False)
         base_model, _ = self._get_base_model()
-        test_loaders = [
+        test_loaders: List[Tuple[DataLoader[UnifiedDatasetInterface], List[dict], str]] = [
             x
             for x in [
                 (self.val_dataloader, self.val_stats, "validation"),

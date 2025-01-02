@@ -83,7 +83,7 @@ class DefaultConfig:
     use_peft: bool = True
     log_gpu: bool = False
     
-    def override(self, override: Optional[Sequence[str]] = None) -> None:
+    def override(self, override: Optional[Sequence[str]] = None) -> DefaultConfig:
         if override is None:
             return self
             

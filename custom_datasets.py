@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import pandas as pd
 from torchvision import datasets, transforms
-from torch.utils.data import random_split
+from torch.utils.data import random_split, Dataset
 from sklearn.datasets import fetch_california_housing
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -98,7 +98,7 @@ class NextTokenDataloader:
         
         
         
-class UnifiedDatasetInterface:
+class UnifiedDatasetInterface(Dataset):
     def __init__(self, data, n_ouputs: int, is_classification: bool, batching_fn: Optional[Callable] = None):
         self.data = data
         self._n_outputs = n_ouputs
