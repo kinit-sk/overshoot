@@ -12,7 +12,7 @@ mkdir -p "${DST}"
 
 
 MODEL="mlp"
-DATASET="mnist"
+DATASET="housing"
 SEED="1"
 PYTHON_ARGS_BASE="--experiment_name ${EXPERIMENT_NAME} --model ${MODEL} --dataset ${DATASET} --seed ${SEED} --config_override precision=high max_steps=160"
 

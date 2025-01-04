@@ -2,10 +2,9 @@ import math
 
 import torch
 import torch.nn as nn
-from typing import List
 
 class MLP(nn.Module):
-    def __init__(self, inpt_shape, output_size: int, is_classification: bool, hidden_layers: List[int]):
+    def __init__(self, inpt_shape, output_size: int, is_classification: bool, hidden_layers: list[int]):
         super().__init__()
 
         sizes = [math.prod(inpt_shape)] + hidden_layers + [output_size]

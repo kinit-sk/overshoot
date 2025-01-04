@@ -137,7 +137,7 @@ class OvershootTrainer:
             if self.two_models:
                 self.overshoot_model.eval()
 
-    def _move_batch_to_cuda(self, batch):
+    def _move_batch_to_cuda(self, batch: dict):
         if self.config.n_gpu > 0:
             for k in batch.keys():
                 batch[k] = batch[k].cuda()
@@ -160,7 +160,7 @@ class OvershootTrainer:
         return base_model, False
 
     # This just prints stats to console. Shouldn't be this complicated
-    def __print_stats(self, stats):
+    def __print_stats(self, stats: dict):
         k_v_to_str = lambda k, v: f"{k}: {round(v, 4) if isinstance(v, float) else v}"
         text = " | ".join(
             [
@@ -171,13 +171,13 @@ class OvershootTrainer:
         )
         print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ""), flush=True)
 
-    def model_forward_(self, model, batch: dict):
+    def model_forward_(self, model: torch.nn.Module, batch: dict):
         if self.config.n_gpu and self.config.precision == "16-mixed":
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 return model.forward(**batch)
         return model.forward(**batch)
 
-    def _baseline_training_step(self, batch, batch_idx) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _baseline_training_step(self, batch: dict, batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(self.optimizers) == 1
         optimizer = self.optimizers[0]
 
@@ -287,7 +287,7 @@ class OvershootTrainer:
             for k, v in stats.items():
                 self.log_writer.add_scalar(k, v, self.current_step)
 
-    def log_stats(self, name: str, stats: List[dict], epoch: int, loss: float, accuracy: Optional[float]):
+    def log_stats(self, name: str, stats: list[dict], epoch: int, loss: float, accuracy: Optional[float]):
         now = time.time()
         wall_time, epoch_duration = now - self.trainig_start_time, now - self.epoch_start
         stats.append({"loss": loss, "wall_time": wall_time})

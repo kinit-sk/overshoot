@@ -5,10 +5,11 @@ from peft import LoraConfig, TaskType, get_peft_model
 from transformers import (AutoConfig, AutoModelForPreTraining,
                           AutoModelForSequenceClassification, AutoTokenizer)
 
-from custom_datasets import (NextTokenDataloader, create_boston_datatset,
+from custom_datasets import (NextTokenDataloader, UnifiedDatasetInterface, create_boston_datatset,
                              create_cifar, create_energy_datatset, create_imbd,
                              create_fasion_mnist, create_housing_datatset,
                              create_mnist, create_mnli, create_qqp, create_sst)
+from trainer_configs import DefaultConfig
 from models._2c2d import _2c2d
 from models._3c3d import _3c3d
 from models.gpt import GPT, GPTConfig, GPTTinyConfig
@@ -41,7 +42,7 @@ supported_models = [
 ]
 
 
-def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[int] = None):
+def init_dataset(dataset_name: str, model_name: Optional[str], seed: Optional[int] = None):
     if dataset_name == "mnist":
         return create_mnist(model_name == "vae")
     elif dataset_name == "cifar10":
@@ -107,7 +108,7 @@ def init_dataset(dataset_name, model_name: Optional[str], seed: Optional[int] = 
         raise ValueError(f"Dataset {dataset_name} not found")
 
 
-def init_model(model_name, datatset, trainer_config):
+def init_model(model_name: str, datatset: UnifiedDatasetInterface, trainer_config: DefaultConfig):
     model_map = {
         "gpt_hf": "openai-community/gpt2",
         "bert_hf": "google-bert/bert-base-uncased",
@@ -125,6 +126,7 @@ def init_model(model_name, datatset, trainer_config):
     if model_name == "gpt_tiny":
         return GPT(GPTTinyConfig(vocab_size=50304))
     elif model_name == "mlp":
+        assert hasattr(trainer_config, "mlp_hidden_size")
         inpt_shape = datatset[0]["x"].shape
         return MLP(inpt_shape, n_outputs, datatset.is_classification(), hidden_layers=trainer_config.mlp_hidden_size)
     elif model_name == "2c2d":
@@ -182,14 +184,14 @@ def get_gpu_stats(n_gpus: int = 0):
     return gpu_info
 
 
-def compute_model_distance(ref_model: torch.Tensor, gradient_models: List[torch.Tensor], decay_factor: float):
+def compute_model_distance(ref_model: torch.Tensor, gradient_models: list[torch.Tensor], decay_factor: float):
     assert 0 < decay_factor < 1
     return float(sum(
         [np.linalg.norm(ref_model - g_m) * decay_factor**i for i, g_m in enumerate(reversed(gradient_models))]
     ))
 
 
-def get_model_size(model):
+def get_model_size(model: torch.nn.Module):
     param_size = sum(p.numel() for p in model.parameters() if p.requires_grad) * 4  # Assuming float32
     buffer_size = sum(p.numel() for p in model.buffers()) * 4
     size_all_mb = (param_size + buffer_size) / 1024 / 1024
