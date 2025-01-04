@@ -30,23 +30,24 @@ cat /tmp/efficient | sed 's/ wall_time: [0-9]*.[0-9]* |//' | sed 's/ Time: [0-9]
 diff /tmp/efficient_no_time /tmp/two_models_no_time > /dev/null
 echo "SGD efficient vs two models OK"
 
-# # 2) Test efficient implementation vs nesterov
-# cat /tmp/nesterov_no_time | sed 's/ base_loss_1: [0-9]*.[0-9]* |//' | grep -v "Epoch" > /tmp/nesterov_no_base
-# cat /tmp/efficient_no_time | sed 's/ base_loss_1: [0-9]*.[0-9]* |//' | grep -v "Epoch" > /tmp/efficient_no_base
-# # diff /tmp/efficient_no_base /tmp/nesterov_no_base > /dev/null
-# diff /tmp/efficient_no_base /tmp/nesterov_no_base
-# echo "Efficient vs nesterov OK"
+# 2) Test efficient implementation vs nesterov
+cat /tmp/nesterov_no_time | sed 's/ base_loss_1: [0-9]*.[0-9]* |//' | grep -v "Epoch" > /tmp/nesterov_no_base
+cat /tmp/efficient_no_time | sed 's/ base_loss_1: [0-9]*.[0-9]* |//' | grep -v "Epoch" > /tmp/efficient_no_base
+# diff /tmp/efficient_no_base /tmp/nesterov_no_base > /dev/null
+diff /tmp/efficient_no_base /tmp/nesterov_no_base
+echo "Efficient vs nesterov OK"
 
 
 
-# #=== Adam
-# python main.py ${PYTHON_ARGS_BASE} --opt_name adamW --two_models --overshoot_factor 0.9 > /tmp/two_models
+#=== Adam
+python main.py ${PYTHON_ARGS_BASE} --opt_name adamW --two_models --overshoot_factor 10 > /tmp/two_models
+python main.py ${PYTHON_ARGS_BASE} --opt_name adamW_overshoot_replication  --overshoot_factor 10 > /tmp/efficient
 
-# # Strip times
-# cat /tmp/two_models | sed 's/ wall_time: [0-9]*.[0-9]* |//' | sed 's/ Time: [0-9]*.[0-9]*//g' > /tmp/two_models_no_time
-# cat /tmp/efficient | sed 's/ wall_time: [0-9]*.[0-9]* |//' | sed 's/ Time: [0-9]*.[0-9]*//g' > /tmp/efficient_no_time
+# Strip times
+cat /tmp/two_models | sed 's/ wall_time: [0-9]*.[0-9]* |//' | sed 's/ Time: [0-9]*.[0-9]*//g' > /tmp/two_models_no_time
+cat /tmp/efficient | sed 's/ wall_time: [0-9]*.[0-9]* |//' | sed 's/ Time: [0-9]*.[0-9]*//g' > /tmp/efficient_no_time
 
-# # 3) Test general and efficient implementation
-# diff /tmp/efficient_no_time /tmp/two_models_no_time > /dev/null
-# echo "AdamW efficient vs two models OK"
+# 3) Test general and efficient implementation
+diff /tmp/efficient_no_time /tmp/two_models_no_time > /dev/null
+echo "AdamW efficient vs two models OK"
 
