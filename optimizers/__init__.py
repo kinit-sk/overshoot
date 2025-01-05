@@ -7,6 +7,7 @@ from optimizers.backups2.adamw_overshoot_full_approximation import AdamW as Over
 from optimizers.backups2.adamw_overshoot_denom_approximation import AdamW as OvershootAdamW_denom_approximation
 from optimizers.adamw_overshoot_delayed import AdamO as OvershootAdamW_delayed
 from optimizers.backups2.adamw_overshoot_adaptive import AdamW as OvershootAdamW_adaptive
+from typing import Optional
 
 optimizers_map = {
     "sgd": torch.optim.SGD,
@@ -29,7 +30,7 @@ optimizers_map = {
 
 
 
-def create_optimizer(opt_name, param_groups, overshoot_factor, lr, config, foreach=None):
+def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: float, config, foreach: Optional[bool] = None) -> torch.optim.Optimizer:
     foreach=False
     if opt_name == "nadam":
         opt = optimizers_map[opt_name](

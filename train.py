@@ -1,8 +1,9 @@
+import argparse
 import copy
 import os
 import re
 import time
-from typing import List, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -10,6 +11,7 @@ import torch
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
+from trainer_configs import DefaultConfig
 from custom_datasets import UnifiedDatasetInterface
 from misc import compute_model_distance, get_gpu_stats
 from optimizers import create_optimizer
@@ -24,9 +26,9 @@ class OvershootTrainer:
         self,
         model: torch.nn.Module,
         dataset: Tuple[UnifiedDatasetInterface, Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface]],
-        log_writer,
-        args,
-        config,
+        log_writer: Any, # TODO
+        args: argparse.Namespace,
+        config:  DefaultConfig,
     ):
         self.log_writer = log_writer
         self.args = args
@@ -38,12 +40,12 @@ class OvershootTrainer:
         if config.max_steps:
             self.steps = min(self.steps, config.max_steps)
         self.config = config
-        self.train_stats: List[dict] = []
-        self.val_stats: List[dict] = []
-        self.test_stats: List[dict] = []
-        self.train_losses: List[float] = []
-        self.train_accuracy: List[float] = []
-        self.overshoot_losses: List[float] = []
+        self.train_stats: list[dict[str, float]] = []
+        self.val_stats: list[dict[str, float]] = []
+        self.test_stats: list[dict[str, float]] = []
+        self.train_losses: list[float] = []
+        self.train_accuracy: list[float] = []
+        self.overshoot_losses: list[float] = []
         self.current_step = 0
         # Cosine gradient statistics
         if self.args.compute_cosine:
@@ -51,7 +53,7 @@ class OvershootTrainer:
             self.last_update, self.last_update_est = torch.empty(0), torch.empty(0)
             self.update_cosine, self.update_cosine_est = [0.0], [0.0]
         if self.args.compute_model_distance:
-            self.past_weights: List[torch.Tensor] = []
+            self.past_weights: list[torch.Tensor] = []
 
         # Load Dataloaders
         self.val_dataloader: Optional[DataLoader[UnifiedDatasetInterface]] = None
@@ -86,7 +88,7 @@ class OvershootTrainer:
             print(f"Test dataset size: {len(self.test_dataloader.dataset)}")  # type: ignore
         print("-----------------------------------------------")
 
-    def _compute_model_distance(self):
+    def _compute_model_distance(self) -> float:
 
         latest_base_model, _ = self._get_base_model()
         latest_base_weights = torch.cat([p.data.view(-1).cpu() for p in latest_base_model.parameters()])
@@ -105,7 +107,7 @@ class OvershootTrainer:
         else:
             return -1
 
-    def _cosine_similarity(self, sample_size: int = 1000):
+    def _cosine_similarity(self, sample_size: int = 1000) -> None:
         params = torch.cat([p.data.view(-1) for p in self.base_model.parameters()])
         if not hasattr(self, "random_indices"):
             self.random_indices = torch.randint(0, params.size(0), (sample_size,))
@@ -127,7 +129,7 @@ class OvershootTrainer:
         self.previous_params = params
         self.previous_params_est = params_est
 
-    def _set_model_mode(self, is_training: bool):
+    def _set_model_mode(self, is_training: bool) -> None:
         if is_training:
             self.base_model.train()
             if self.two_models:
@@ -137,13 +139,13 @@ class OvershootTrainer:
             if self.two_models:
                 self.overshoot_model.eval()
 
-    def _move_batch_to_cuda(self, batch: dict):
+    def _move_batch_to_cuda(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         if self.config.n_gpu > 0:
             for k in batch.keys():
                 batch[k] = batch[k].cuda()
         return batch
 
-    def _get_base_model(self):
+    def _get_base_model(self) -> Tuple[torch.nn.Module, bool]:
         assert self.two_models == (len(self.optimizers) > 1)
         if (
             self.two_models
@@ -160,8 +162,9 @@ class OvershootTrainer:
         return base_model, False
 
     # This just prints stats to console. Shouldn't be this complicated
-    def __print_stats(self, stats: dict):
-        k_v_to_str = lambda k, v: f"{k}: {round(v, 4) if isinstance(v, float) else v}"
+    def __print_stats(self, stats: dict[str, float]) -> None:
+        def k_v_to_str(k: str, v: float | int) -> str:
+            return f"{k}: {round(v, 4) if isinstance(v, float) else v}"
         text = " | ".join(
             [
                 k_v_to_str(k, v)
@@ -171,13 +174,13 @@ class OvershootTrainer:
         )
         print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ""), flush=True)
 
-    def model_forward_(self, model: torch.nn.Module, batch: dict):
+    def model_forward_(self, model: torch.nn.Module, batch: dict[str, torch.Tensor]) -> Any:
         if self.config.n_gpu and self.config.precision == "16-mixed":
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 return model.forward(**batch)
         return model.forward(**batch)
 
-    def _baseline_training_step(self, batch: dict, batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _baseline_training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(self.optimizers) == 1
         optimizer = self.optimizers[0]
 
@@ -198,7 +201,7 @@ class OvershootTrainer:
             return base_output["loss"], output["loss"], base_output["logits"]
         return output["loss"], output["loss"], output["logits"]
 
-    def _two_models_training_step(self, batch: dict, batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _two_models_training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(self.optimizers) == 2
         with torch.no_grad():
             output_base = self.model_forward_(self.base_model, batch)  # only to log base loss
@@ -229,7 +232,7 @@ class OvershootTrainer:
 
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
-    def training_step(self, batch: dict, epoch: int, batch_idx: int):
+    def training_step(self, batch: dict[str, torch.Tensor], epoch: int, batch_idx: int) -> None:
         # We compute model distances before model update to have the same behaviour for baseline and overshoot
         if self.args.compute_model_distance:
             model_distance = self._compute_model_distance()
@@ -287,7 +290,7 @@ class OvershootTrainer:
             for k, v in stats.items():
                 self.log_writer.add_scalar(k, v, self.current_step)
 
-    def log_stats(self, name: str, stats: list[dict], epoch: int, loss: float, accuracy: Optional[float]):
+    def log_stats(self, name: str, stats: list[dict[str, float]], epoch: int, loss: float, accuracy: Optional[float]) -> None:
         now = time.time()
         wall_time, epoch_duration = now - self.trainig_start_time, now - self.epoch_start
         stats.append({"loss": loss, "wall_time": wall_time})
@@ -300,8 +303,10 @@ class OvershootTrainer:
             + (f" | Accuracy: {accuracy:.2f}%" if accuracy else "")
         )
 
-    def configure_optimizers(self):
-        self.optimizers, self.lr_schedulers = [], []
+    def configure_optimizers(self) -> None:
+        # self.optimizers, self.lr_schedulers = [], []
+        self.optimizers = []
+        self.lr_schedulers: list[torch.optim.lr_scheduler.LRScheduler] = []
         params_lr = [(self.base_model.parameters(), self.config.lr)]
         if self.two_models:
             params_lr.append((self.overshoot_model.parameters(), self.config.lr * (self.args.overshoot_factor + 1)))
@@ -315,7 +320,7 @@ class OvershootTrainer:
                     torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizers[-1], T_0=self.steps)
                 )
 
-    def save_stats(self):
+    def save_stats(self) -> None:
         pd.DataFrame(self.train_stats).to_csv(os.path.join(self.log_writer.log_dir, "training_stats.csv"), index=False)
         if self.val_stats:
             pd.DataFrame(self.val_stats).to_csv(
@@ -324,10 +329,10 @@ class OvershootTrainer:
         if self.test_stats:
             pd.DataFrame(self.test_stats).to_csv(os.path.join(self.log_writer.log_dir, "test_stats.csv"), index=False)
 
-    def validation(self, epoch: int):
+    def validation(self, epoch: int) -> None:
         self._set_model_mode(is_training=False)
         base_model, _ = self._get_base_model()
-        test_loaders: List[Tuple[DataLoader[UnifiedDatasetInterface], List[dict], str]] = []
+        test_loaders: list[Tuple[DataLoader[UnifiedDatasetInterface], list[dict[str, float]], str]] = []
         if self.val_dataloader:
             test_loaders.append((self.val_dataloader, self.val_stats, "validation"))
         if self.test_dataloader:
@@ -343,12 +348,12 @@ class OvershootTrainer:
                     loss += outputs["loss"].item() * batch["labels"].size(0)
                     if loader.dataset.is_classification():  # type: ignore
                         total += batch["labels"].size(0)
-                        correct += predicted.eq(batch["labels"]).sum().item()
+                        correct += int(predicted.eq(batch["labels"]).sum().item())
                 accuracy = 100 * correct / total if loader.dataset.is_classification() else None  # type: ignore
                 self.log_stats(name, stats, epoch, loss / len(loader.dataset), accuracy)  # type: ignore
         self.save_stats()
 
-    def main(self):
+    def main(self) -> None:
         self.configure_optimizers()
 
         self.trainig_start_time = time.time()

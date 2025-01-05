@@ -99,7 +99,7 @@ class NextTokenDataloader:
         
         
 class UnifiedDatasetInterface(Dataset):
-    def __init__(self, data, n_ouputs: int, is_classification: bool, batching_fn: Optional[Callable] = None):
+    def __init__(self, data, n_ouputs: int, is_classification: bool, batching_fn: Optional[Callable[[list[int]], dict[str, torch.Tensor]]] = None):
         self.data = data
         self._n_outputs = n_ouputs
         self._is_classification = is_classification
@@ -107,7 +107,7 @@ class UnifiedDatasetInterface(Dataset):
         if self._batching_fn is not None:
             self._batching_fn = partial(self._batching_fn, self)
         
-    def __getitem__(self, index):
+    def __getitem__(self, index: int):
         if self._batching_fn is not None:
             return index
         element = self.data[index]
@@ -122,7 +122,7 @@ class UnifiedDatasetInterface(Dataset):
     def n_outputs(self):
         return self._n_outputs
 
-    def get_batching_fn(self):
+    def get_batching_fn(self) -> Callable[[list[int]], dict[str, torch.Tensor]]:
         return self._batching_fn
 
 def create_mnist(used_for_autoencoder: bool, val_split: float = 0.1):
@@ -200,7 +200,7 @@ def create_sst(tokenizer):
     train_data = load_dataset("nyu-mll/glue", "sst2")['train']
     validation_data = load_dataset("nyu-mll/glue", "sst2")['validation']
     
-    def batching(self, x):
+    def batching(self, x: list[int]) -> dict[str, torch.Tensor]:
         inpts = self.tokenizer([self.data[index]['sentence'] for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
         input_ids = inpts['input_ids']
         attention_mask = inpts['attention_mask']
@@ -218,7 +218,7 @@ def create_qqp(tokenizer):
     train_data = load_dataset("nyu-mll/glue", "qqp")['train']
     validation_data = load_dataset("nyu-mll/glue", "qqp")['validation']
     
-    def batching(self, x):
+    def batching(self, x: list[int]) -> dict[str, torch.Tensor]:
         inpts = self.tokenizer([f"{self.data[index]['question1']}  {self.data[index]['question2']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
         input_ids = inpts['input_ids']
         attention_mask = inpts['attention_mask']
@@ -237,7 +237,7 @@ def create_mnli(tokenizer):
     validation_data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
     # test_data = load_dataset("nyu-mll/glue", "mnli_matched")['test'] # No label in test split
     
-    def batching(self, x):
+    def batching(self, x: list[int]) -> dict[str, torch.Tensor]:
         inpts = self.tokenizer([f"{self.data[index]['premise']}  {self.data[index]['hypothesis']}" for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
         input_ids = inpts['input_ids']
         attention_mask = inpts['attention_mask']
@@ -253,7 +253,7 @@ def create_mnli(tokenizer):
 def create_imbd(tokenizer):
     dataset = load_dataset("imdb")
     
-    def batching(self, x):
+    def batching(self, x: list[int]) -> dict[str, torch.Tensor]:
         inpts = self.tokenizer([self.data[index]['text'] for index in x],  padding="longest", truncation=True, max_length=512, return_tensors="pt")
         input_ids = inpts['input_ids']
         attention_mask = inpts['attention_mask']
