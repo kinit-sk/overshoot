@@ -11,7 +11,7 @@ from train import OvershootTrainer
 from trainer_configs import get_trainer_config
 
 
-def main():
+def main() -> None:
 
     # 1) Create log writer
     base_dir = os.path.join("lightning_logs", args.experiment_name, args.job_name)
