@@ -4,13 +4,7 @@ import os
 
 import pandas as pd
 import numpy as np
-import scipy.stats as stats
 import matplotlib.pyplot as plt
-
-from scipy.ndimage import gaussian_filter1d
-from matplotlib.ticker import FuncFormatter, MaxNLocator
-
-
 
 
 task_2_title = {
@@ -133,5 +127,6 @@ if __name__ == "__main__":
 
         print(f"Updated with {task_name}")
         plt.tight_layout(rect=[0.04, 0.07, 1, 1])  # Leave space for the global labels
+        fig.subplots_adjust(hspace=0.08)
         plt.savefig(args.out)
             
