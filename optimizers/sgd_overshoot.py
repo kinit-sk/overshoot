@@ -287,11 +287,12 @@ def _single_tensor_sgd(
                 buf.mul_(momentum).add_(grad, alpha=1 - dampening)
 
             if overshoot:
-                grad.mul_(overshoot / momentum).add_(buf, alpha=1 + overshoot - (overshoot / momentum))
+                param.add_(grad, alpha=-lr * overshoot / momentum).add_(buf, alpha=-lr * (1 + overshoot - (overshoot / momentum)))
             else:
-                grad = buf
+                param.add_(buf, alpha=-lr)
 
-        param.add_(grad, alpha=-lr)
+        else:
+            param.add_(grad, alpha=-lr)
 
 
 def _multi_tensor_sgd(
