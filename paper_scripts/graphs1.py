@@ -31,7 +31,7 @@ task_2_range_train = {
     "vae_f-mnist": (22, 30),
     "vae_mnist": (26, 60),
     "2c2d_f-mnist": (0.0, 2),
-    "3c3d_cifar10": (0.25, 4),
+    "3c3d_cifar10": (0.23, 4),
     "resnet18_cifar100": (0.0, 4),
     "gpt_hf_qqp": (0.11, 1),
 }
