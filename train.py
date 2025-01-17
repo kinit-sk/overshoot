@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from trainer_configs import DefaultConfig
 from custom_datasets import UnifiedDatasetInterface
 from misc import compute_model_distance, get_gpu_stats
-from optimizers import create_optimizer
+from misc import create_optimizer
 
 # ------------------------------------------------------------------------------
 torch.cuda.empty_cache()

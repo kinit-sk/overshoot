@@ -13,7 +13,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-from optimizers import optimizers_map
+from optimizers.overshoot import optimizers_map
 
 
 from misc import init_dataset, init_model, get_gpu_stats, compute_model_distance, supported_datasets, supported_models

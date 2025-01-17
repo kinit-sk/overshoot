@@ -442,7 +442,6 @@ def _fused_sgd(
             momentum=momentum,
             lr=lr,
             dampening=dampening,
-            nesterov=nesterov,
             maximize=maximize,
             is_first_step=is_first_step,
             grad_scale=device_grad_scale,
