@@ -1,15 +1,16 @@
+# mypy: allow-untyped-decorators
 # mypy: allow-untyped-defs
 from typing import cast, List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
+
 from torch.optim.optimizer import (
     _capturable_doc,
     _default_to_fused_or_foreach,
+    # _device_dtype_check_for_fused,
     _differentiable_doc,
     _disable_dynamo_if_unsupported,
-    _dispatch_sqrt,
     _foreach_doc,
     _fused_doc,
     _get_capturable_supported_devices,
@@ -80,19 +81,9 @@ class AdamW(Optimizer):
                 raise RuntimeError("`fused` does not support `differentiable`")
             self._step_supports_amp_scaling = True
             # TODO(crcrpar): [low prec params & their higher prec copy]
-            # Suppor AMP with FP16/BF16 model params which would need
+            # Support AMP with FP16/BF16 model params which would need
             # higher prec copy of params to do update math in higher prec to
             # alleviate the loss of information.
-            fused_supported_devices = _get_fused_kernels_supported_devices()
-            if not all(
-                p.device.type in fused_supported_devices and torch.is_floating_point(p)
-                for pg in self.param_groups
-                for p in pg["params"]
-            ):
-                raise RuntimeError(
-                    "`fused=True` requires all the params to be floating point Tensors of "
-                    f"supported devices: {fused_supported_devices}."
-                )
             if foreach:
                 raise RuntimeError("`fused` and `foreach` cannot be `True` together.")
 

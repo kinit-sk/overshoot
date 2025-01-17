@@ -1,15 +1,15 @@
+# mypy: allow-untyped-decorators
 # mypy: allow-untyped-defs
 from typing import cast, List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
+
 from torch.optim.optimizer import (
     _capturable_doc,
     _default_to_fused_or_foreach,
     _differentiable_doc,
     _disable_dynamo_if_unsupported,
-    _dispatch_sqrt,
     _foreach_doc,
     _fused_doc,
     _get_capturable_supported_devices,
@@ -23,7 +23,6 @@ from torch.optim.optimizer import (
     Optimizer,
     ParamsT,
 )
-
 __all__ = ["AdamO", "adamo"]
 
 
@@ -82,19 +81,9 @@ class AdamO(Optimizer):
                 raise RuntimeError("`fused` does not support `differentiable`")
             self._step_supports_amp_scaling = True
             # TODO(crcrpar): [low prec params & their higher prec copy]
-            # Suppor AMP with FP16/BF16 model params which would need
+            # Support AMP with FP16/BF16 model params which would need
             # higher prec copy of params to do update math in higher prec to
             # alleviate the loss of information.
-            fused_supported_devices = _get_fused_kernels_supported_devices()
-            if not all(
-                p.device.type in fused_supported_devices and torch.is_floating_point(p)
-                for pg in self.param_groups
-                for p in pg["params"]
-            ):
-                raise RuntimeError(
-                    "`fused=True` requires all the params to be floating point Tensors of "
-                    f"supported devices: {fused_supported_devices}."
-                )
             if foreach:
                 raise RuntimeError("`fused` and `foreach` cannot be `True` together.")
 
@@ -126,7 +115,6 @@ class AdamO(Optimizer):
         group,
         params_with_grad,
         grads,
-        amsgrad,
         exp_avgs,
         exp_avg_sqs,
         max_exp_avg_sqs,
@@ -134,64 +122,65 @@ class AdamO(Optimizer):
     ):
         has_complex = False
         for p in group["params"]:
-            if p.grad is None:
-                continue
-            has_complex |= torch.is_complex(p)
-            params_with_grad.append(p)
-            if p.grad.is_sparse:
-                raise RuntimeError("AdamO does not support sparse gradients")
-            grads.append(p.grad)
-
-            state = self.state[p]
-
-            # State initialization
-            if len(state) == 0:
-                # note(crcrpar): Deliberately host `step` on CPU if both capturable and fused are off.
-                # This is because kernel launches are costly on CUDA and XLA.
-                state["step"] = (
-                    torch.zeros(
-                        (),
-                        dtype=_get_scalar_dtype(is_fused=group["fused"]),
-                        device=p.device,
+            if p.grad is not None:
+                has_complex |= torch.is_complex(p)
+                params_with_grad.append(p)
+                if p.grad.is_sparse:
+                    raise RuntimeError(
+                        "Adam does not support sparse gradients, please consider SparseAdam instead"
                     )
-                    if group["capturable"] or group["fused"]
-                    else torch.tensor(0.0, dtype=_get_scalar_dtype())
-                )
-                # Exponential moving average of gradient values
-                state["exp_avg"] = torch.zeros_like(
-                    p, memory_format=torch.preserve_format
-                )
-                # Exponential moving average of squared gradient values
-                state["exp_avg_sq"] = torch.zeros_like(
-                    p, memory_format=torch.preserve_format
-                )
-                if amsgrad:
-                    # Maintains max of all exp. moving avg. of sq. grad. values
-                    state["max_exp_avg_sq"] = torch.zeros_like(
+                grads.append(p.grad)
+
+                state = self.state[p]
+                # Lazy state initialization
+                if len(state) == 0:
+                    # note(crcrpar): [special device hosting for step]
+                    # Deliberately host `step` on CPU if both capturable and fused are off.
+                    # This is because kernel launches are costly on CUDA and XLA.
+                    state["step"] = (
+                        torch.zeros(
+                            (),
+                            dtype=_get_scalar_dtype(is_fused=group["fused"]),
+                            device=p.device,
+                        )
+                        if group["capturable"] or group["fused"]
+                        else torch.tensor(0.0, dtype=_get_scalar_dtype())
+                    )
+                    # Exponential moving average of gradient values
+                    state["exp_avg"] = torch.zeros_like(
                         p, memory_format=torch.preserve_format
                     )
+                    # Exponential moving average of squared gradient values
+                    state["exp_avg_sq"] = torch.zeros_like(
+                        p, memory_format=torch.preserve_format
+                    )
+                    if group["amsgrad"]:
+                        # Maintains max of all exp. moving avg. of sq. grad. values
+                        state["max_exp_avg_sq"] = torch.zeros_like(
+                            p, memory_format=torch.preserve_format
+                        )
 
-            exp_avgs.append(state["exp_avg"])
-            exp_avg_sqs.append(state["exp_avg_sq"])
+                exp_avgs.append(state["exp_avg"])
+                exp_avg_sqs.append(state["exp_avg_sq"])
 
-            if group["amsgrad"]:
-                max_exp_avg_sqs.append(state["max_exp_avg_sq"])
-            if group["differentiable"] and state["step"].requires_grad:
-                raise RuntimeError(
-                    "`requires_grad` is not supported for `step` in differentiable mode"
-                )
+                if group["amsgrad"]:
+                    max_exp_avg_sqs.append(state["max_exp_avg_sq"])
+                if group["differentiable"] and state["step"].requires_grad:
+                    raise RuntimeError(
+                        "`requires_grad` is not supported for `step` in differentiable mode"
+                    )
 
-            # Foreach without capturable does not support a tensor lr
-            if (
-                group["foreach"]
-                and isinstance(group["lr"], Tensor)
-                and not group["capturable"]
-            ):
-                raise RuntimeError(
-                    "lr as a Tensor is not supported for capturable=False and foreach=True"
-                )
+                # Foreach without capturable does not support a tensor lr
+                if (
+                    group["foreach"]
+                    and torch.is_tensor(group["lr"])
+                    and not group["capturable"]
+                ):
+                    raise RuntimeError(
+                        "lr as a Tensor is not supported for capturable=False and foreach=True"
+                    )
 
-            state_steps.append(state["step"])
+                state_steps.append(state["step"])
         return has_complex
 
     @_use_grad_for_differentiable
@@ -216,14 +205,12 @@ class AdamO(Optimizer):
             exp_avg_sqs: List[Tensor] = []
             max_exp_avg_sqs: List[Tensor] = []
             state_steps: List[Tensor] = []
-            amsgrad: bool = group["amsgrad"]
-            beta1, beta2 = cast(Tuple[float, float], group["betas"])
+            beta1, beta2 = group["betas"]
 
             has_complex = self._init_group(
                 group,
                 params_with_grad,
                 grads,
-                amsgrad,
                 exp_avgs,
                 exp_avg_sqs,
                 max_exp_avg_sqs,
@@ -237,7 +224,8 @@ class AdamO(Optimizer):
                 exp_avg_sqs,
                 max_exp_avg_sqs,
                 state_steps,
-                amsgrad=amsgrad,
+                amsgrad=group["amsgrad"],
+                has_complex=has_complex,
                 beta1=beta1,
                 beta2=beta2,
                 lr=group["lr"],
@@ -252,7 +240,6 @@ class AdamO(Optimizer):
                 fused=group["fused"],
                 grad_scale=getattr(self, "grad_scale", None),
                 found_inf=getattr(self, "found_inf", None),
-                has_complex=has_complex,
             )
 
         return loss

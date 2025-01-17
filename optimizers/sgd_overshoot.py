@@ -1,9 +1,10 @@
 # mypy: allow-untyped-defs
+r"""Implementation for Stochastic Gradient Descent optimizer."""
 from typing import cast, List, Optional
 
 import torch
 from torch import Tensor
-from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
+
 from torch.optim.optimizer import (
     _default_to_fused_or_foreach,
     _differentiable_doc,
@@ -57,23 +58,13 @@ class SGDO(Optimizer):
 
         if fused:
             self._step_supports_amp_scaling = True
-
-            fused_supported_devices = _get_fused_kernels_supported_devices()
-            if not all(
-                p.device.type in fused_supported_devices and torch.is_floating_point(p)
-                for pg in self.param_groups
-                for p in pg["params"]
-            ):
-                raise RuntimeError(
-                    "`fused=True` requires all the params to be floating point Tensors of "
-                    f"supported devices: {fused_supported_devices}."
-                )
+            self._need_device_dtype_check_for_fused = True
             if differentiable:
                 raise RuntimeError("`fused` does not support `differentiable`")
             if foreach:
                 raise RuntimeError("`fused` and `foreach` cannot be `True` together.")
 
-    def __setstate__(self, state):
+    def __setstate__(self, state):  # noqa: D105
         super().__setstate__(state)
         for group in self.param_groups:
             group.setdefault("maximize", False)
@@ -86,6 +77,10 @@ class SGDO(Optimizer):
 
         for p in group["params"]:
             if p.grad is not None:
+                if group["fused"] and getattr(
+                    self, "_need_device_dtype_check_for_fused", True
+                ):
+                    self._need_device_dtype_check_for_fused = False
                 params.append(p)
                 grads.append(p.grad)
                 if p.grad.is_sparse:
@@ -205,7 +200,6 @@ def sgd(
 
     See :class:`~torch.optim.SGD` for details.
     """
-
     # Respect when the user inputs False/True for foreach or fused. We only want to change
     # the default when neither have been user-specified. Note that we default to foreach
     # and pass False to use_fused. This is not a mistake--we want to give the fused impl
@@ -404,7 +398,6 @@ def _fused_sgd(
     overshoot: float,
     lr: float,
     dampening: float,
-    nesterov: bool,
     maximize: bool,
     has_sparse_grad: bool,
 ) -> None:
