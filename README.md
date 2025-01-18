@@ -91,7 +91,7 @@ print("AdamO")
 model = CNN().to(device)
 train_test(model, AdamO(model.parameters()))
 ```
-## Test and benchmark Overshoot on various tasks
+## Benchmark Overshoot on various tasks
 
 ### Requirements
 
