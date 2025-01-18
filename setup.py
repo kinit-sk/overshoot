@@ -13,6 +13,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "torch>=2.4.0",
+        "torchvision>=0.20.1",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
