@@ -28,6 +28,7 @@ pip install git+https://github.com/kinit-sk/overshoot.git
 ```python
 import torch
 from torchvision import datasets, transforms
+from torch.optim import AdamW
 from overshoot import AdamO
 
 class CNN(torch.nn.Module):
@@ -42,7 +43,7 @@ class CNN(torch.nn.Module):
         return self.fc2(x)
 
 def train_test(model, optimizer):
-    torch.manual_seed(1) # Make training process same for both variant
+    torch.manual_seed(1) # Make training process same
     transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
     train_dataset = datasets.MNIST(root='./data', train=True, transform=transform, download=True)
     test_dataset = datasets.MNIST(root='./data', train=False, transform=transform)
@@ -54,7 +55,6 @@ def train_test(model, optimizer):
         model.train()
         for images, labels in train_loader:
             loss = criterion(model(images), labels)
-            # Backward pass and optimization
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -76,15 +76,14 @@ def train_test(model, optimizer):
         if isinstance(optimizer, AdamO):
             optimizer.move_to_overshoot() 
             
-        print(f"({epoch+1}/5) Test Accuracy: {100 * correct / total:.2f}%")
+        print(f"({epoch+1}/4) Test Accuracy: {100 * correct / total:.2f}%")
 
-        
 # Init two equal models
 model1, model2 = CNN(), CNN()
 model2.load_state_dict(model1.state_dict())
     
 print("AdamW")
-train_test(model1, torch.optim.AdamW(model1.parameters()))
+train_test(model1, AdamW(model1.parameters()))
     
 print("AdamO")
 train_test(model2, AdamO(model2.parameters()))
