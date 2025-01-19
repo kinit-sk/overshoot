@@ -17,7 +17,7 @@ This is an official PyTorch implementation of **Overshoot**. See the [paper](htt
 }
 ```
 
-## Try Overshoot on mnist
+## Try Overshoot on MNIST
 
 1. Install Overshoot optimizer
 ```
