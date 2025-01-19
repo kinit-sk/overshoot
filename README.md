@@ -43,7 +43,7 @@ class CNN(torch.nn.Module):
         return self.fc2(x)
 
 def train_test(model, optimizer):
-    torch.manual_seed(1) # Make training process same
+    torch.manual_seed(42) # Make training process same
     transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
     train_dataset = datasets.MNIST(root='./data', train=True, transform=transform, download=True)
     test_dataset = datasets.MNIST(root='./data', train=False, transform=transform)
@@ -88,7 +88,7 @@ train_test(model1, AdamW(model1.parameters()))
 print("AdamO")
 train_test(model2, AdamO(model2.parameters()))
 ```
-## Benchmark Overshoot on various tasks
+## Test Overshoot in various scenarios
 
 ### Requirements
 
