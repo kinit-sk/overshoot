@@ -63,6 +63,7 @@ class SGDO(Optimizer):
                 raise RuntimeError("`fused` does not support `differentiable`")
             if foreach:
                 raise RuntimeError("`fused` and `foreach` cannot be `True` together.")
+        self._base_weights = False
 
     def __setstate__(self, state):  # noqa: D105
         super().__setstate__(state)
@@ -100,6 +101,8 @@ class SGDO(Optimizer):
             closure (Callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
+        if self._base_weights:
+            raise Exception("Calling `step` without calling `move_to_overshoot` first.")
         loss = None
         if closure is not None:
             with torch.enable_grad():
@@ -143,6 +146,9 @@ class SGDO(Optimizer):
     def move_to_base(self):
         if len(self.state) == 0:
             return
+        if self._base_weights:
+            raise Exception("Calling `move_to_base` without calling `move_to_overshoot` first.")
+        self._base_weights = True
         for group in self.param_groups:
             for param in group["params"]:
                 if "momentum_buffer" in self.state[param]:
@@ -152,6 +158,9 @@ class SGDO(Optimizer):
     def move_to_overshoot(self):
         if len(self.state) == 0:
             return
+        if not self._base_weights:
+            raise Exception("Calling `move_to_overshoot` without calling `move_to_base` first.")
+        self._base_weights = False
         for group in self.param_groups:
             for param in group["params"]:
                 if "momentum_buffer" in self.state[param]:

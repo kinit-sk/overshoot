@@ -86,6 +86,7 @@ class AdamO(Optimizer):
             # alleviate the loss of information.
             if foreach:
                 raise RuntimeError("`fused` and `foreach` cannot be `True` together.")
+        self._base_weights = False
 
     def __setstate__(self, state):
         super().__setstate__(state)
@@ -193,6 +194,8 @@ class AdamO(Optimizer):
         """
         self._cuda_graph_capture_health_check()
 
+        if self._base_weights:
+            raise Exception("Calling `step` without calling `move_to_overshoot` first.")
         loss = None
         if closure is not None:
             with torch.enable_grad():
@@ -249,13 +252,15 @@ class AdamO(Optimizer):
     def move_to_base(self):
         if len(self.state) == 0:
             return
-        clamp = lambda x, l, h: max(min(x, h), l)
+        if self._base_weights:
+            raise Exception("Calling `move_to_base` without calling `move_to_overshoot` first.")
+        self._base_weights = True
         for group in self.param_groups:
             beta1, beta2 = cast(Tuple[float, float], group["betas"])
             for param in group["params"]:
                 if all([key in self.state[param] for key in ["step", "exp_avg", "exp_avg_sq"]]):
                     step = _get_value(self.state[param]["step"])
-                    overshoot = clamp(step - group["overshoot_delay"], 0, group["overshoot"])
+                    overshoot = max(min(step - group["overshoot_delay"], group["overshoot"]), 0)
                     denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
                     param.addcdiv_(self.state[param]["exp_avg"], denom, value=group["lr"] * overshoot / (1 - beta1**step))
                 
@@ -263,13 +268,15 @@ class AdamO(Optimizer):
     def move_to_overshoot(self):
         if len(self.state) == 0:
             return
-        clamp = lambda x, l, h: max(min(x, h), l)
+        if not self._base_weights:
+            raise Exception("Calling `move_to_overshoot` without calling `move_to_base` first.")
+        self._base_weights = False
         for group in self.param_groups:
             beta1, beta2 = cast(Tuple[float, float], group["betas"])
             for param in group["params"]:
                 if all([key in self.state[param] for key in ["step", "exp_avg", "exp_avg_sq"]]):
                     step = _get_value(self.state[param]["step"])
-                    overshoot = clamp(step - group["overshoot_delay"], 0, group["overshoot"])
+                    overshoot = max(min(step - group["overshoot_delay"], group["overshoot"]), 0)
                     denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
                     param.addcdiv_(self.state[param]["exp_avg"], denom, value=-group["lr"] * overshoot / (1 - beta1**step))
 
