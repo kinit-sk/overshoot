@@ -321,13 +321,12 @@ class OvershootTrainer:
                 )
 
     def save_stats(self) -> None:
-        pd.DataFrame(self.train_stats).to_csv(os.path.join(self.log_writer.log_dir, "training_stats.csv"), index=False)
+        log_dir = self.log_writer.log_dir
+        pd.DataFrame(self.train_stats).to_csv(os.path.join(log_dir, "training_stats.csv"), index=False)
         if self.val_stats:
-            pd.DataFrame(self.val_stats).to_csv(
-                os.path.join(self.log_writer.log_dir, "validation_stats.csv"), index=False
-            )
+            pd.DataFrame(self.val_stats).to_csv(os.path.join(log_dir, "validation_stats.csv"), index=False)
         if self.test_stats:
-            pd.DataFrame(self.test_stats).to_csv(os.path.join(self.log_writer.log_dir, "test_stats.csv"), index=False)
+            pd.DataFrame(self.test_stats).to_csv(os.path.join(log_dir, "test_stats.csv"), index=False)
 
     def validation(self, epoch: int) -> None:
         self._set_model_mode(is_training=False)
