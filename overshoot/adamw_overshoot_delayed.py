@@ -586,7 +586,7 @@ def _multi_tensor_adamo(
             torch._foreach_div_(exp_avg_sq_sqrt, bias_correction2_sqrt)
             torch._foreach_add_(exp_avg_sq_sqrt, eps)
 
-            # # OLD
+            # A) # Baseline Adam implementation
             # step_size = _stack_if_compiling([(lr / bc) * -1 for bc in bias_correction1])
             # torch._foreach_addcdiv_(
             #     device_params,
@@ -596,23 +596,42 @@ def _multi_tensor_adamo(
             # )
             # return
 
-            # NEW
-            # 1) Multiply gradinets
-            torch._foreach_mul_(
-                device_grads,
-                _stack_if_compiling([(-lr / bc) * overshoot * (1-beta1) / beta1 for bc, overshoot in zip(bias_correction1, overshoot_old)]),
-            )
-            
-            # 2) Add momenutm multiplication
-            # TODO: No torch._foreach_ operation for G = G + scalar * M
-            for g, m, bc, o_old, o_new in zip(device_grads, device_exp_avgs, bias_correction1, overshoot_old, overshoot_new):
-                g.add_(m, alpha=(-lr / bc) * (o_new - o_old/beta1 + 1))
 
-            # 3) Divide by second moments
+            # B) Original slow AdamO implementation
+            # # 1) Multiply gradinets
+            # torch._foreach_mul_(
+            #     device_grads,
+            #     _stack_if_compiling([(-lr / bc) * overshoot * (1-beta1) / beta1 for bc, overshoot in zip(bias_correction1, overshoot_old)]),
+            # )
+            
+            # # 2) Add momenutm multiplication
+            # for g, m, bc, o_old, o_new in zip(device_grads, device_exp_avgs, bias_correction1, overshoot_old, overshoot_new):
+            #     g.add_(m, alpha=(-lr / bc) * (o_new - o_old/beta1 + 1))
+
+            # # 3) Divide by second moments
+            # torch._foreach_addcdiv_(
+            #     device_params,
+            #     device_grads,
+            #     exp_avg_sq_sqrt,
+            # )
+            # return
+            
+            # C) Fast AdamO implementation
+            #   Here we use a small numeric trick.
+            #   What needs to be done: g = gc * g + mc * m
+            #   Instead we normalize gc and mc so that: `gc + mc == 1`.
+            #   This way we can use single `torch.lepr` instead of general linear combination.
+            #   Result neeeds to be 'denormalized' back later by using `1 + o_new - o_old` term. 
+            torch._foreach_lerp_(
+                device_grads,
+                device_exp_avgs,
+                _stack_if_compiling([torch.tensor((1 + o_new - (o_old / beta1)) / (1 + o_new - o_old)) for o_old, o_new in zip(overshoot_old, overshoot_new)])
+            )
             torch._foreach_addcdiv_(
                 device_params,
                 device_grads,
                 exp_avg_sq_sqrt,
+                _stack_if_compiling([-lr * (1 + o_new - o_old) / bc for bc, o_old, o_new in zip(bias_correction1, overshoot_old, overshoot_new)])
             )
 
 

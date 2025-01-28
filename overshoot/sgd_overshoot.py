@@ -374,22 +374,27 @@ def _multi_tensor_sgd(
                     bufs.append(buf)
 
             if overshoot:
-                torch._foreach_mul_(device_grads, overshoot / momentum)
-                torch._foreach_add_(device_grads, bufs, alpha=1 + overshoot - (overshoot / momentum))
+                # Here we use a small numeric trick.
+                # What needs to be done: g = gc * g + mc * m
+                # Instead we normalize gc and mc by `overshoot + 1` so that: `gc + mc == 1`.
+                # This way we can use single `torch.lepr` instead of general linear combination.
+                # Result neeeds to be 'denormalized' back later by using `lr_multiplier`. 
+                torch._foreach_lerp_(device_grads, bufs, 1 - (overshoot / (overshoot * momentum + momentum)))
             else:
                 device_grads = bufs
 
         if not device_has_sparse_grad:
+            lr_multiplier = overshoot + 1 if overshoot else 1
             # handle internal item() call if lr is a tensor
             if isinstance(lr, torch.Tensor) and torch._utils.is_compiling():
-                grads_x_lr = torch._foreach_mul(device_grads, -lr)
+                grads_x_lr = torch._foreach_mul(device_grads, -lr * lr_multiplier)
                 torch._foreach_add_(device_params, grads_x_lr)
             else:
-                torch._foreach_add_(device_params, device_grads, alpha=-lr)
+                torch._foreach_add_(device_params, device_grads, alpha=-lr * lr_multiplier)
         else:
             # foreach APIs don't support sparse
             for i in range(len(device_params)):
-                device_params[i].add_(device_grads[i], alpha=-lr)
+                device_params[i].add_(device_grads[i], alpha=-lr * lr_multiplier)
 
 
 
