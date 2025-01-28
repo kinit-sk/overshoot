@@ -614,7 +614,6 @@ def _multi_tensor_adamo(
             #     device_grads,
             #     exp_avg_sq_sqrt,
             # )
-            # return
             
             # C) Fast AdamO implementation
             #   Here we use a small numeric trick.
@@ -625,7 +624,7 @@ def _multi_tensor_adamo(
             torch._foreach_lerp_(
                 device_grads,
                 device_exp_avgs,
-                _stack_if_compiling([torch.tensor((1 + o_new - (o_old / beta1)) / (1 + o_new - o_old)) for o_old, o_new in zip(overshoot_old, overshoot_new)])
+                _stack_if_compiling([torch.tensor((1 + o_new - (o_old / beta1)) / (1 + o_new - o_old), device=device_grads[0].device) for o_old, o_new in zip(overshoot_old, overshoot_new)])
             )
             torch._foreach_addcdiv_(
                 device_params,
