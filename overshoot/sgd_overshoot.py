@@ -374,27 +374,33 @@ def _multi_tensor_sgd(
                     bufs.append(buf)
 
             if overshoot:
-                # Here we use a small numeric trick.
-                # What needs to be done: g = gc * g + mc * m
-                # Instead we normalize gc and mc by `overshoot + 1` so that: `gc + mc == 1`.
-                # This way we can use single `torch.lepr` instead of general linear combination.
-                # Result neeeds to be 'denormalized' back later by using `lr_multiplier`. 
-                torch._foreach_lerp_(device_grads, bufs, 1 - (overshoot / (overshoot * momentum + momentum)))
+                gc = -lr * overshoot / momentum
+                mc = -lr * (overshoot - (overshoot / momentum) + 1)
             else:
                 device_grads = bufs
 
         if not device_has_sparse_grad:
-            lr_multiplier = overshoot + 1 if overshoot else 1
             # handle internal item() call if lr is a tensor
             if isinstance(lr, torch.Tensor) and torch._utils.is_compiling():
-                grads_x_lr = torch._foreach_mul(device_grads, -lr * lr_multiplier)
-                torch._foreach_add_(device_params, grads_x_lr)
+                if overshoot:
+                    torch._foreach_add_(device_params, torch._foreach_mul(device_grads, gc))
+                    torch._foreach_add_(device_params, torch._foreach_mul(bufs, mc))
+                else:
+                    torch._foreach_add_(device_params, torch._foreach_mul(device_grads, -lr))
             else:
-                torch._foreach_add_(device_params, device_grads, alpha=-lr * lr_multiplier)
+                if overshoot:
+                    torch._foreach_add_(device_params, device_grads, alpha=gc)
+                    torch._foreach_add_(device_params, bufs, alpha=mc)
+                else:
+                    torch._foreach_add_(device_params, device_grads, alpha=-lr)
         else:
             # foreach APIs don't support sparse
-            for i in range(len(device_params)):
-                device_params[i].add_(device_grads[i], alpha=-lr * lr_multiplier)
+            if overshoot:
+                for i in range(len(device_params)):
+                    device_params[i].add_(device_grads[i], alpha=gc).add_(bufs[i], alpha=mc)
+            else:
+                for i in range(len(device_params)):
+                    device_params[i].add_(device_grads[i], alpha=-lr)
 
 
 
