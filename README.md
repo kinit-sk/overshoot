@@ -28,8 +28,8 @@ pip install git+https://github.com/kinit-sk/overshoot.git
 ```python
 import torch
 from torchvision import datasets, transforms
-from torch.optim import AdamW
-from overshoot import AdamO
+from torch.optim import AdamW, SGD
+from overshoot import AdamO, SGDO
 
 class CNN(torch.nn.Module):
     def __init__(self):
@@ -39,9 +39,11 @@ class CNN(torch.nn.Module):
 
     def forward(self, x):
         x = x.view(-1, 28 * 28)
-        x = torch.relu(self.fc1(x))
+        x = self.fc1(x)
+        x = torch.relu(x)
         return self.fc2(x)
-
+        
+        
 def train_test(model, optimizer):
     torch.manual_seed(42) # Make training process same
     transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
@@ -54,39 +56,45 @@ def train_test(model, optimizer):
     for epoch in range(4):
         model.train()
         for images, labels in train_loader:
-            loss = criterion(model(images), labels)
             optimizer.zero_grad()
-            loss.backward()
+            criterion(model(images), labels).backward()
             optimizer.step()
 
         # Move weights to base variant
-        if isinstance(optimizer, AdamO):
+        if isinstance(optimizer, (AdamO, SGDO)):
             optimizer.move_to_base() 
             
         model.eval()
         with torch.no_grad():
-            correct, total = 0, 0
+            correct = 0
             for images, labels in test_loader:
-                outputs = model(images)
-                _, predicted = torch.max(outputs, 1)
-                total += labels.size(0)
+                _, predicted = torch.max(model(images), 1)
                 correct += (predicted == labels).sum().item()
+        print(f"({epoch+1}/4) Test Accuracy: {100 * correct / len(test_loader.dataset):.2f}%")
         
         # Move weights to overshoot variant
-        if isinstance(optimizer, AdamO):
+        if isinstance(optimizer, (AdamO, SGDO)):
             optimizer.move_to_overshoot() 
             
-        print(f"({epoch+1}/4) Test Accuracy: {100 * correct / total:.2f}%")
 
-# Init two equal models
-model1, model2 = CNN(), CNN()
-model2.load_state_dict(model1.state_dict())
+        
+# Init four equal models
+models = [CNN() for _ in range(4)]
+for m in models[1:]:
+    m.load_state_dict(models[0].state_dict())
     
 print("AdamW")
-train_test(model1, AdamW(model1.parameters()))
+train_test(models[0], AdamW(models[0].parameters()))
     
-print("AdamO")
-train_test(model2, AdamO(model2.parameters()))
+print("AdamO (AdamW + overshoot)")
+train_test(models[1], AdamO(models[1].parameters(), overshoot=5))
+
+print("SGD")
+train_test(models[2], SGD(models[2].parameters(), lr=0.01, momentum=0.9))
+
+print("SGDO (SGD + overshoot)")
+train_test(models[3], SGDO(models[3].parameters(), lr=0.01, momentum=0.9, overshoot=5))
+    
 ```
 ## Test Overshoot in various scenarios
 
