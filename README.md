@@ -23,7 +23,7 @@ This is an official PyTorch implementation of **Overshoot**. See the [paper](htt
 ```
 pip install git+https://github.com/kinit-sk/overshoot.git
 ```
-2. Train and eval on mnist using AdamW vs AdamO (AdamW + Overshoot)
+2. Train and eval small MLP on MNIST using AdamW vs AdamO (AdamW + Overshoot)
 
 ```python
 import torch
