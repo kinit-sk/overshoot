@@ -27,6 +27,7 @@ pip install git+https://github.com/kinit-sk/overshoot.git
 
 ```python
 import torch
+from torch.optim import AdamW, SGD
 from torchvision import datasets, transforms
 from overshoot import AdamO, SGDO
 
@@ -43,6 +44,7 @@ class MLP(torch.nn.Module):
         return self.fc2(x)
         
 def train_test(model, optimizer):
+    print(optimizer.__class__.__name__)
     torch.manual_seed(42) # Make training process same
     transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
     train_dataset = datasets.MNIST(root='./data', train=True, transform=transform, download=True)
@@ -79,16 +81,9 @@ models = [MLP() for _ in range(4)]
 for m in models[1:]:
     m.load_state_dict(models[0].state_dict())
     
-print("AdamW")
-train_test(models[0], torch.optim.AdamW(models[0].parameters()))
-    
-print("AdamO (AdamW + overshoot)")
+train_test(models[0], AdamW(models[0].parameters()))
 train_test(models[1], AdamO(models[1].parameters(), overshoot=5))
-
-print("SGD")
-train_test(models[2], torch.optim.SGD(models[2].parameters(), lr=0.01, momentum=0.9))
-
-print("SGD (SGD + overshoot)")
+train_test(models[2], SGD(models[2].parameters(), lr=0.01, momentum=0.9))
 train_test(models[3], SGDO(models[3].parameters(), lr=0.01, momentum=0.9, overshoot=5))
 ```
 ## Test Overshoot in various scenarios
