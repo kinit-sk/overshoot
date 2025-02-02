@@ -225,7 +225,7 @@ def get_model_size(model: torch.nn.Module):
     size_all_mb = (param_size + buffer_size) / 1024 / 1024
     return round(size_all_mb, 2)
 
-def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: float, config, foreach: Optional[bool] = None) -> torch.optim.Optimizer:
+def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: float, config) -> torch.optim.Optimizer:
     if opt_name == "nadam":
         opt = optimizers_map[opt_name](
             param_groups,
@@ -234,7 +234,7 @@ def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: f
             momentum_decay=1000000000000000000000000, # Turn of momentum decay
             weight_decay=config.weight_decay,
             decoupled_weight_decay=True,
-            foreach=foreach,
+            foreach=config.optimizer_foreach,
         )
     elif opt_name == "adamW_overshoot_delayed":
         opt = optimizers_map[opt_name](
@@ -244,7 +244,7 @@ def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: f
             weight_decay=config.weight_decay,
             overshoot=overshoot_factor,
             overshoot_delay=config.overshoot_delay,
-            foreach=foreach
+            foreach=config.optimizer_foreach,
         )
     elif opt_name == "adamW_overshoot_adaptive":
         opt = optimizers_map[opt_name](
@@ -253,7 +253,7 @@ def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: f
             betas=(config.adam_beta1, config.adam_beta2),
             weight_decay=config.weight_decay,
             cosine_target=config.target_cosine_similarity,
-            foreach=foreach
+            foreach=config.optimizer_foreach,
         )
     elif opt_name.startswith("adamW_overshoot"):
         opt = optimizers_map[opt_name](
@@ -262,7 +262,7 @@ def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: f
             betas=(config.adam_beta1, config.adam_beta2),
             weight_decay=config.weight_decay,
             overshoot=overshoot_factor,
-            foreach=foreach,
+            foreach=config.optimizer_foreach,
         )
     elif "adam" in opt_name:
         config.adam_beta1 *= "zero" not in opt_name
@@ -271,7 +271,7 @@ def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: f
             lr=lr,
             betas=(config.adam_beta1, config.adam_beta2),
             weight_decay=config.weight_decay,
-            foreach=foreach,
+            foreach=config.optimizer_foreach,
         )
     elif "sgd_adaptive" in opt_name:
         opt = optimizers_map[opt_name](
@@ -280,7 +280,7 @@ def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: f
             momentum=config.sgd_momentum,
             weight_decay=config.weight_decay,
             cosine_target=config.target_cosine_similarity,
-            foreach=foreach,
+            foreach=config.optimizer_foreach,
         )
     elif "sgd_overshoot" in opt_name:
         opt = optimizers_map[opt_name](
@@ -289,7 +289,7 @@ def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: f
             momentum=config.sgd_momentum,
             weight_decay=config.weight_decay,
             overshoot=overshoot_factor,
-            foreach=foreach,
+            foreach=config.optimizer_foreach,
         )
     elif "sgd" in opt_name:
         opt = optimizers_map[opt_name](
@@ -298,7 +298,7 @@ def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: f
             momentum=0 if opt_name == "sgd" else config.sgd_momentum,
             weight_decay=config.weight_decay,
             nesterov="nesterov" in opt_name,
-            foreach=foreach,
+            foreach=config.optimizer_foreach,
         )
     else:
         raise Exception(f"Optimizer {opt_name} not recognized.")

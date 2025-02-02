@@ -76,6 +76,7 @@ class DefaultConfig:
     sgd_momentum: float = 0.9
     weight_decay: float = 0.0
     overshoot_delay: int = 50
+    optimizer_foreach: Optional[bool] = None
     target_cosine_similarity: float = 0.1
     log_every_n_steps: int = 50
     n_gpu: int = torch.cuda.device_count()

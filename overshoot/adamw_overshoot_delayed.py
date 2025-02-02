@@ -86,6 +86,7 @@ class AdamO(Optimizer):
             # alleviate the loss of information.
             if foreach:
                 raise RuntimeError("`fused` and `foreach` cannot be `True` together.")
+        self._base_weights = False
 
     def __setstate__(self, state):
         super().__setstate__(state)
@@ -193,6 +194,8 @@ class AdamO(Optimizer):
         """
         self._cuda_graph_capture_health_check()
 
+        if self._base_weights:
+            raise Exception("Calling `step` without calling `move_to_overshoot` first.")
         loss = None
         if closure is not None:
             with torch.enable_grad():
@@ -249,13 +252,15 @@ class AdamO(Optimizer):
     def move_to_base(self):
         if len(self.state) == 0:
             return
-        clamp = lambda x, l, h: max(min(x, h), l)
+        if self._base_weights:
+            raise Exception("Calling `move_to_base` without calling `move_to_overshoot` first.")
+        self._base_weights = True
         for group in self.param_groups:
             beta1, beta2 = cast(Tuple[float, float], group["betas"])
             for param in group["params"]:
                 if all([key in self.state[param] for key in ["step", "exp_avg", "exp_avg_sq"]]):
                     step = _get_value(self.state[param]["step"])
-                    overshoot = clamp(step - group["overshoot_delay"], 0, group["overshoot"])
+                    overshoot = max(min(step - group["overshoot_delay"], group["overshoot"]), 0)
                     denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
                     param.addcdiv_(self.state[param]["exp_avg"], denom, value=group["lr"] * overshoot / (1 - beta1**step))
                 
@@ -263,13 +268,15 @@ class AdamO(Optimizer):
     def move_to_overshoot(self):
         if len(self.state) == 0:
             return
-        clamp = lambda x, l, h: max(min(x, h), l)
+        if not self._base_weights:
+            raise Exception("Calling `move_to_overshoot` without calling `move_to_base` first.")
+        self._base_weights = False
         for group in self.param_groups:
             beta1, beta2 = cast(Tuple[float, float], group["betas"])
             for param in group["params"]:
                 if all([key in self.state[param] for key in ["step", "exp_avg", "exp_avg_sq"]]):
                     step = _get_value(self.state[param]["step"])
-                    overshoot = clamp(step - group["overshoot_delay"], 0, group["overshoot"])
+                    overshoot = max(min(step - group["overshoot_delay"], group["overshoot"]), 0)
                     denom = (self.state[param]["exp_avg_sq"].sqrt() / (1 - beta2**step)**0.5).add_(group["eps"])
                     param.addcdiv_(self.state[param]["exp_avg"], denom, value=-group["lr"] * overshoot / (1 - beta1**step))
 
@@ -579,7 +586,7 @@ def _multi_tensor_adamo(
             torch._foreach_div_(exp_avg_sq_sqrt, bias_correction2_sqrt)
             torch._foreach_add_(exp_avg_sq_sqrt, eps)
 
-            # # OLD
+            # A) # Baseline Adam implementation
             # step_size = _stack_if_compiling([(lr / bc) * -1 for bc in bias_correction1])
             # torch._foreach_addcdiv_(
             #     device_params,
@@ -589,23 +596,41 @@ def _multi_tensor_adamo(
             # )
             # return
 
-            # NEW
-            # 1) Multiply gradinets
-            torch._foreach_mul_(
-                device_grads,
-                _stack_if_compiling([(-lr / bc) * overshoot * (1-beta1) / beta1 for bc, overshoot in zip(bias_correction1, overshoot_old)]),
-            )
-            
-            # 2) Add momenutm multiplication
-            # TODO: No torch._foreach_ operation for G = G + scalar * M
-            for g, m, bc, o_old, o_new in zip(device_grads, device_exp_avgs, bias_correction1, overshoot_old, overshoot_new):
-                g.add_(m, alpha=(-lr / bc) * (o_new - o_old/beta1 + 1))
 
-            # 3) Divide by second moments
+            # B) Original slow AdamO implementation
+            # # 1) Multiply gradinets
+            # torch._foreach_mul_(
+            #     device_grads,
+            #     _stack_if_compiling([(-lr / bc) * overshoot * (1-beta1) / beta1 for bc, overshoot in zip(bias_correction1, overshoot_old)]),
+            # )
+            
+            # # 2) Add momenutm multiplication
+            # for g, m, bc, o_old, o_new in zip(device_grads, device_exp_avgs, bias_correction1, overshoot_old, overshoot_new):
+            #     g.add_(m, alpha=(-lr / bc) * (o_new - o_old/beta1 + 1))
+
+            # # 3) Divide by second moments
+            # torch._foreach_addcdiv_(
+            #     device_params,
+            #     device_grads,
+            #     exp_avg_sq_sqrt,
+            # )
+            
+            # C) Fast AdamO implementation
+            #   Here we use a small numeric trick.
+            #   What needs to be done: g = gc * g + mc * m
+            #   Instead we normalize gc and mc so that: `gc + mc == 1`.
+            #   This way we can use single `torch.lepr` instead of general linear combination.
+            #   Result neeeds to be 'denormalized' back later by using `1 + o_new - o_old` term. 
+            torch._foreach_lerp_(
+                device_grads,
+                device_exp_avgs,
+                _stack_if_compiling([torch.tensor((1 + o_new - (o_old / beta1)) / (1 + o_new - o_old), device=device_grads[0].device) for o_old, o_new in zip(overshoot_old, overshoot_new)])
+            )
             torch._foreach_addcdiv_(
                 device_params,
                 device_grads,
                 exp_avg_sq_sqrt,
+                _stack_if_compiling([-lr * (1 + o_new - o_old) / bc for bc, o_old, o_new in zip(bias_correction1, overshoot_old, overshoot_new)])
             )
 
 

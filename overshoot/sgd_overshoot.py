@@ -63,6 +63,7 @@ class SGDO(Optimizer):
                 raise RuntimeError("`fused` does not support `differentiable`")
             if foreach:
                 raise RuntimeError("`fused` and `foreach` cannot be `True` together.")
+        self._base_weights = False
 
     def __setstate__(self, state):  # noqa: D105
         super().__setstate__(state)
@@ -100,6 +101,8 @@ class SGDO(Optimizer):
             closure (Callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
+        if self._base_weights:
+            raise Exception("Calling `step` without calling `move_to_overshoot` first.")
         loss = None
         if closure is not None:
             with torch.enable_grad():
@@ -143,6 +146,9 @@ class SGDO(Optimizer):
     def move_to_base(self):
         if len(self.state) == 0:
             return
+        if self._base_weights:
+            raise Exception("Calling `move_to_base` without calling `move_to_overshoot` first.")
+        self._base_weights = True
         for group in self.param_groups:
             for param in group["params"]:
                 if "momentum_buffer" in self.state[param]:
@@ -152,6 +158,9 @@ class SGDO(Optimizer):
     def move_to_overshoot(self):
         if len(self.state) == 0:
             return
+        if not self._base_weights:
+            raise Exception("Calling `move_to_overshoot` without calling `move_to_base` first.")
+        self._base_weights = False
         for group in self.param_groups:
             for param in group["params"]:
                 if "momentum_buffer" in self.state[param]:
@@ -365,22 +374,33 @@ def _multi_tensor_sgd(
                     bufs.append(buf)
 
             if overshoot:
-                torch._foreach_mul_(device_grads, overshoot / momentum)
-                torch._foreach_add_(device_grads, bufs, alpha=1 + overshoot - (overshoot / momentum))
+                gc = -lr * overshoot / momentum
+                mc = -lr * (overshoot - (overshoot / momentum) + 1)
             else:
                 device_grads = bufs
 
         if not device_has_sparse_grad:
             # handle internal item() call if lr is a tensor
             if isinstance(lr, torch.Tensor) and torch._utils.is_compiling():
-                grads_x_lr = torch._foreach_mul(device_grads, -lr)
-                torch._foreach_add_(device_params, grads_x_lr)
+                if overshoot:
+                    torch._foreach_add_(device_params, torch._foreach_mul(device_grads, gc))
+                    torch._foreach_add_(device_params, torch._foreach_mul(bufs, mc))
+                else:
+                    torch._foreach_add_(device_params, torch._foreach_mul(device_grads, -lr))
             else:
-                torch._foreach_add_(device_params, device_grads, alpha=-lr)
+                if overshoot:
+                    torch._foreach_add_(device_params, device_grads, alpha=gc)
+                    torch._foreach_add_(device_params, bufs, alpha=mc)
+                else:
+                    torch._foreach_add_(device_params, device_grads, alpha=-lr)
         else:
             # foreach APIs don't support sparse
-            for i in range(len(device_params)):
-                device_params[i].add_(device_grads[i], alpha=-lr)
+            if overshoot:
+                for i in range(len(device_params)):
+                    device_params[i].add_(device_grads[i], alpha=gc).add_(bufs[i], alpha=mc)
+            else:
+                for i in range(len(device_params)):
+                    device_params[i].add_(device_grads[i], alpha=-lr)
 
 
 
