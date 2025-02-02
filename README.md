@@ -1,8 +1,4 @@
 # Overshoot: Taking advantage of future gradients in momentum-based stochastic optimization
-
-![Python Versions](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)
-[![PyTorch 2.5.1](https://img.shields.io/badge/PyTorch-2.5.1-brightgreen)](https://pytorch.org/get-started/previous-versions/)
-
 This is an official PyTorch implementation of **Overshoot**. See the [paper](https://arxiv.org/abs/2501.09556).
 
 ```
