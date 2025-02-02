@@ -31,9 +31,9 @@ from torchvision import datasets, transforms
 from torch.optim import AdamW, SGD
 from overshoot import AdamO, SGDO
 
-class CNN(torch.nn.Module):
+class MLP(torch.nn.Module):
     def __init__(self):
-        super(CNN, self).__init__()
+        super(MLP, self).__init__()
         self.fc1 = torch.nn.Linear(28 * 28, 50)
         self.fc2 = torch.nn.Linear(50, 10)
 
@@ -79,7 +79,7 @@ def train_test(model, optimizer):
 
         
 # Init four equal models
-models = [CNN() for _ in range(4)]
+models = [MLP() for _ in range(4)]
 for m in models[1:]:
     m.load_state_dict(models[0].state_dict())
     
@@ -92,9 +92,8 @@ train_test(models[1], AdamO(models[1].parameters(), overshoot=5))
 print("SGD")
 train_test(models[2], SGD(models[2].parameters(), lr=0.01, momentum=0.9))
 
-print("SGDO (SGD + overshoot)")
+print("SGD (SGD + overshoot)")
 train_test(models[3], SGDO(models[3].parameters(), lr=0.01, momentum=0.9, overshoot=5))
-    
 ```
 ## Test Overshoot in various scenarios
 
