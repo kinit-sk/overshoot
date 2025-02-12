@@ -273,6 +273,9 @@ def _single_tensor_sgd(
     has_sparse_grad: bool,
 ):
     assert grad_scale is None and found_inf is None
+    if overshoot != 0:
+        gc = -lr * overshoot / momentum
+        mc = -lr * (overshoot - (overshoot / momentum) + 1)
 
     for i, param in enumerate(params):
         grad = grads[i] if not maximize else -grads[i]
@@ -289,8 +292,8 @@ def _single_tensor_sgd(
             else:
                 buf.mul_(momentum).add_(grad, alpha=1 - dampening)
 
-            if overshoot:
-                param.add_(grad, alpha=-lr * overshoot / momentum).add_(buf, alpha=-lr * (1 + overshoot - (overshoot / momentum)))
+            if overshoot != 0:
+                param.add_(grad, alpha=gc).add_(buf, alpha=mc)
             else:
                 param.add_(buf, alpha=-lr)
 
@@ -317,6 +320,9 @@ def _multi_tensor_sgd(
 
     if len(params) == 0:
         return
+    if overshoot:
+        gc = -lr * overshoot / momentum
+        mc = -lr * (overshoot - (overshoot / momentum) + 1)
 
     grouped_tensors = Optimizer._group_tensors_by_device_and_dtype(
         [params, grads, momentum_buffer_list], with_indices=True  # type: ignore[list-item]
@@ -373,12 +379,6 @@ def _multi_tensor_sgd(
 
                     bufs.append(buf)
 
-            if overshoot:
-                gc = -lr * overshoot / momentum
-                mc = -lr * (overshoot - (overshoot / momentum) + 1)
-            else:
-                device_grads = bufs
-
         if not device_has_sparse_grad:
             # handle internal item() call if lr is a tensor
             if isinstance(lr, torch.Tensor) and torch._utils.is_compiling():
@@ -386,13 +386,13 @@ def _multi_tensor_sgd(
                     torch._foreach_add_(device_params, torch._foreach_mul(device_grads, gc))
                     torch._foreach_add_(device_params, torch._foreach_mul(bufs, mc))
                 else:
-                    torch._foreach_add_(device_params, torch._foreach_mul(device_grads, -lr))
+                    torch._foreach_add_(device_params, torch._foreach_mul(bufs, -lr))
             else:
                 if overshoot:
                     torch._foreach_add_(device_params, device_grads, alpha=gc)
                     torch._foreach_add_(device_params, bufs, alpha=mc)
                 else:
-                    torch._foreach_add_(device_params, device_grads, alpha=-lr)
+                    torch._foreach_add_(device_params, bufs, alpha=-lr)
         else:
             # foreach APIs don't support sparse
             if overshoot:
@@ -400,7 +400,7 @@ def _multi_tensor_sgd(
                     device_params[i].add_(device_grads[i], alpha=gc).add_(bufs[i], alpha=mc)
             else:
                 for i in range(len(device_params)):
-                    device_params[i].add_(device_grads[i], alpha=-lr)
+                    device_params[i].add_(bufs[i], alpha=-lr)
 
 
 
