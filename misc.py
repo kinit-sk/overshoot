@@ -2,6 +2,7 @@ from typing import Any, Callable, Iterator, Optional
 
 import torch
 import numpy as np
+from torch.optim.optimizer import Optimizer
 from peft import LoraConfig, TaskType, get_peft_model
 from transformers import (AutoConfig, AutoModelForPreTraining,
                           AutoModelForSequenceClassification, AutoTokenizer)
@@ -51,7 +52,7 @@ supported_models = [
     "minilm",
 ]
 
-optimizers_map: dict[str, Callable[..., torch.optim.optimizer.Optimizer]] = {
+optimizers_map: dict[str, Callable[..., Optimizer]] = {
     "sgd": torch.optim.SGD,
     "sgd_momentum": torch.optim.SGD,
     "sgd_nesterov": torch.optim.SGD,
@@ -226,7 +227,7 @@ def get_model_size(model: torch.nn.Module) -> float:
     size_all_mb = (param_size + buffer_size) / 1024 / 1024
     return round(size_all_mb, 2)
 
-def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Parameter], overshoot_factor: float, lr: float, config: DefaultConfig) -> torch.optim.optimizer.Optimizer:
+def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Parameter], overshoot_factor: float, lr: float, config: DefaultConfig) -> Optimizer:
     if opt_name == "nadam":
         opt = optimizers_map[opt_name](
             param_groups,
