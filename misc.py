@@ -1,5 +1,6 @@
-from typing import Optional
+from typing import Any, Callable, Optional
 
+import torch
 import numpy as np
 from peft import LoraConfig, TaskType, get_peft_model
 from transformers import (AutoConfig, AutoModelForPreTraining,
@@ -50,7 +51,7 @@ supported_models = [
     "minilm",
 ]
 
-optimizers_map = {
+optimizers_map: dict[str, Callable[..., torch.optim.optimizer.Optimizer]] = {
     "sgd": torch.optim.SGD,
     "sgd_momentum": torch.optim.SGD,
     "sgd_nesterov": torch.optim.SGD,
@@ -203,7 +204,7 @@ def init_model(model_name: str, datatset: UnifiedDatasetInterface, trainer_confi
         raise ValueError(f"Model {model_name} not found")
 
 
-def get_gpu_stats(n_gpus: int = 0):
+def get_gpu_stats(n_gpus: int = 0) -> str:
     gpu_info = ""
     for gpu_index in range(n_gpus):
         max_vram = torch.cuda.memory_reserved(gpu_index) / (1024 * 1024 * 1024)
@@ -219,13 +220,13 @@ def compute_model_distance(ref_model: torch.Tensor, gradient_models: list[torch.
     ))
 
 
-def get_model_size(model: torch.nn.Module):
+def get_model_size(model: torch.nn.Module) -> float:
     param_size = sum(p.numel() for p in model.parameters() if p.requires_grad) * 4  # Assuming float32
     buffer_size = sum(p.numel() for p in model.buffers()) * 4
     size_all_mb = (param_size + buffer_size) / 1024 / 1024
     return round(size_all_mb, 2)
 
-def create_optimizer(opt_name: str, param_groups, overshoot_factor: float, lr: float, config) -> torch.optim.Optimizer:
+def create_optimizer(opt_name: str, param_groups: list[dict[str, Any]], overshoot_factor: float, lr: float, config: DefaultConfig) -> torch.optim.optimizer.Optimizer:
     if opt_name == "nadam":
         opt = optimizers_map[opt_name](
             param_groups,

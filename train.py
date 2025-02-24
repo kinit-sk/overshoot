@@ -299,7 +299,7 @@ class OvershootTrainer:
             self.log_writer.add_scalar(f"{name}_accuracy", accuracy, epoch)
             stats[-1]["accuracy"] = accuracy
         print(
-            f"=== Epoch: {epoch} | Wall Time: {wall_time:.2f} | Epoch Time: {epoch_duration:.2f} | Loss: {np.mean(loss):.4f}"
+            f"===[{name}] Epoch: {epoch} | Wall Time: {wall_time:.2f} | Epoch Time: {epoch_duration:.2f} | Loss: {np.mean(loss):.4f}"
             + (f" | Accuracy: {accuracy:.2f}%" if accuracy else "")
         )
 

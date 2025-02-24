@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class VAE(nn.Module):
-    def __init__(self, latent_dim=8):
+    def __init__(self, latent_dim: int = 8):
         super(VAE, self).__init__()
         
         # Encoder: Convolutional layers to compress the input
@@ -35,19 +35,19 @@ class VAE(nn.Module):
             nn.Sigmoid(),  # To ensure output is between 0 and 1
         )
 
-    def encode(self, x):
+    def encode(self, x: torch.Tensor):
         x = self.encoder(x)
         x = x.view(x.size(0), -1)  # Flatten for the fully connected layers
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
         return mu, logvar
 
-    def reparameterize(self, mu, logvar):
+    def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor):
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def decode(self, z):
+    def decode(self, z: torch.Tensor):
         x = self.fc_decode(z)
         x = x.view(x.size(0), 128, 4, 4)  # Reshape to start decoding
         x = self.decoder(x)
@@ -58,7 +58,7 @@ class VAE(nn.Module):
     #     z = self.reparameterize(mu, logvar)
     #     return self.decode(z), mu, logvar
         
-    def forward(self, x, labels=None):
+    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None):
         
         labels = x.clone()
         mu, log_var = self.encode(x)

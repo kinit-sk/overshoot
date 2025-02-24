@@ -1,10 +1,11 @@
 import math
+from typing import Optional
 
 import torch
 import torch.nn as nn
 
 class MLP(nn.Module):
-    def __init__(self, inpt_shape, output_size: int, is_classification: bool, hidden_layers: list[int]):
+    def __init__(self, inpt_shape: list[int], output_size: int, is_classification: bool, hidden_layers: list[int]):
         super().__init__()
 
         sizes = [math.prod(inpt_shape)] + hidden_layers + [output_size]
@@ -14,7 +15,7 @@ class MLP(nn.Module):
         self.relu = nn.ReLU()
         self.loss_fn = nn.CrossEntropyLoss() if is_classification else nn.MSELoss()
         
-    def forward(self, x, labels = None):
+    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None):
         x = torch.flatten(x, 1)
         for layer in self.layers[:-1]:
             x = layer(x)

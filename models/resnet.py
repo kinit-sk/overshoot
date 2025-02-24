@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -23,7 +25,7 @@ class ResNet(nn.Module):
             raise Exception(f'Invalid ResNet type: {type}')
             
 
-    def forward(self, x, labels=None):
+    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None):
         logits = self._model(x)
         loss = None
         if labels is not None:

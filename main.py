@@ -1,5 +1,6 @@
 import argparse
 import os
+from typing import Any
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -16,12 +17,12 @@ def main() -> None:
     # 1) Create log writer
     base_dir = os.path.join("lightning_logs", args.experiment_name, args.job_name)
     os.makedirs(base_dir, exist_ok=True)
-    log_writer = SummaryWriter(log_dir=os.path.join(base_dir, f"version_{len(os.listdir(base_dir)) + 1}"))
+    log_writer: Any = SummaryWriter(log_dir=os.path.join(base_dir, f"version_{len(os.listdir(base_dir)) + 1}")) # type: ignore
 
     # 2) Create config
     trainer_config = get_trainer_config(args.model, args.dataset, args.opt_name, args.config_override)
     if trainer_config.precision == "high":
-        torch.set_default_dtype(torch.float64)
+        torch.set_default_dtype(torch.float64) # type: ignore
     else:
         torch.set_float32_matmul_precision("high")
     print("-------------------------------")
