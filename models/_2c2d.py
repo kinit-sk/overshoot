@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torchvision import models
 
 class _2c2d(nn.Module):
-    def __init__(self, inpt_shape: list[int], output_shape: list[int]):
+    def __init__(self, inpt_shape: list[int], n_outputs: int):
         super().__init__()
         self.convs = nn.ModuleList(
             [
@@ -14,7 +14,7 @@ class _2c2d(nn.Module):
             ]
         )
         self.fc1 = nn.Linear(round(inpt_shape[-1] / 2**len(self.convs))**2 * 64, 256)
-        self.fc2 = nn.Linear(256, output_shape)
+        self.fc2 = nn.Linear(256, n_outputs)
         
     def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None):
         for conv in self.convs:

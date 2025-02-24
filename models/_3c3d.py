@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torchvision import models
 
 class _3c3d(nn.Module):
-    def __init__(self, inpt_shape: list[int], output_shape: list[int]):
+    def __init__(self, inpt_shape: list[int], n_outputs: int):
         super().__init__()
         self.convs = nn.ModuleList(
             [
@@ -17,7 +17,7 @@ class _3c3d(nn.Module):
         )
         self.fc1 = nn.Linear(3 * 3 * 128, 512) # TODO: This is input shape dependent
         self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, output_shape)
+        self.fc3 = nn.Linear(256, n_outputs)
         
     def forward(self, x: torch.Tensor, labels:Optional[torch.Tensor] = None):
         for conv in self.convs:
