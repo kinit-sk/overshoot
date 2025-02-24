@@ -1,10 +1,12 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
 
 class _3c3d(nn.Module):
-    def __init__(self, inpt_shape, output_shape):
+    def __init__(self, inpt_shape: list[int], output_shape: list[int]):
         super().__init__()
         self.convs = nn.ModuleList(
             [
@@ -17,7 +19,7 @@ class _3c3d(nn.Module):
         self.fc2 = nn.Linear(512, 256)
         self.fc3 = nn.Linear(256, output_shape)
         
-    def forward(self, x, labels=None):
+    def forward(self, x: torch.Tensor, labels:Optional[torch.Tensor] = None):
         for conv in self.convs:
             x = conv(x)
             x = F.relu(x)

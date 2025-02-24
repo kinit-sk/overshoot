@@ -94,7 +94,7 @@ class NextTokenDataloader:
     def __len__(self):
         return self._length
         
-    def is_classification(self):
+    def is_classification(self) -> bool:
         return True
         
         
@@ -116,10 +116,10 @@ class UnifiedDatasetInterface(Dataset):
     def __len__(self):
         return len(self.data)
         
-    def is_classification(self):
+    def is_classification(self) -> bool:
         return self._is_classification
     
-    def n_outputs(self):
+    def n_outputs(self) -> int:
         return self._n_outputs
 
     def get_batching_fn(self) -> Callable[[list[int]], dict[str, torch.Tensor]] | None:
