@@ -40,13 +40,13 @@ class LargeBudget__CosineScheduler__{task_name_map[task_name]}__{optimizer_name_
 
     if 'beta1' in setting['optimizer_hyperparams']:
         conf += f"""
-    beta1: float = {setting['optimizer_hyperparams']['beta1']}
-    beta2: float = {setting['optimizer_hyperparams']['beta2']}
+    adam_beta1: float = {setting['optimizer_hyperparams']['beta1']}
+    adam_beta2: float = {setting['optimizer_hyperparams']['beta2']}
     epsilon: float = {setting['optimizer_hyperparams']['epsilon']}
 """
     elif 'momentum' in setting['optimizer_hyperparams']:
         conf += f"""
-    momentum: float = {setting['optimizer_hyperparams']['momentum']}
+    sgd_momentum: float = {setting['optimizer_hyperparams']['momentum']}
 """
     else:
         raise Exception(f'Optimizer hyperparams are missing values')

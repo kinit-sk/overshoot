@@ -90,6 +90,7 @@ class DefaultConfig:
     use_lr_scheduler: bool = False
     adam_beta1: float = 0.9
     adam_beta2: float = 0.999
+    epsilon: float = 1e-08
     sgd_momentum: float = 0.9
     weight_decay: float = 0.0
     overshoot_delay: int = 50
