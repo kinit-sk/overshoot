@@ -3,11 +3,30 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from dataclasses import dataclass
+from typing import Optional
 
 
+@dataclass
+class GPTConfig:
+    T: int = 1024 # context size
+    block_size: int = 1024 # max sequence length
+    vocab_size: int = 50257 # number of tokens: 50,000 BPE merges + 256 bytes tokens + 1 <|endoftext|> token
+    n_layer: int = 12 # number of layers
+    n_head: int = 12 # number of heads
+    n_embd: int = 768 # embedding dimension
+    
+@dataclass
+class GPTTinyConfig(GPTConfig):
+    T: int = 256 # context size
+    block_size: int = 256 # max sequence length
+    vocab_size: int = 50257 # number of tokens: 50,000 BPE merges + 256 bytes tokens + 1 <|endoftext|> token
+    n_layer: int = 6 # number of layers
+    n_head: int = 6 # number of heads
+    n_embd: int = 300 # embedding dimension
+    
 class CausalSelfAttention(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config: GPTConfig):
         super().__init__()
         assert config.n_embd % config.n_head == 0
         # key, query, value projections for all heads, but in a batch
@@ -22,7 +41,7 @@ class CausalSelfAttention(nn.Module):
         self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
                                      .view(1, 1, config.block_size, config.block_size))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         # nh is "number of heads", hs is "head size", and C (number of channels) = nh * hs
@@ -47,14 +66,14 @@ class CausalSelfAttention(nn.Module):
 
 class MLP(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config: GPTConfig):
         super().__init__()
         self.c_fc    = nn.Linear(config.n_embd, 4 * config.n_embd)
         self.gelu    = nn.GELU(approximate='tanh')
         self.c_proj  = nn.Linear(4 * config.n_embd, config.n_embd)
         self.c_proj.NANOGPT_SCALE_INIT = 1
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         x = self.c_fc(x)
         x = self.gelu(x)
         x = self.c_proj(x)
@@ -62,7 +81,7 @@ class MLP(nn.Module):
 
 class Block(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config: GPTConfig):
         super().__init__()
         self.ln_1 = nn.LayerNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
@@ -74,27 +93,10 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln_2(x))
         return x
 
-@dataclass
-class GPTConfig:
-    T: int = 1024 # context size
-    block_size: int = 1024 # max sequence length
-    vocab_size: int = 50257 # number of tokens: 50,000 BPE merges + 256 bytes tokens + 1 <|endoftext|> token
-    n_layer: int = 12 # number of layers
-    n_head: int = 12 # number of heads
-    n_embd: int = 768 # embedding dimension
-    
-@dataclass
-class GPTTinyConfig:
-    T: int = 256 # context size
-    block_size: int = 256 # max sequence length
-    vocab_size: int = 50257 # number of tokens: 50,000 BPE merges + 256 bytes tokens + 1 <|endoftext|> token
-    n_layer: int = 6 # number of layers
-    n_head: int = 6 # number of heads
-    n_embd: int = 300 # embedding dimension
 
 class GPT(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config: GPTConfig):
         super().__init__()
         self.config = config
 
@@ -123,7 +125,7 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, input_ids, labels=None):
+    def forward(self, input_ids: torch.Tensor, labels: Optional[torch.Tensor] =None):
         if len(input_ids.shape) == 3:
             # input_ids = input_ids.view(input_ids.size(1), input_ids.size(2))
             input_ids = torch.squeeze(input_ids)
@@ -151,7 +153,7 @@ class GPT(nn.Module):
         logits = torch.roll(logits, 1, 1)
         return {'loss': loss, 'logits': logits}
         
-    def from_pretrained(cls, model_type):
+    def from_pretrained(cls, model_type: str):
         """Loads pretrained GPT-2 model weights from huggingface"""
         assert model_type in {'gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'}
         from transformers import GPT2LMHeadModel

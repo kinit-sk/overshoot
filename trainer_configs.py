@@ -11,13 +11,30 @@ from collections import defaultdict
 # lr: float =  1e-5 # For LLM classification finetuning
 
 
-def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, override: Optional[Sequence[str]] = None):
+def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, override: Optional[Sequence[str]] = None, from_large_budget: bool = False):
 
     reduce = lambda x, substring: substring if substring in x else x
     model_name = reduce(model_name, "resnet")
+
+    opt_name = reduce(opt_name, "nesterov")
     opt_name = reduce(opt_name, "sgd")
-    opt_name = reduce(opt_name, "adam")
+    opt_name = reduce(opt_name, "nadam")
+    if opt_name != 'nadam':
+        opt_name = reduce(opt_name, "adam")
     dataset_name = reduce(dataset_name, "cifar")
+
+    # Supported only for
+    #   1) mnist VAE
+    #   2) fmnist VAE
+    #   3) fmnist 2c2d
+    #   4) cifar10 3c3d
+    if from_large_budget:
+        class_name = f"LargeBudget__CosineScheduler__{dataset_name}_{model_name}__{opt_name}__Config"
+        if class_name in globals().keys():
+            return globals()[class_name]().override(override)
+
+    opt_name = "sgd" if opt_name == 'nester' else opt_name
+    opt_name = "adam" if opt_name == 'nadam' else opt_name
         
     return defaultdict(lambda: DefaultConfig, {
         ("mlp", "boston", "sgd"): BostonConfig,
@@ -32,8 +49,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
         ("mlp", "cifar", "adam"): MlpCifarSgdConfig, # TODO
         ("2c2d", "mnist", "sgd"): _2c2dMnistSgdConfig,
         ("2c2d", "mnist", "adam"): _2c2dMnistAdamConfig,
-        ("2c2d", "f-mnist", "sgd"): _2c2dFashionSgdConfig, ### TABLE 1: 2nd row config
-        ("2c2d", "f-mnist", "adam"): _2c2dFashionAdamConfig, ### TABLE 1: 2nd row config
+        ("2c2d", "fmnist", "sgd"): _2c2dFashionSgdConfig, ### TABLE 1: 2nd row config
+        ("2c2d", "fmnist", "adam"): _2c2dFashionAdamConfig, ### TABLE 1: 2nd row config
         ("3c3d", "cifar", "sgd"): _3c3dCifarSgdConfig, ### TABLE 1: 3nd row config
         ("3c3d", "cifar", "adam"): _3c3dCifarAdamConfig, ### TABLE 1: 3nd row config
         ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
@@ -42,8 +59,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
         ("resnet", "cifar", "adam"): ResnetCifartAdamConfig,
         ("vae", "mnist", "sgd"): VaeMnistConfig,
         ("vae", "mnist", "adam"): VaeMnistConfig,
-        ("vae", "f-mnist", "sgd"): VaeFashionConfig,
-        ("vae", "f-mnist", "adam"): VaeFashionConfig,
+        ("vae", "fmnist", "sgd"): VaeFashionConfig,
+        ("vae", "fmnist", "adam"): VaeFashionConfig,
         ("gpt_hf", "mnli", "sgd"): GptMnliSgdConfig,
         ("gpt_hf", "mnli", "adam"): GptMnliAdamConfig,
         ("gpt_hf", "sst", "adam"): GptSstAdamConfig,
@@ -318,3 +335,154 @@ class GptGutenbergConfig(DefaultConfig):
     epochs: int = 2
     lr: float = 3e-4
     max_steps: int  = 6000
+
+
+
+##############################################################
+### Best configs from: https://github.com/SirRob1997/Crowded-Valley---Results/tree/master/results_main/large_budget/cosine
+
+# FOR COSINE LR SCHEDULER!!!
+
+
+@dataclass
+class LargeBudget__CosineScheduler__mnist_vae__adam__Config(DefaultConfig):
+    epochs: int = 50
+    B: int = 64
+    lr: float = 0.0006073170442405314
+    beta1: float = 0.9242878251459865
+    beta2: float = 0.9488015600766657
+    epsilon: float = 1e-08
+
+
+@dataclass
+class LargeBudget__CosineScheduler__mnist_vae__sgd__Config(DefaultConfig):
+    epochs: int = 50
+    B: int = 64
+    lr: float = 0.0006522527301234561
+    momentum: float = 0.8086103756739638
+
+
+@dataclass
+class LargeBudget__CosineScheduler__mnist_vae__nadam__Config(DefaultConfig):
+    epochs: int = 50
+    B: int = 64
+    lr: float = 0.0012872772278229644
+    beta1: float = 0.9269694894374103
+    beta2: float = 0.9666118685688961
+    epsilon: float = 1e-07
+
+
+@dataclass
+class LargeBudget__CosineScheduler__mnist_vae__nesterov__Config(DefaultConfig):
+    epochs: int = 50
+    B: int = 64
+    lr: float = 0.00314891164795686
+    momentum: float = 0.3648778989359307
+
+
+@dataclass
+class LargeBudget__CosineScheduler__fmnist_vae__adam__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 64
+    lr: float = 0.00044145368764944787
+    beta1: float = 0.9515666733432182
+    beta2: float = 0.9573249396037167
+    epsilon: float = 1e-08
+
+
+@dataclass
+class LargeBudget__CosineScheduler__fmnist_vae__sgd__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 64
+    lr: float = 0.00045674144235604013
+    momentum: float = 0.8933534298877723
+
+
+@dataclass
+class LargeBudget__CosineScheduler__fmnist_vae__nadam__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 64
+    lr: float = 0.00044145368764944787
+    beta1: float = 0.9515666733432182
+    beta2: float = 0.9573249396037167
+    epsilon: float = 1e-07
+
+
+@dataclass
+class LargeBudget__CosineScheduler__fmnist_vae__nesterov__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 64
+    lr: float = 0.0008295993771492153
+    momentum: float = 0.9792937560684244
+
+
+@dataclass
+class LargeBudget__CosineScheduler__fmnist_2c2d__adam__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 128
+    lr: float = 0.0005506590009122957
+    beta1: float = 0.9228528401348194
+    beta2: float = 0.9313559489851898
+    epsilon: float = 1e-08
+
+
+@dataclass
+class LargeBudget__CosineScheduler__fmnist_2c2d__sgd__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 128
+    lr: float = 0.0007214950794832237
+    momentum: float = 0.9965771793774238
+
+
+@dataclass
+class LargeBudget__CosineScheduler__fmnist_2c2d__nadam__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 128
+    lr: float = 0.0005575453980775369
+    beta1: float = 0.9274200018513628
+    beta2: float = 0.9018417694085219
+    epsilon: float = 1e-07
+
+
+@dataclass
+class LargeBudget__CosineScheduler__fmnist_2c2d__nesterov__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 128
+    lr: float = 0.000151673306880762
+    momentum: float = 0.997998657937712
+
+
+@dataclass
+class LargeBudget__CosineScheduler__cifar_3c3d__adam__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 128
+    lr: float = 0.000993502390906368
+    beta1: float = 0.6642763568761334
+    beta2: float = 0.9462110561755975
+    epsilon: float = 1e-08
+
+
+@dataclass
+class LargeBudget__CosineScheduler__cifar_3c3d__sgd__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 128
+    lr: float = 0.0014742753159914664
+    momentum: float = 0.9970795661528186
+
+
+@dataclass
+class LargeBudget__CosineScheduler__cifar_3c3d__nadam__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 128
+    lr: float = 0.0010165510266418728
+    beta1: float = 0.7054365920445971
+    beta2: float = 0.8553142950540596
+    epsilon: float = 1e-07
+
+
+@dataclass
+class LargeBudget__CosineScheduler__cifar_3c3d__nesterov__Config(DefaultConfig):
+    epochs: int = 100
+    B: int = 128
+    lr: float = 0.0014742753159914664
+    momentum: float = 0.9970795661528186

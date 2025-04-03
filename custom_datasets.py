@@ -1,6 +1,6 @@
 import os
 from functools import partial
-from typing import Callable, Optional, Self
+from typing import Callable, Optional, Self, TypeAlias
 
 import tiktoken
 import torch
@@ -14,6 +14,7 @@ from sklearn.model_selection import train_test_split
 from datasets import load_dataset
 
 from transformers import AutoTokenizer
+
 
 class NextTokenDataloader:
     
@@ -124,8 +125,10 @@ class UnifiedDatasetInterface(Dataset):
 
     def get_batching_fn(self) -> Callable[[list[int]], dict[str, torch.Tensor]] | None:
         return self._batching_fn
+        
+DatasetType: TypeAlias = tuple[Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface]]
 
-def create_mnist(used_for_autoencoder: bool, val_split: float = 0.1):
+def create_mnist(used_for_autoencoder: bool, val_split: float = 0.1) -> DatasetType:
     
     # Do not normalize if used for autoencoder
     if used_for_autoencoder:
@@ -141,7 +144,7 @@ def create_mnist(used_for_autoencoder: bool, val_split: float = 0.1):
     return UnifiedDatasetInterface(train, 10, is_classification), UnifiedDatasetInterface(val, 10, is_classification), UnifiedDatasetInterface(test, 10, is_classification)
     
     
-def create_cifar(cifar_type: int, val_split: float = 0.1):
+def create_cifar(cifar_type: int, val_split: float = 0.1) -> DatasetType:
 
     if cifar_type == 10:
         mean = [0.4914, 0.4822, 0.4465]
@@ -180,7 +183,7 @@ def create_cifar(cifar_type: int, val_split: float = 0.1):
     return UnifiedDatasetInterface(train_val, cifar_type, True), None, UnifiedDatasetInterface(test, cifar_type, True)
     
     
-def create_fasion_mnist(used_for_autoencoder: bool, val_split: float = 0.1):
+def create_fasion_mnist(used_for_autoencoder: bool, val_split: float = 0.1) -> DatasetType:
     
     # Do not normalize if used for autoencoder
     if used_for_autoencoder:
@@ -215,7 +218,7 @@ def create_sst(tokenizer: AutoTokenizer):
     return train_dataset, val_dataset, None # TODO: Create Test split
 
 
-def create_qqp(tokenizer: AutoTokenizer):
+def create_qqp(tokenizer: AutoTokenizer) -> DatasetType:
     train_data = load_dataset("nyu-mll/glue", "qqp")['train']
     validation_data = load_dataset("nyu-mll/glue", "qqp")['validation']
     
@@ -234,7 +237,7 @@ def create_qqp(tokenizer: AutoTokenizer):
     return train_dataset, None, val_dataset # TODO: Create Test split
     # return train_dataset, val_dataset, None # TODO: Create Test split
     
-def create_mnli(tokenizer: AutoTokenizer):
+def create_mnli(tokenizer: AutoTokenizer) -> DatasetType:
     train_data = load_dataset("nyu-mll/glue", "mnli")['train']
     validation_data = load_dataset("nyu-mll/glue", "mnli_matched")['validation']
     # test_data = load_dataset("nyu-mll/glue", "mnli_matched")['test'] # No label in test split
@@ -253,7 +256,7 @@ def create_mnli(tokenizer: AutoTokenizer):
     val_dataset.tokenizer = tokenizer
     return train_dataset, val_dataset, None
     
-def create_imbd(tokenizer: AutoTokenizer):
+def create_imbd(tokenizer: AutoTokenizer) -> DatasetType:
     dataset = load_dataset("imdb")
     
     def batching(self: UnifiedDatasetInterface, x: list[int]) -> dict[str, torch.Tensor]:
@@ -285,7 +288,7 @@ def create_imbd(tokenizer: AutoTokenizer):
 #         outputs = torch.tensor([self.data[index]['answer'] for index in x])
 #         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": outputs}
         
-def create_boston_datatset(val_split: float = 0.2, seed: int = 42):
+def create_boston_datatset(val_split: float = 0.2, seed: int = 42) -> DatasetType:
     
     data_url = "http://lib.stat.cmu.edu/datasets/boston"
     raw_df = pd.read_csv(data_url, skiprows=22, header=None)
@@ -313,7 +316,7 @@ def create_boston_datatset(val_split: float = 0.2, seed: int = 42):
     test_dataset = UnifiedDatasetInterface(test_data, 1, False)
     return train_dataset, None, test_dataset
 
-def create_housing_datatset(val_split: float = 0.2, seed: int = 42):
+def create_housing_datatset(val_split: float = 0.2, seed: int = 42) -> DatasetType:
     data = fetch_california_housing()
     X, y = data.data, data.target
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=val_split, random_state=seed)
@@ -343,7 +346,7 @@ def create_housing_datatset(val_split: float = 0.2, seed: int = 42):
     return train_dataset, None, test_dataset
     
     
-def create_energy_datatset(file=".datasets/energy_efficiency_data.csv"):
+def create_energy_datatset(file: str = ".datasets/energy_efficiency_data.csv") -> DatasetType:
     data = pd.read_csv(file)
     scaler = StandardScaler()
     X = scaler.fit_transform(data.iloc[:, :-2].values)

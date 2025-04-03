@@ -20,7 +20,7 @@ def main() -> None:
     log_writer: Any = SummaryWriter(log_dir=os.path.join(base_dir, f"version_{len(os.listdir(base_dir)) + 1}")) # type: ignore
 
     # 2) Create config
-    trainer_config = get_trainer_config(args.model, args.dataset, args.opt_name, args.config_override)
+    trainer_config = get_trainer_config(args.model, args.dataset, args.opt_name, args.config_override, args.from_large_budget)
     if trainer_config.precision == "high":
         torch.set_default_dtype(torch.float64) # type: ignore
     else:
@@ -104,6 +104,12 @@ if __name__ == "__main__":
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Compute cosine similarity between successive vectors.",
+    )
+    parser.add_argument(
+        "--from_large_budget",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Try to load config from large budget",
     )
     parser.add_argument(
         "--config_override",

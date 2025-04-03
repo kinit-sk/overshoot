@@ -2,6 +2,7 @@ from typing import Any, Callable, Iterator, Optional
 
 import torch
 import numpy as np
+from torch.optim import SGD, Adam, AdamW, NAdam, RMSprop
 from torch.optim.optimizer import Optimizer
 from peft import LoraConfig, TaskType, get_peft_model
 from transformers import (AutoConfig, AutoModelForPreTraining,
@@ -10,7 +11,7 @@ from transformers import (AutoConfig, AutoModelForPreTraining,
 from custom_datasets import (NextTokenDataloader, UnifiedDatasetInterface, create_boston_datatset,
                              create_cifar, create_energy_datatset, create_imbd,
                              create_fasion_mnist, create_housing_datatset,
-                             create_mnist, create_mnli, create_qqp, create_sst)
+                             create_mnist, create_mnli, create_qqp, create_sst, DatasetType)
 from trainer_configs import DefaultConfig
 from models._2c2d import _2c2d
 from models._3c3d import _3c3d
@@ -31,7 +32,7 @@ from optimizers_old.backups2.adamw_overshoot_adaptive import AdamW as OvershootA
 
 supported_datasets = [
     "mnist",
-    "f-mnist",
+    "fmnist",
     "cifar10",
     "cifar100",
     "housing",
@@ -45,7 +46,9 @@ supported_models = [
     "mlp",
     "2c2d",
     "3c3d",
-    "resnet18" "resnet50" "vae",
+    "resnet18",
+    "resnet50",
+    "vae",
     "gpt",
     "roberta_hf",
     "bloom_hf",
@@ -53,26 +56,26 @@ supported_models = [
 ]
 
 optimizers_map: dict[str, Callable[..., Optimizer]] = {
-    "sgd": torch.optim.SGD,
-    "sgd_momentum": torch.optim.SGD,
-    "sgd_nesterov": torch.optim.SGD,
+    "sgd": SGD,
+    "sgd_momentum": SGD,
+    "sgd_nesterov": SGD,
     "sgd_overshoot": SGDO,
     "sgd_adaptive": SGDO_adaptive,
-    "adam": torch.optim.Adam,
-    "adamW": torch.optim.AdamW,
-    "adam_zero": torch.optim.Adam,
-    "adamW_zero": torch.optim.AdamW,
-    "nadam": torch.optim.NAdam,
+    "adam": Adam,
+    "adamW": AdamW,
+    "adam_zero": Adam,
+    "adamW_zero": AdamW,
+    "nadam": NAdam,
     "adamW_overshoot_replication": OvershootAdamW_replication,
     "adamW_overshoot_full_approximation": OvershootAdamW_full_approximation,
     "adamW_overshoot_denom_approximation": OvershootAdamW_denom_approximation,
     "adamW_overshoot_delayed": OvershootAdamW_delayed,
     "adamW_overshoot_adaptive": OvershootAdamW_adaptive,
-    "rmsprop": torch.optim.RMSprop,
+    "rmsprop": RMSprop,
 }
 
 
-def init_dataset(dataset_name: str, model_name: Optional[str], seed: Optional[int] = None):
+def init_dataset(dataset_name: str, model_name: Optional[str], seed: Optional[int] = None) -> DatasetType:
     if dataset_name == "mnist":
         return create_mnist(model_name == "vae")
     elif dataset_name == "cifar10":
@@ -86,7 +89,7 @@ def init_dataset(dataset_name: str, model_name: Optional[str], seed: Optional[in
         # return create_housing_datatset(seed=seed if seed else 42)
     elif dataset_name == "energy":
         return create_energy_datatset()
-    elif dataset_name == "f-mnist":
+    elif dataset_name == "fmnist":
         return create_fasion_mnist(model_name == "vae")
 
     assert model_name
@@ -120,9 +123,9 @@ def init_dataset(dataset_name: str, model_name: Optional[str], seed: Optional[in
 
     if dataset_name == "shakespear":
         # return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="tiny_shakespear_")
-        return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="tiny_shakespear.txt")
+        return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="tiny_shakespear.txt"), None, None
     elif dataset_name == "gutenberg":
-        return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="gutenberg_books_")
+        return NextTokenDataloader(tokenizer, T=context_map[model_name], source_file="gutenberg_books_"), None, None
     elif dataset_name == "sst":
         return create_sst(tokenizer)
     elif dataset_name == "qqp":
@@ -138,7 +141,7 @@ def init_dataset(dataset_name: str, model_name: Optional[str], seed: Optional[in
         raise ValueError(f"Dataset {dataset_name} not found")
 
 
-def init_model(model_name: str, datatset: UnifiedDatasetInterface, trainer_config: DefaultConfig):
+def init_model(model_name: str, datatset: UnifiedDatasetInterface, trainer_config: DefaultConfig) -> torch.nn.Module:
     model_map = {
         "gpt_hf": "openai-community/gpt2",
         "bert_hf": "google-bert/bert-base-uncased",
@@ -200,7 +203,7 @@ def init_model(model_name: str, datatset: UnifiedDatasetInterface, trainer_confi
             model = get_peft_model(model, peft_config)
             print("Using peft:")
             model.print_trainable_parameters()
-        return model
+        return model # type: ignore
     else:
         raise ValueError(f"Model {model_name} not found")
 
