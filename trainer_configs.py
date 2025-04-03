@@ -346,9 +346,11 @@ class GptGutenbergConfig(DefaultConfig):
 
 @dataclass
 class LargeBudget__CosineScheduler__mnist_vae__adam__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 50
     B: int = 64
     lr: float = 0.0006073170442405314
+    weight_decay: float = 0
     beta1: float = 0.9242878251459865
     beta2: float = 0.9488015600766657
     epsilon: float = 1e-08
@@ -356,17 +358,21 @@ class LargeBudget__CosineScheduler__mnist_vae__adam__Config(DefaultConfig):
 
 @dataclass
 class LargeBudget__CosineScheduler__mnist_vae__sgd__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 50
     B: int = 64
     lr: float = 0.0006522527301234561
+    weight_decay: float = 0
     momentum: float = 0.8086103756739638
 
 
 @dataclass
 class LargeBudget__CosineScheduler__mnist_vae__nadam__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 50
     B: int = 64
     lr: float = 0.0012872772278229644
+    weight_decay: float = 0
     beta1: float = 0.9269694894374103
     beta2: float = 0.9666118685688961
     epsilon: float = 1e-07
@@ -374,17 +380,21 @@ class LargeBudget__CosineScheduler__mnist_vae__nadam__Config(DefaultConfig):
 
 @dataclass
 class LargeBudget__CosineScheduler__mnist_vae__nesterov__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 50
     B: int = 64
     lr: float = 0.00314891164795686
+    weight_decay: float = 0
     momentum: float = 0.3648778989359307
 
 
 @dataclass
 class LargeBudget__CosineScheduler__fmnist_vae__adam__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 64
     lr: float = 0.00044145368764944787
+    weight_decay: float = 0
     beta1: float = 0.9515666733432182
     beta2: float = 0.9573249396037167
     epsilon: float = 1e-08
@@ -392,17 +402,21 @@ class LargeBudget__CosineScheduler__fmnist_vae__adam__Config(DefaultConfig):
 
 @dataclass
 class LargeBudget__CosineScheduler__fmnist_vae__sgd__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 64
     lr: float = 0.00045674144235604013
+    weight_decay: float = 0
     momentum: float = 0.8933534298877723
 
 
 @dataclass
 class LargeBudget__CosineScheduler__fmnist_vae__nadam__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 64
     lr: float = 0.00044145368764944787
+    weight_decay: float = 0
     beta1: float = 0.9515666733432182
     beta2: float = 0.9573249396037167
     epsilon: float = 1e-07
@@ -410,17 +424,21 @@ class LargeBudget__CosineScheduler__fmnist_vae__nadam__Config(DefaultConfig):
 
 @dataclass
 class LargeBudget__CosineScheduler__fmnist_vae__nesterov__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 64
     lr: float = 0.0008295993771492153
+    weight_decay: float = 0
     momentum: float = 0.9792937560684244
 
 
 @dataclass
 class LargeBudget__CosineScheduler__fmnist_2c2d__adam__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 128
     lr: float = 0.0005506590009122957
+    weight_decay: float = 0
     beta1: float = 0.9228528401348194
     beta2: float = 0.9313559489851898
     epsilon: float = 1e-08
@@ -428,17 +446,21 @@ class LargeBudget__CosineScheduler__fmnist_2c2d__adam__Config(DefaultConfig):
 
 @dataclass
 class LargeBudget__CosineScheduler__fmnist_2c2d__sgd__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 128
     lr: float = 0.0007214950794832237
+    weight_decay: float = 0
     momentum: float = 0.9965771793774238
 
 
 @dataclass
 class LargeBudget__CosineScheduler__fmnist_2c2d__nadam__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 128
     lr: float = 0.0005575453980775369
+    weight_decay: float = 0
     beta1: float = 0.9274200018513628
     beta2: float = 0.9018417694085219
     epsilon: float = 1e-07
@@ -446,17 +468,21 @@ class LargeBudget__CosineScheduler__fmnist_2c2d__nadam__Config(DefaultConfig):
 
 @dataclass
 class LargeBudget__CosineScheduler__fmnist_2c2d__nesterov__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 128
     lr: float = 0.000151673306880762
+    weight_decay: float = 0
     momentum: float = 0.997998657937712
 
 
 @dataclass
 class LargeBudget__CosineScheduler__cifar_3c3d__adam__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 128
     lr: float = 0.000993502390906368
+    weight_decay: float = 0.002
     beta1: float = 0.6642763568761334
     beta2: float = 0.9462110561755975
     epsilon: float = 1e-08
@@ -464,17 +490,21 @@ class LargeBudget__CosineScheduler__cifar_3c3d__adam__Config(DefaultConfig):
 
 @dataclass
 class LargeBudget__CosineScheduler__cifar_3c3d__sgd__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 128
     lr: float = 0.0014742753159914664
+    weight_decay: float = 0.002
     momentum: float = 0.9970795661528186
 
 
 @dataclass
 class LargeBudget__CosineScheduler__cifar_3c3d__nadam__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 128
     lr: float = 0.0010165510266418728
+    weight_decay: float = 0.002
     beta1: float = 0.7054365920445971
     beta2: float = 0.8553142950540596
     epsilon: float = 1e-07
@@ -482,7 +512,9 @@ class LargeBudget__CosineScheduler__cifar_3c3d__nadam__Config(DefaultConfig):
 
 @dataclass
 class LargeBudget__CosineScheduler__cifar_3c3d__nesterov__Config(DefaultConfig):
+    use_lr_scheduler: bool = True
     epochs: int = 100
     B: int = 128
     lr: float = 0.0014742753159914664
+    weight_decay: float = 0.002
     momentum: float = 0.9970795661528186
