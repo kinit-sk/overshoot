@@ -35,7 +35,6 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
 
     opt_name = "sgd" if opt_name == 'nesterov' else opt_name
     opt_name = "adam" if opt_name == 'nadam' else opt_name
-    import code; code.interact(local=locals())
         
     return defaultdict(lambda: DefaultConfig, {
         ("mlp", "boston", "sgd"): BostonConfig,
