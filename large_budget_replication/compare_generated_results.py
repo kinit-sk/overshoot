@@ -1,6 +1,8 @@
 import os
 import json
 
+import numpy as np
+
 
 task_name_map = {
     "mnist_vae": "mnist_vae",
@@ -29,37 +31,56 @@ optimizer_name_map = {
 
 
 
-def process_json(data):
-    import code; code.interact(local=locals())
-    min_loss = min(data['test_losses'])
-    setting = {
-        "epochs": data['num_epochs'],
-        "batch_size": data['batch_size'],
-        "optimizer_hyperparams": data['optimizer_hyperparams'],
-    }
-    return min_loss, setting
-
-
-if __name__ == "__main__":
-    
+def load_paper_results():
     # Path to this repo: https://github.com/SirRob1997/Crowded-Valley---Results
     path_to_repo = "/home/kopi/kinit/Crowded-Valley---Results"
     budget = "large_budget"
     scheduler = "cosine"
     root = os.path.join(path_to_repo, "results_main", budget, scheduler)
     tasks = ["mnist_vae", "fmnist_vae", "fmnist_2c2d", "cifar10_3c3d"]
-    optimizers = ["AdamOptimizer", "MomentumOptimizer", "NadamOptimizer", "NAGOptimizer"]
+    optimizers_name_map = {
+        "MomentumOptimizer": "sgd",
+        "NAGOptimizer": "sgd_nesterov",
+        "AdamOptimizer": "adam",
+        "NadamOptimizer": "nadam",
+    }
 
+
+    results = {}
     for task in tasks:
-        for optimizer in optimizers:
+        results[task] = {}
+        for optimizer in optimizers_name_map.keys():
             task_optimizer_root = os.path.join(root, task, optimizer)
-            min_loss, min_setting, best_setting = float("inf"), "", {}
+            losses = []
             for setting_name in os.listdir(task_optimizer_root):
                 name = os.listdir(os.path.join(task_optimizer_root, setting_name))[0]
                 with open(os.path.join(task_optimizer_root, setting_name, name), "r") as f:
-                    loss, setting = process_json(json.load(f))
-                if loss < min_loss:
-                    min_loss = loss
-                    min_setting = setting_name
-                    best_setting = setting
-            print(string_conf(task, optimizer, best_setting))
+                    losses.append(json.load(f)["test_losses"])
+
+            best_run_index = np.array(losses).min(axis=1).argmin() 
+            results[task][optimizers_name_map[optimizer]] = losses[best_run_index]
+    return results
+
+
+def load_our_results():
+    # Generate using `genrate_our_results.sh`
+    path_to_results = "lightning_logs/large_budget_replication"
+    tasks = ["mnist_vae", "fmnist_vae", "fmnist_2c2d", "cifar10_3c3d"]
+    optimizers_name_map = {
+        "MomentumOptimizer": "sgd",
+        "NAGOptimizer": "sgd_nesterov",
+        "AdamOptimizer": "adam",
+        "NadamOptimizer": "nadam",
+    }
+
+    jobs = [f"{t}_{o}" for t in tasks for o in optimizers_name_map.values()]
+    import code; code.interact(local=locals())
+
+
+
+
+if __name__ == "__main__":
+    # original_results = load_paper_results()
+    load_our_results()
+
+    
