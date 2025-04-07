@@ -128,7 +128,7 @@ class UnifiedDatasetInterface(Dataset):
         
 DatasetType: TypeAlias = tuple[Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface]]
 
-def create_mnist(used_for_autoencoder: bool, val_split: float = 0.1) -> DatasetType:
+def create_mnist(used_for_autoencoder: bool, validation_size: int = 10000) -> DatasetType: # In overshoot paper `validation_ratio = 0.1`
     
     # Do not normalize if used for autoencoder
     if used_for_autoencoder:
@@ -138,13 +138,12 @@ def create_mnist(used_for_autoencoder: bool, val_split: float = 0.1) -> DatasetT
         
     train_val = datasets.MNIST(root='./.mnist_data', train=True, download=True, transform=transform)
     test = datasets.MNIST(root='./.mnist_data', train=False, download=True, transform=transform)
-    val_size = round(len(train_val) * val_split)
-    train, val = random_split(train_val, [len(train_val) - val_size, val_size])
+    train, val = random_split(train_val, [len(train_val) - validation_size, validation_size])
     is_classification = not used_for_autoencoder
     return UnifiedDatasetInterface(train, 10, is_classification), UnifiedDatasetInterface(val, 10, is_classification), UnifiedDatasetInterface(test, 10, is_classification)
     
     
-def create_cifar(cifar_type: int, val_split: float = 0.1) -> DatasetType:
+def create_cifar(cifar_type: int, validation_size: int = 10000) -> DatasetType: # In overshoot paper `validation_size = 0`
 
     if cifar_type == 10:
         mean = [0.4914, 0.4822, 0.4465]
@@ -176,14 +175,14 @@ def create_cifar(cifar_type: int, val_split: float = 0.1) -> DatasetType:
         test = datasets.CIFAR100(root='./.cifar_data', train=False, download=True, transform=test_transform)
     else:
         raise Exception(f"Unssuported cifar type: {cifar_type}. Suported are: 10, 100")
-    # val_size = round(len(train_val) * val_split)
-    # train, val = random_split(train_val, [len(train_val) - val_size, val_size])
-    # return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
-    # No validation dataset
-    return UnifiedDatasetInterface(train_val, cifar_type, True), None, UnifiedDatasetInterface(test, cifar_type, True)
+    train, val = random_split(train_val, [len(train_val) - validation_size, validation_size])
+    return UnifiedDatasetInterface(train, cifar_type, True), UnifiedDatasetInterface(val, cifar_type, True), UnifiedDatasetInterface(test, cifar_type, True)
+
+    # # No validation dataset
+    # return UnifiedDatasetInterface(train_val, cifar_type, True), None, UnifiedDatasetInterface(test, cifar_type, True)
     
     
-def create_fasion_mnist(used_for_autoencoder: bool, val_split: float = 0.1) -> DatasetType:
+def create_fasion_mnist(used_for_autoencoder: bool, validation_size: int = 10000) -> DatasetType: # In overshoot paper `validation_ratio = 0.1`
     
     # Do not normalize if used for autoencoder
     if used_for_autoencoder:
@@ -193,8 +192,7 @@ def create_fasion_mnist(used_for_autoencoder: bool, val_split: float = 0.1) -> D
         
     train_val = datasets.FashionMNIST(root="./.fashion_mnist", train=True, download=True, transform=transform)
     test = datasets.FashionMNIST(root="./.fashion_mnist", train=False, download=True, transform=transform)
-    val_size = round(len(train_val) * val_split)
-    train, val = random_split(train_val, [len(train_val) - val_size, val_size])
+    train, val = random_split(train_val, [len(train_val) - validation_size, validation_size])
     is_classification = not used_for_autoencoder
     return UnifiedDatasetInterface(train, 10, is_classification), UnifiedDatasetInterface(val, 10, is_classification), UnifiedDatasetInterface(test, 10, is_classification)
     
