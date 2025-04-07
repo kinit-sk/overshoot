@@ -16,7 +16,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 
 
-class NextTokenDataloader:
+class NextTokenDataloader(UnifiedDatasetInterface):
     
     def __init__(self, tokenizer, T: int, source_file: str = 'tiny_shakespear.txt', cache_dir='.next-token-dataloader'):
         if not os.path.exists(cache_dir):
@@ -126,7 +126,7 @@ class UnifiedDatasetInterface(Dataset):
     def get_batching_fn(self) -> Callable[[list[int]], dict[str, torch.Tensor]] | None:
         return self._batching_fn
         
-DatasetType: TypeAlias = tuple[Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface]]
+DatasetType: TypeAlias = tuple[UnifiedDatasetInterface, UnifiedDatasetInterface | None, UnifiedDatasetInterface | None]
 
 def create_mnist(used_for_autoencoder: bool, validation_size: int = 10000) -> DatasetType: # In overshoot paper `validation_ratio = 0.1`
     

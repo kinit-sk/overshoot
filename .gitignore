@@ -2,6 +2,7 @@
 large_budget_replication/figures/
 lightning_logs/
 lightning_logs2/
+lightning_logs3/
 lightning_logs_v1/
 lightning_logs_backup/
 .next-token-dataloader

@@ -15,7 +15,7 @@ from custom_datasets import (NextTokenDataloader, UnifiedDatasetInterface, creat
 from trainer_configs import DefaultConfig
 from models._2c2d import _2c2d
 from models._3c3d import _3c3d
-from models.gpt import GPT, GPTConfig, GPTTinyConfig
+from models.gpt import GPT, GPTConfig, GPTTinyConfig # type: ignore
 from models.mlp import MLP
 from models.resnet import ResNet
 from models.vae import VAE
