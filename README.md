@@ -39,10 +39,10 @@ class MLP(torch.nn.Module):
         x = torch.relu(x)
         return self.fc2(x)
         
-def train_test(model, optimizer):
+def train(model, optimizer):
     print(optimizer.__class__.__name__)
-    torch.manual_seed(42) # Make training process same
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+    torch.manual_seed(42)
+    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.130660], [0.3015041])])
     train_dataset = datasets.MNIST(root='./data', train=True, transform=transform, download=True)
     test_dataset = datasets.MNIST(root='./data', train=False, transform=transform)
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
@@ -76,11 +76,14 @@ def train_test(model, optimizer):
 models = [MLP() for _ in range(4)]
 for m in models[1:]:
     m.load_state_dict(models[0].state_dict())
-    
-train_test(models[0], AdamW(models[0].parameters()))
-train_test(models[1], AdamO(models[1].parameters(), overshoot=5))
-train_test(models[2], SGD(models[2].parameters(), lr=0.01, momentum=0.9))
-train_test(models[3], SGDO(models[3].parameters(), lr=0.01, momentum=0.9, overshoot=5))
+
+# Adam
+train(models[0], AdamW(models[0].parameters()))
+train(models[1], AdamO(models[1].parameters(), overshoot=5))
+
+# SGD
+train(models[2], SGD(models[2].parameters(), lr=0.01, momentum=0.9))
+train(models[3], SGDO(models[3].parameters(), lr=0.01, momentum=0.9, overshoot=5))
 ```
 ## Test Overshoot in various scenarios
 
