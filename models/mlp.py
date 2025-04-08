@@ -15,7 +15,7 @@ class MLP(nn.Module):
         self.relu = nn.ReLU()
         self.loss_fn = nn.CrossEntropyLoss() if is_classification else nn.MSELoss()
         
-    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None):
+    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None) -> dict[str, torch.Tensor | None]:
         x = torch.flatten(x, 1)
         for layer in self.layers[:-1]:
             x = layer(x)

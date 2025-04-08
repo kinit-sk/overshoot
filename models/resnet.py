@@ -25,7 +25,7 @@ class ResNet(nn.Module):
             raise Exception(f'Invalid ResNet type: {type}')
             
 
-    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None):
+    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None) -> dict[str, torch.Tensor | None]:
         logits = self._model(x)
         loss = None
         if labels is not None:

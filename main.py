@@ -3,7 +3,7 @@ import os
 from typing import Any
 
 import torch
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter # type: ignore
 
 from misc import (get_model_size, init_dataset, init_model, supported_datasets,
                   supported_models)

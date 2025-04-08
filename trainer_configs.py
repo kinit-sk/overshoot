@@ -1,84 +1,7 @@
 import torch
 from dataclasses import dataclass
-from typing import Optional, Sequence, Literal, get_type_hints, get_args, Self
+from typing import Optional, Sequence, Literal, Callable, get_type_hints, get_args, Self
 from collections import defaultdict
-
-
-# Optimal LR: Roberta, sst, 3e-5 0.00003
-#             CV tasks 0.001
-#             MLP housing task 0.001 for batch = 16
-#             MLP housing task 0.002 for batch = 64
-# lr: float =  1e-5 # For LLM classification finetuning
-
-
-def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, override: Optional[Sequence[str]] = None, from_large_budget: bool = False):
-
-    reduce = lambda x, substring: substring if substring in x else x
-    model_name = reduce(model_name, "resnet")
-
-    opt_name = reduce(opt_name, "nesterov")
-    opt_name = reduce(opt_name, "sgd")
-    opt_name = reduce(opt_name, "nadam")
-    if opt_name != 'nadam':
-        opt_name = reduce(opt_name, "adam")
-    dataset_name = reduce(dataset_name, "cifar")
-
-    # Supported only for
-    #   1) mnist VAE
-    #   2) fmnist VAE
-    #   3) fmnist 2c2d
-    #   4) cifar10 3c3d
-    if from_large_budget:
-        class_name = f"LargeBudget__CosineScheduler__{dataset_name}_{model_name}__{opt_name}__Config"
-        if class_name in globals().keys():
-            return globals()[class_name]().override(override)
-
-    opt_name = "sgd" if opt_name == 'nesterov' else opt_name
-    opt_name = "adam" if opt_name == 'nadam' else opt_name
-        
-    return defaultdict(lambda: DefaultConfig, {
-        ("mlp", "boston", "sgd"): BostonConfig,
-        ("mlp", "boston", "adam"): BostonConfig,
-        ("mlp", "housing", "sgd"): HousingConfig, ### TABLE 1: 1nd row config
-        ("mlp", "housing", "adam"): HousingConfig, ### TABLE 1: 1nd row config
-        ("mlp", "energy", "sgd"): EnergyConfig,
-        ("mlp", "energy", "adam"): EnergyConfig,
-        ("mlp", "mnist", "sgd"): MlpMnistConfig,
-        ("mlp", "mnist", "adam"): MlpMnistConfig, # TODO
-        ("mlp", "cifar", "sgd"): MlpCifarSgdConfig,
-        ("mlp", "cifar", "adam"): MlpCifarSgdConfig, # TODO
-        ("2c2d", "mnist", "sgd"): _2c2dMnistSgdConfig,
-        ("2c2d", "mnist", "adam"): _2c2dMnistAdamConfig,
-        ("2c2d", "fmnist", "sgd"): _2c2dFashionSgdConfig, ### TABLE 1: 2nd row config
-        ("2c2d", "fmnist", "adam"): _2c2dFashionAdamConfig, ### TABLE 1: 2nd row config
-        ("3c3d", "cifar", "sgd"): _3c3dCifarSgdConfig, ### TABLE 1: 3nd row config
-        ("3c3d", "cifar", "adam"): _3c3dCifarAdamConfig, ### TABLE 1: 3nd row config
-        ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
-        ("resnet", "mnist", "adam"): ResnetMnistAdamConfig,
-        ("resnet", "cifar", "sgd"): ResnetCifartSgdConfig,
-        ("resnet", "cifar", "adam"): ResnetCifartAdamConfig,
-        ("vae", "mnist", "sgd"): VaeMnistConfig,
-        ("vae", "mnist", "adam"): VaeMnistConfig,
-        ("vae", "fmnist", "sgd"): VaeFashionConfig,
-        ("vae", "fmnist", "adam"): VaeFashionConfig,
-        ("gpt_hf", "mnli", "sgd"): GptMnliSgdConfig,
-        ("gpt_hf", "mnli", "adam"): GptMnliAdamConfig,
-        ("gpt_hf", "sst", "adam"): GptSstAdamConfig,
-        ("roberta_hf", "sst", "adam"): RobertaSstAdamConfig,
-        ("minilm", "sst", "adam"): MinilmSstAdamConfig,
-        ("bloom_hf", "sst", "adam"): BloomSstAdamConfig,
-        ("gpt_hf", "qqp", "sgd"): GptQqpConfig,
-        ("gpt_hf", "qqp", "adam"): GptQqpConfig,
-        ("bert_hf", "qqp", "sgd"): BertQqpConfig,
-        ("bert_hf", "qqp", "adam"): BertQqpConfig,
-        ("bert_hf", "imdb", "adam"): BertImdbConfig,
-        ("roberta_hf", "qqp", "adam"): RobertaQqpAdamConfig,
-        ("gpt", "shakespear", "sgd"): GptShakespearConfig, # TODO
-        ("gpt", "shakespear", "adam"): GptShakespearConfig,
-        ("gpt", "gutenberg", "sgd"): GptGutenbergConfig, # TODO
-        ("gpt", "gutenberg", "adam"): GptGutenbergConfig,
-    })[model_name, dataset_name, opt_name]().override(override)
-
 
 @dataclass
 class DefaultConfig:
@@ -130,6 +53,76 @@ class DefaultConfig:
             else:
                 setattr(self, key, override_type(value))
         return self
+
+
+def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, override: Optional[Sequence[str]] = None, from_large_budget: bool = False) -> DefaultConfig:
+
+    reduce: Callable[[str, str], str] = lambda x, substring: substring if substring in x else x
+    model_name = reduce(model_name, "resnet")
+
+    opt_name = reduce(opt_name, "nesterov")
+    opt_name = reduce(opt_name, "sgd")
+    opt_name = reduce(opt_name, "nadam")
+    if opt_name != 'nadam':
+        opt_name = reduce(opt_name, "adam")
+    dataset_name = reduce(dataset_name, "cifar")
+
+    # Supported only for
+    #   1) mnist VAE
+    #   2) fmnist VAE
+    #   3) fmnist 2c2d
+    #   4) cifar10 3c3d
+    if from_large_budget:
+        class_name = f"LargeBudget__CosineScheduler__{dataset_name}_{model_name}__{opt_name}__Config"
+        if class_name in globals().keys():
+            return globals()[class_name]().override(override) # type: ignore
+
+    opt_name = "sgd" if opt_name == 'nesterov' else opt_name
+    opt_name = "adam" if opt_name == 'nadam' else opt_name
+        
+    return defaultdict(lambda: DefaultConfig, {
+        ("mlp", "boston", "sgd"): BostonConfig,
+        ("mlp", "boston", "adam"): BostonConfig,
+        ("mlp", "housing", "sgd"): HousingConfig, ### TABLE 1: 1nd row config
+        ("mlp", "housing", "adam"): HousingConfig, ### TABLE 1: 1nd row config
+        ("mlp", "energy", "sgd"): EnergyConfig,
+        ("mlp", "energy", "adam"): EnergyConfig,
+        ("mlp", "mnist", "sgd"): MlpMnistConfig,
+        ("mlp", "mnist", "adam"): MlpMnistConfig, # TODO
+        ("mlp", "cifar", "sgd"): MlpCifarSgdConfig,
+        ("mlp", "cifar", "adam"): MlpCifarSgdConfig, # TODO
+        ("2c2d", "mnist", "sgd"): _2c2dMnistSgdConfig,
+        ("2c2d", "mnist", "adam"): _2c2dMnistAdamConfig,
+        ("2c2d", "fmnist", "sgd"): _2c2dFashionSgdConfig, ### TABLE 1: 2nd row config
+        ("2c2d", "fmnist", "adam"): _2c2dFashionAdamConfig, ### TABLE 1: 2nd row config
+        ("3c3d", "cifar", "sgd"): _3c3dCifarSgdConfig, ### TABLE 1: 3nd row config
+        ("3c3d", "cifar", "adam"): _3c3dCifarAdamConfig, ### TABLE 1: 3nd row config
+        ("resnet", "mnist", "sgd"): ResnetMnistSgdConfig,
+        ("resnet", "mnist", "adam"): ResnetMnistAdamConfig,
+        ("resnet", "cifar", "sgd"): ResnetCifartSgdConfig,
+        ("resnet", "cifar", "adam"): ResnetCifartAdamConfig,
+        ("vae", "mnist", "sgd"): VaeMnistConfig,
+        ("vae", "mnist", "adam"): VaeMnistConfig,
+        ("vae", "fmnist", "sgd"): VaeFashionConfig,
+        ("vae", "fmnist", "adam"): VaeFashionConfig,
+        ("gpt_hf", "mnli", "sgd"): GptMnliSgdConfig,
+        ("gpt_hf", "mnli", "adam"): GptMnliAdamConfig,
+        ("gpt_hf", "sst", "adam"): GptSstAdamConfig,
+        ("roberta_hf", "sst", "adam"): RobertaSstAdamConfig,
+        ("minilm", "sst", "adam"): MinilmSstAdamConfig,
+        ("bloom_hf", "sst", "adam"): BloomSstAdamConfig,
+        ("gpt_hf", "qqp", "sgd"): GptQqpConfig,
+        ("gpt_hf", "qqp", "adam"): GptQqpConfig,
+        ("bert_hf", "qqp", "sgd"): BertQqpConfig,
+        ("bert_hf", "qqp", "adam"): BertQqpConfig,
+        ("bert_hf", "imdb", "adam"): BertImdbConfig,
+        ("roberta_hf", "qqp", "adam"): RobertaQqpAdamConfig,
+        ("gpt", "shakespear", "sgd"): GptShakespearConfig, # TODO
+        ("gpt", "shakespear", "adam"): GptShakespearConfig,
+        ("gpt", "gutenberg", "sgd"): GptGutenbergConfig, # TODO
+        ("gpt", "gutenberg", "adam"): GptGutenbergConfig,
+    })[model_name, dataset_name, opt_name]().override(override)
+
 
 
 ################################################################################

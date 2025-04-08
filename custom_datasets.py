@@ -1,6 +1,6 @@
 import os
 from functools import partial
-from typing import Callable, Optional, Self, TypeAlias
+from typing import Callable, Optional, Self, TypeAlias, Any, Union, Sequence, Protocol, TypeVar
 
 import tiktoken
 import torch
@@ -16,14 +16,50 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 
 
+
+T_co = TypeVar("T_co", covariant=True)
+class IndexableLen(Protocol[T_co]):
+    def __getitem__(self, index: int) -> T_co: ...
+    def __len__(self) -> int: ...
+
+class UnifiedDatasetInterface(Dataset[Any]):
+    def __init__(self, data: IndexableLen[Any], n_ouputs: int, is_classification: bool, batching_fn: Optional[Callable[[Self, list[int]], dict[str, torch.Tensor]]] = None):
+        self.tokenizer: Optional[AutoTokenizer] = None
+        self.data = data
+        self._n_outputs = n_ouputs
+        self._is_classification = is_classification
+        self._batching_fn = partial(batching_fn, self) if batching_fn else None
+        
+    def __getitem__(self, index: int) -> Union[int | dict[str, Any]]:
+        if self._batching_fn is not None:
+            return index
+        element = self.data[index]
+        return {"x": element[0], "labels": element[1]}
+
+    def __len__(self) -> int:
+        return len(self.data)
+        
+    def is_classification(self) -> bool:
+        return self._is_classification
+    
+    def n_outputs(self) -> int:
+        return self._n_outputs
+
+    def get_batching_fn(self) -> Callable[[list[int]], dict[str, torch.Tensor]] | None:
+        return self._batching_fn
+       
+       
+DatasetType: TypeAlias = tuple[UnifiedDatasetInterface, UnifiedDatasetInterface | None, UnifiedDatasetInterface | None]
+ 
+ 
 class NextTokenDataloader(UnifiedDatasetInterface):
     
-    def __init__(self, tokenizer, T: int, source_file: str = 'tiny_shakespear.txt', cache_dir='.next-token-dataloader'):
+    def __init__(self, tokenizer: AutoTokenizer, T: int, source_file: str = 'tiny_shakespear.txt', cache_dir: str = '.next-token-dataloader'):
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
         os.environ["TIKTOKEN_CACHE_DIR"] = cache_dir
-        self.T = T
-        self._tokenizer = tokenizer
+        self.T: int = T
+        self._tokenizer: AutoTokenizer  = tokenizer
 
         file_path = os.path.join(cache_dir, source_file)
         # Download source file if needed
@@ -67,12 +103,13 @@ class NextTokenDataloader(UnifiedDatasetInterface):
         # self.tokens = self.tokens.repeat(25) # Make dataset artiffically bigger
         print(f"Loaded {self._length} tokens")
 
-    def __tokenize_file(self, file_path):
+    def __tokenize_file(self, file_path: str) -> torch.Tensor:
         with open(file_path, 'r') as f:
             text = f.read()
-            return self._tokenizer(text, return_tensors="pt")['input_ids'].view(-1)
+        input_ids: torch.Tensor = self._tokenizer(text, return_tensors="pt")['input_ids']
+        return input_ids.view(-1)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         index_with_offset = index - self._shred_offset
         if len(self._sherds):
             if index == 0:
@@ -92,41 +129,13 @@ class NextTokenDataloader(UnifiedDatasetInterface):
         buf = self._tokens[index * self.T : (index + 1) * self.T]
         return {"input_ids": buf, "labels": buf} # Dont shift labels. Use same approach as HF
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._length
         
     def is_classification(self) -> bool:
         return True
         
-        
-        
-class UnifiedDatasetInterface(Dataset):
-    def __init__(self, data, n_ouputs: int, is_classification: bool, batching_fn: Optional[Callable[[Self, list[int]], dict[str, torch.Tensor]]] = None):
-        self.tokenizer: Optional[AutoTokenizer] = None
-        self.data = data
-        self._n_outputs = n_ouputs
-        self._is_classification = is_classification
-        self._batching_fn = partial(batching_fn, self) if batching_fn else None
-        
-    def __getitem__(self, index: int):
-        if self._batching_fn is not None:
-            return index
-        element = self.data[index]
-        return {"x": element[0], "labels": element[1]}
-
-    def __len__(self):
-        return len(self.data)
-        
-    def is_classification(self) -> bool:
-        return self._is_classification
-    
-    def n_outputs(self) -> int:
-        return self._n_outputs
-
-    def get_batching_fn(self) -> Callable[[list[int]], dict[str, torch.Tensor]] | None:
-        return self._batching_fn
-        
-DatasetType: TypeAlias = tuple[UnifiedDatasetInterface, UnifiedDatasetInterface | None, UnifiedDatasetInterface | None]
+       
 
 def create_mnist(used_for_autoencoder: bool, validation_size: int = 10000) -> DatasetType: # In overshoot paper `validation_ratio = 0.1`
     
@@ -197,7 +206,7 @@ def create_fasion_mnist(used_for_autoencoder: bool, validation_size: int = 10000
     return UnifiedDatasetInterface(train, 10, is_classification), UnifiedDatasetInterface(val, 10, is_classification), UnifiedDatasetInterface(test, 10, is_classification)
     
 # TODO: Create Test split
-def create_sst(tokenizer: AutoTokenizer):
+def create_sst(tokenizer: AutoTokenizer) -> DatasetType:
     train_data = load_dataset("nyu-mll/glue", "sst2")['train']
     validation_data = load_dataset("nyu-mll/glue", "sst2")['validation']
     

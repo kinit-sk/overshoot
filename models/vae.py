@@ -36,20 +36,20 @@ class VAE(nn.Module):
             nn.Sigmoid(),  # To ensure output is between 0 and 1
         )
 
-    def encode(self, x: torch.Tensor):
+    def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         x = self.encoder(x)
         x = x.view(x.size(0), -1)  # Flatten for the fully connected layers
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
         return mu, logvar
 
-    def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor):
+    def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def decode(self, z: torch.Tensor):
-        x = self.fc_decode(z)
+    def decode(self, z: torch.Tensor) -> torch.Tensor:
+        x: torch.Tensor = self.fc_decode(z)
         x = x.view(x.size(0), 128, 4, 4)  # Reshape to start decoding
         x = self.decoder(x)
         return x
@@ -59,7 +59,7 @@ class VAE(nn.Module):
     #     z = self.reparameterize(mu, logvar)
     #     return self.decode(z), mu, logvar
         
-    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None):
+    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None) -> dict[str, torch.Tensor]:
         
         labels = x.clone()
         mu, log_var = self.encode(x)

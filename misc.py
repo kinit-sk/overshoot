@@ -2,9 +2,9 @@ from typing import Any, Callable, Iterator, Optional
 
 import torch
 import numpy as np
-from torch.optim import SGD, Adam, AdamW, NAdam, RMSprop
+from torch.optim import SGD, Adam, AdamW, NAdam, RMSprop # type: ignore
 from torch.optim.optimizer import Optimizer
-from peft import LoraConfig, TaskType, get_peft_model
+from peft import LoraConfig, TaskType, get_peft_model # type: ignore
 from transformers import (AutoConfig, AutoModelForPreTraining,
                           AutoModelForSequenceClassification, AutoTokenizer)
 
@@ -154,28 +154,29 @@ def init_model(model_name: str, datatset: UnifiedDatasetInterface, trainer_confi
     }
     n_outputs = datatset.n_outputs()
 
-    if model_name == "gpt":
-        return GPT(GPTConfig(vocab_size=50304))
-    if model_name == "gpt_tiny":
-        return GPT(GPTTinyConfig(vocab_size=50304))
-    elif model_name == "mlp":
-        assert hasattr(trainer_config, "mlp_hidden_size")
-        inpt_shape = datatset[0]["x"].shape
-        return MLP(inpt_shape, n_outputs, datatset.is_classification(), hidden_layers=trainer_config.mlp_hidden_size)
-    elif model_name == "2c2d":
-        inpt_shape = datatset[0]["x"].shape
-        return _2c2d(inpt_shape, n_outputs)
-    elif model_name == "3c3d":
-        inpt_shape = datatset[0]["x"].shape
-        return _3c3d(inpt_shape, n_outputs)
-    elif model_name.startswith("resnet"):
-        return ResNet(n_outputs, type=model_name)
-    elif model_name == "vae":
-        return VAE()
-    elif model_name in model_map:
-        model_name = model_map[model_name]
-        config = AutoConfig.from_pretrained(model_name)
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+    if isinstance(datatset[0], dict):
+        if model_name == "gpt":
+            return GPT(GPTConfig(vocab_size=50304)) # type: ignore
+        if model_name == "gpt_tiny":
+            return GPT(GPTTinyConfig(vocab_size=50304)) # type: ignore
+        elif model_name == "mlp":
+            assert hasattr(trainer_config, "mlp_hidden_size")
+            inpt_shape = datatset[0]["x"].shape
+            return MLP(inpt_shape, n_outputs, datatset.is_classification(), hidden_layers=trainer_config.mlp_hidden_size)
+        elif model_name == "2c2d":
+            inpt_shape = datatset[0]["x"].shape
+            return _2c2d(inpt_shape, n_outputs)
+        elif model_name == "3c3d":
+            inpt_shape = datatset[0]["x"].shape
+            return _3c3d(inpt_shape, n_outputs)
+        elif model_name.startswith("resnet"):
+            return ResNet(n_outputs, type=model_name)
+        elif model_name == "vae":
+            return VAE()
+        elif model_name in model_map:
+            model_name = model_map[model_name]
+            config = AutoConfig.from_pretrained(model_name)
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         # Keep dropout
         # if "gpt" in model_name:

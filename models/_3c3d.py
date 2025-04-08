@@ -19,7 +19,7 @@ class _3c3d(nn.Module):
         self.fc2 = nn.Linear(512, 256)
         self.fc3 = nn.Linear(256, n_outputs)
         
-    def forward(self, x: torch.Tensor, labels:Optional[torch.Tensor] = None):
+    def forward(self, x: torch.Tensor, labels:Optional[torch.Tensor] = None) -> dict[str, torch.Tensor | None]:
         for conv in self.convs:
             x = conv(x)
             x = F.relu(x)

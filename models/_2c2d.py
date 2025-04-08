@@ -16,7 +16,7 @@ class _2c2d(nn.Module):
         self.fc1 = nn.Linear(round(inpt_shape[-1] / 2**len(self.convs))**2 * 64, 256)
         self.fc2 = nn.Linear(256, n_outputs)
         
-    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None):
+    def forward(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None) -> dict[str, torch.Tensor | None]:
         for conv in self.convs:
             x = conv(x)
             x = F.relu(x)

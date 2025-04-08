@@ -35,5 +35,5 @@ jobs:
         run: .github/workflows/test_equivalence.sh
         
       - name: Mypy static type check
-        run: mypy main.py
+        run: mypy --strict main.py
 
