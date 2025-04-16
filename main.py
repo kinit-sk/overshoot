@@ -25,8 +25,7 @@ def main() -> None:
         torch.set_default_dtype(torch.float64) # type: ignore
     else:
         torch.set_float32_matmul_precision("high")
-    print("-------------------------------")
-    print(f"Config: {trainer_config}")
+    print(50*"-"+"\n" + f"Config: {trainer_config}")
 
     # 3) Create datatset
     dataset = init_dataset(args.dataset, args.model, args.seed)
@@ -37,14 +36,11 @@ def main() -> None:
         model.cuda()
         # Doesn't work inside devana slurn job
         # model = torch.compile(model)
-    print("-------------------------------")
-    print(f"Model: {model}")
+    print(50*"-"+"\n" + f"Model: {model}")
     print(f"Model size: {get_model_size(model)}")
 
     # 4) Launch trainer
-    trainer = OvershootTrainer(model, dataset, log_writer, args, trainer_config)
-    trainer.main()
-
+    OvershootTrainer(model, dataset, log_writer, args, trainer_config).run()
     log_writer.close()
 
 
@@ -58,7 +54,7 @@ if __name__ == "__main__":
     #  1)  python main.py --model mlp --dataset mnist --seed 1 --opt_name sgd_nesterov --config_override precision=high max_steps=160
     #  2)  python main.py --model mlp --dataset mnist --seed 1 --opt_name sgd_momentum --two_models --overshoot_factor 0.9 --config_override precision=high max_steps=160
     #  3)  python main.py --model mlp --dataset mnist --seed 1 --opt_name sgd_overshoot --overshoot_factor 0.9 --config_override precision=high max_steps=160
-    # ADD 1: In case of nesterov only overshoot model is expected to be equal
+    # ADD 1: In the case of nesterov momentum, only overshoot model is expected to be equivalent.
 
     parser = argparse.ArgumentParser(
         """Train models using various custom optimizers.
@@ -116,7 +112,7 @@ if __name__ == "__main__":
         type=str,
         nargs="+",
         default=None,
-        help="Sequence of key-value pairs to override config. E.g. --config_override lr=0.01",
+        help="Sequence of key-value pairs to override config. E.g., --config_override lr=0.01",
     )
     args = parser.parse_args()
     if args.seed:

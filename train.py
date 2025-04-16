@@ -26,7 +26,7 @@ class OvershootTrainer:
         self,
         model: torch.nn.Module,
         dataset: Tuple[UnifiedDatasetInterface, Optional[UnifiedDatasetInterface], Optional[UnifiedDatasetInterface]],
-        log_writer: Any, # TODO
+        log_writer: Any, # SummaryWriter is untyped
         args: argparse.Namespace,
         config:  DefaultConfig,
     ):
@@ -352,7 +352,7 @@ class OvershootTrainer:
                 self.log_stats(name, stats, epoch, loss / len(loader.dataset), accuracy)  # type: ignore
         self.save_stats()
 
-    def main(self) -> None:
+    def run(self) -> None:
         self.configure_optimizers()
 
         self.trainig_start_time = time.time()
