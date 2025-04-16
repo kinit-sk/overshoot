@@ -88,6 +88,9 @@ class OvershootTrainer:
             print(f"Test dataset size: {len(self.test_dataloader.dataset)}")  # type: ignore
         print("-----------------------------------------------")
 
+    def _is_update_batch(self, batch_id: int) -> bool:
+        return (batch_id + 1) % self.config.accumulate_grad_batches == 0
+
     def _compute_model_distance(self) -> float:
 
         latest_base_model, _ = self._get_base_model()
@@ -180,7 +183,7 @@ class OvershootTrainer:
                 return model.forward(**batch)
         return model.forward(**batch)
 
-    def _baseline_training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _baseline_training_step(self, batch: dict[str, torch.Tensor], batch_id: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(self.optimizers) == 1
         optimizer = self.optimizers[0]
 
@@ -191,26 +194,28 @@ class OvershootTrainer:
                     base_output = self.model_forward_(base_model, batch)
 
         output = self.model_forward_(self.base_model, batch)
+        output["loss"] /= self.config.accumulate_grad_batches 
         output["loss"].backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        for scheduler in self.lr_schedulers:
-            scheduler.step()
+        if self._is_update_batch(batch_id):
+            optimizer.step()
+            optimizer.zero_grad()
+            for scheduler in self.lr_schedulers:
+                scheduler.step()
 
         if self.args.compute_base_model_loss and not is_same:
             return base_output["loss"], output["loss"], base_output["logits"]
         return output["loss"], output["loss"], output["logits"]
 
-    def _two_models_training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _two_models_training_step(self, batch: dict[str, torch.Tensor], batch_id: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(self.optimizers) == 2
         with torch.no_grad():
             output_base = self.model_forward_(self.base_model, batch)  # only to log base loss
 
         output_overshoot = self.model_forward_(self.overshoot_model, batch)
+        output_overshoot["loss"] /= self.config.accumulate_grad_batches 
         output_overshoot["loss"].backward()
-        # self.manual_backward(output_overshoot["loss"] / self.config.accumulate_grad_batches)
 
-        if (batch_idx + 1) % self.config.accumulate_grad_batches == 0:
+        if self._is_update_batch(batch_id):
 
             # 1) Gradients OVERSHOOT -> BASE
             for param1, param2 in zip(self.overshoot_model.parameters(), self.base_model.parameters()):
@@ -221,18 +226,18 @@ class OvershootTrainer:
             for param1, param2 in zip(self.base_model.parameters(), self.overshoot_model.parameters()):
                 param2.data = param1.data.clone()
 
-            # 3) (Optional) Update learning rates
-            for scheduler in self.lr_schedulers:
-                scheduler.step()
-
-            # 4) Update models based on gradients
+            # 3) Update models based on gradients
             for opt in self.optimizers:
                 opt.step()
                 opt.zero_grad()
+                
+            # 4) (Optional) Update learning rates
+            for scheduler in self.lr_schedulers:
+                scheduler.step()
 
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
-    def training_step(self, batch: dict[str, torch.Tensor], epoch: int, batch_idx: int) -> None:
+    def training_step(self, batch: dict[str, torch.Tensor], epoch: int, batch_id: int) -> None:
         # We compute model distances before model update to have the same behaviour for baseline and overshoot
         if self.args.compute_model_distance:
             model_distance = self._compute_model_distance()
@@ -241,7 +246,11 @@ class OvershootTrainer:
             self._cosine_similarity()
 
         train_fn = self._two_models_training_step if self.two_models else self._baseline_training_step
-        loss_base, loss_overshoot, output_base = train_fn(batch, batch_idx)
+        loss_base, loss_overshoot, output_base = train_fn(batch, batch_id)
+
+        # Record stats only for the very last batch in `accumulate_grad_batches`
+        if not self._is_update_batch(batch_id):
+            return
 
         for losses, new_loss in [(self.train_losses, loss_base.item()), (self.overshoot_losses, loss_overshoot.item())]:
             losses.append(new_loss)
@@ -251,7 +260,7 @@ class OvershootTrainer:
         stats = {
             "step": self.current_step,
             "epoch": epoch,
-            "batch_step": batch_idx,
+            "batch_step": batch_id,
             "wall_time": time.time() - self.trainig_start_time,
         }
         for avg in [1, 20, 50, 100]:
@@ -317,7 +326,7 @@ class OvershootTrainer:
             )
             if self.config.use_lr_scheduler:
                 self.lr_schedulers.append(
-                    torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizers[-1], T_0=self.steps)
+                    torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizers[-1], T_0=self.steps + 1)
                 )
 
     def save_stats(self) -> None:
@@ -363,10 +372,11 @@ class OvershootTrainer:
             self._set_model_mode(is_training=True)
             for batch_id, batch in enumerate(self.train_dataloader):
                 self.training_step(self._move_batch_to_cuda(batch), epoch, batch_id)
-                self.current_step += 1
-                if self.current_step >= self.steps:
-                    self.validation(epoch)
-                    print("Max steps reached. Finished training.")
-                    return
+                if self._is_update_batch(batch_id):
+                    self.current_step += 1
+                    if self.current_step >= self.steps:
+                        self.validation(epoch)
+                        print("Max steps reached. Finished training.")
+                        return
 
             self.validation(epoch)
