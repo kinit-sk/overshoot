@@ -30,22 +30,18 @@ class OvershootTrainer:
         args: argparse.Namespace,
         config:  DefaultConfig,
     ):
+        self.config = config
         self.log_writer = log_writer
         self.args = args
-        self.two_models = args.two_models
         self.base_model = model
         if args.two_models:
             self.overshoot_model = copy.deepcopy(model)
         self.steps = int(round(config.B + config.epochs * len(dataset[0]) // config.B // max(1, config.n_gpu)))
         if config.max_steps:
             self.steps = min(self.steps, config.max_steps)
-        self.config = config
         self.train_stats: list[dict[str, float]] = []
         self.val_stats: list[dict[str, float]] = []
         self.test_stats: list[dict[str, float]] = []
-        self.train_losses: list[float] = []
-        self.train_accuracy: list[float] = []
-        self.overshoot_losses: list[float] = []
         self.current_step = 0
         # Cosine gradient statistics
         if self.args.compute_cosine:
@@ -96,7 +92,7 @@ class OvershootTrainer:
         latest_base_model, _ = self._get_base_model()
         latest_base_weights = torch.cat([p.data.view(-1).cpu() for p in latest_base_model.parameters()])
 
-        if self.two_models:
+        if self.args.two_models:
             self.past_weights.append(torch.cat([p.data.view(-1).cpu() for p in self.overshoot_model.parameters()]))
         else:
             self.past_weights.append(torch.cat([p.data.view(-1).cpu() for p in self.base_model.parameters()]))
@@ -135,11 +131,11 @@ class OvershootTrainer:
     def _set_model_mode(self, is_training: bool) -> None:
         if is_training:
             self.base_model.train()
-            if self.two_models:
+            if self.args.two_models:
                 self.overshoot_model.train()
         else:
             self.base_model.eval()
-            if self.two_models:
+            if self.args.two_models:
                 self.overshoot_model.eval()
 
     def _move_batch_to_cuda(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -149,9 +145,9 @@ class OvershootTrainer:
         return batch
 
     def _get_base_model(self) -> Tuple[torch.nn.Module, bool]:
-        assert self.two_models == (len(self.optimizers) > 1)
+        assert self.args.two_models == (len(self.optimizers) > 1)
         if (
-            self.two_models
+            self.args.two_models
             or not hasattr(self.optimizers[0], "move_to_base")
             or not hasattr(self.optimizers[0], "move_to_overshoot")
         ):
@@ -245,17 +241,12 @@ class OvershootTrainer:
         if self.args.compute_cosine:
             self._cosine_similarity()
 
-        train_fn = self._two_models_training_step if self.two_models else self._baseline_training_step
+        train_fn = self._two_models_training_step if self.args.two_models else self._baseline_training_step
         loss_base, loss_overshoot, output_base = train_fn(batch, batch_id)
 
         # Record stats only for the very last batch in `accumulate_grad_batches`
         if not self._is_update_batch(batch_id):
             return
-
-        for losses, new_loss in [(self.train_losses, loss_base.item()), (self.overshoot_losses, loss_overshoot.item())]:
-            losses.append(new_loss)
-            if len(losses) > 100:
-                losses.pop(0)
 
         stats = {
             "step": self.current_step,
@@ -263,35 +254,30 @@ class OvershootTrainer:
             "batch_step": batch_id,
             "wall_time": time.time() - self.trainig_start_time,
         }
+        
         for avg in [1, 20, 50, 100]:
-            stats[f"base_loss_{avg}"] = float(np.mean(self.train_losses[-avg:]))
-            stats[f"overshoot_loss_{avg}"] = float(
-                np.mean(self.overshoot_losses[-avg:])
-            )  # For baseline same as base loss
+            for loss_name, loss_value in [("base_loss", loss_base.item()), ("overshoot_loss", loss_overshoot.item())]:
+                last_n_loss = [x[f"{loss_name}_1"] for x in self.train_stats[-avg:]] + [loss_value]
+                if len(last_n_loss) > 1:
+                    last_n_loss.pop(0)
+                stats[f"{loss_name}_{avg}"] = float(np.mean(last_n_loss))
 
-        if self.train_dataloader.dataset.is_classification():  # type: ignore
-            self.train_accuracy.append(
-                100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()  # type: ignore
-            )
-            if len(self.train_accuracy) > 100:
-                self.train_accuracy.pop(0)
-            for avg in [1, 20, 50, 100]:
-                stats[f"accuracy_{avg}"] = float(np.mean(self.train_accuracy[-avg:]))
+            if self.train_dataloader.dataset.is_classification():  # type: ignore
+                acc = 100 * torch.mean(output_base.argmax(dim=-1) == batch["labels"], dtype=float).item()  # type: ignore
+                last_n_acc = [x[f"accuracy_1"] for x in self.train_stats[-avg:]] + [acc]
+                if len(last_n_acc) == avg + 1:
+                    last_n_acc.pop(0)
+                stats[f"accuracy_{avg}"] = float(np.mean(last_n_acc))
+                
+            if self.args.compute_cosine:
+                stats[f"update_cosine_similarity_{avg}"] = float(np.mean(self.update_cosine[-avg:]))
+                stats[f"update_cosine_similarity_est_{avg}"] = float(np.mean(self.update_cosine_est[-avg:]))
 
         for i, scheduler in enumerate(self.lr_schedulers):
             stats[f"lr_{i}"] = scheduler.get_last_lr()[-1]
 
-        if self.args.compute_cosine:
-            for avg in [1, 20, 50, 100]:
-                stats[f"update_cosine_similarity_{avg}"] = float(np.mean(self.update_cosine[-avg:]))
-                stats[f"update_cosine_similarity_est_{avg}"] = float(np.mean(self.update_cosine_est[-avg:]))
-
         if self.args.compute_model_distance:
             stats["model_distance"] = model_distance
-
-        # Adaptive overshoot not used any more
-        # if hasattr(self.optimizers[0], "_overshoot_new"):
-        #     stats["adaptive_overshoot"] = self.optimizers[0]._overshoot_new
 
         self.train_stats.append(stats)
         if self.current_step % self.config.log_every_n_steps == 0:
@@ -317,7 +303,7 @@ class OvershootTrainer:
         self.optimizers = []
         self.lr_schedulers: list[torch.optim.lr_scheduler.LRScheduler] = []
         params_lr = [(self.base_model.parameters(), self.config.lr)]
-        if self.two_models:
+        if self.args.two_models:
             params_lr.append((self.overshoot_model.parameters(), self.config.lr * (self.args.overshoot_factor + 1)))
 
         for params, lr in params_lr:
