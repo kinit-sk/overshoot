@@ -275,11 +275,11 @@ def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Pa
             foreach=config.optimizer_foreach,
         )
     elif "adam" in opt_name:
-        config.adam_beta1 *= "zero" not in opt_name
+        adam_beta1 = 0 if "zero" in opt_name else config.adam_beta1
         opt = optimizers_map[opt_name](
             param_groups,
             lr=lr,
-            betas=(config.adam_beta1, config.adam_beta2),
+            betas=(adam_beta1, config.adam_beta2),
             eps=config.epsilon,
             weight_decay=config.weight_decay,
             foreach=config.optimizer_foreach,

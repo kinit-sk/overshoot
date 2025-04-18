@@ -15,7 +15,14 @@ class _3c3d(nn.Module):
                 nn.Conv2d(96, 128, 3, padding='same'),
             ]
         )
-        self.fc1 = nn.Linear(3 * 3 * 128, 512) # TODO: This is input shape dependent
+        # dynamically compute input features for the first fully connected layer
+        with torch.no_grad():
+            dummy = torch.zeros(1, *inpt_shape)
+            for conv in self.convs:
+                dummy = conv(dummy)
+                dummy = F.max_pool2d(dummy, 2)
+            n_flatten = dummy.numel() // dummy.size(0)
+        self.fc1 = nn.Linear(n_flatten, 512)
         self.fc2 = nn.Linear(512, 256)
         self.fc3 = nn.Linear(256, n_outputs)
         

@@ -252,13 +252,13 @@ class OvershootTrainer:
             "step": self.current_step,
             "epoch": epoch,
             "batch_step": batch_id,
-            "wall_time": time.time() - self.trainig_start_time,
+            "wall_time": time.time() - self.training_start_time,
         }
         
         for avg in [1, 20, 50, 100]:
             for loss_name, loss_value in [("base_loss", loss_base.item()), ("overshoot_loss", loss_overshoot.item())]:
                 last_n_loss = [x[f"{loss_name}_1"] for x in self.train_stats[-avg:]] + [loss_value]
-                if len(last_n_loss) > 1:
+                if len(last_n_loss) == avg + 1:
                     last_n_loss.pop(0)
                 stats[f"{loss_name}_{avg}"] = float(np.mean(last_n_loss))
 
@@ -287,7 +287,7 @@ class OvershootTrainer:
 
     def log_stats(self, name: str, stats: list[dict[str, float]], epoch: int, loss: float, accuracy: Optional[float]) -> None:
         now = time.time()
-        wall_time, epoch_duration = now - self.trainig_start_time, now - self.epoch_start
+        wall_time, epoch_duration = now - self.training_start_time, now - self.epoch_start
         stats.append({"loss": loss, "wall_time": wall_time})
         self.log_writer.add_scalar(f"{name}_loss", loss, epoch)
         if accuracy:
@@ -350,7 +350,7 @@ class OvershootTrainer:
     def run(self) -> None:
         self.configure_optimizers()
 
-        self.trainig_start_time = time.time()
+        self.training_start_time = time.time()
         for epoch in range(self.config.epochs):
             self.epoch_start = time.time()
 
