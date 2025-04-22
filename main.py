@@ -45,16 +45,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # We should always observe the same results from:
-    #   1) python main.py --seed 1 --config_override precision=high
-    #   2) python main.py --seed 1 --two_models --overshoot_factor 0 --config_override precision=high
-    # Sadly deterministic have to use 32-bit precision because of bug in pl.
-
     # We should observe the same results for:
     #  1)  python main.py --model mlp --dataset mnist --seed 1 --opt_name sgd_nesterov --config_override precision=high max_steps=160
     #  2)  python main.py --model mlp --dataset mnist --seed 1 --opt_name sgd_momentum --two_models --overshoot_factor 0.9 --config_override precision=high max_steps=160
     #  3)  python main.py --model mlp --dataset mnist --seed 1 --opt_name sgd_overshoot --overshoot_factor 0.9 --config_override precision=high max_steps=160
-    # ADD 1: In the case of nesterov momentum, only overshoot model is expected to be equivalent.
+    #  (In the case of nesterov momentum, only overshoot model is expected to be equivalent.)
 
     parser = argparse.ArgumentParser(
         """Train models using various custom optimizers.

@@ -349,7 +349,6 @@ class OvershootTrainer:
 
     def run(self) -> None:
         self.configure_optimizers()
-
         self.training_start_time = time.time()
         for epoch in range(self.config.epochs):
             self.epoch_start = time.time()
@@ -358,11 +357,10 @@ class OvershootTrainer:
             self._set_model_mode(is_training=True)
             for batch_id, batch in enumerate(self.train_dataloader):
                 self.training_step(self._move_batch_to_cuda(batch), epoch, batch_id)
-                if self._is_update_batch(batch_id):
-                    self.current_step += 1
-                    if self.current_step >= self.steps:
-                        self.validation(epoch)
-                        print("Max steps reached. Finished training.")
-                        return
+                self.current_step += self._is_update_batch(batch_id)
+                if self.current_step >= self.steps:
+                    self.validation(epoch)
+                    print("Max steps reached. Finished training.")
+                    return
 
             self.validation(epoch)
