@@ -88,7 +88,6 @@ class OvershootTrainer:
         return (batch_id + 1) % self.config.accumulate_grad_batches == 0
 
     def _compute_model_distance(self) -> float:
-
         latest_base_model, _ = self._get_base_model()
         latest_base_weights = torch.cat([p.data.view(-1).cpu() for p in latest_base_model.parameters()])
 
@@ -124,7 +123,6 @@ class OvershootTrainer:
                             arr.pop(0)
             self.last_update = update
             self.last_update_est = update_est
-
         self.previous_params = params
         self.previous_params_est = params_est
 
@@ -161,7 +159,7 @@ class OvershootTrainer:
         return base_model, False
 
     # This just prints stats to console. Shouldn't be this complicated
-    def __print_stats(self, stats: dict[str, float]) -> None:
+    def _print_stats(self, stats: dict[str, float]) -> None:
         def k_v_to_str(k: str, v: float | int) -> str:
             return f"{k}: {round(v, 4) if isinstance(v, float) else v}"
         text = " | ".join(
@@ -173,7 +171,7 @@ class OvershootTrainer:
         )
         print(text + (get_gpu_stats(self.config.n_gpu) if self.config.log_gpu else ""), flush=True)
 
-    def model_forward_(self, model: torch.nn.Module, batch: dict[str, torch.Tensor]) -> Any:
+    def _model_forward(self, model: torch.nn.Module, batch: dict[str, torch.Tensor]) -> Any:
         if self.config.n_gpu and self.config.precision == "16-mixed":
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 return model.forward(**batch)
@@ -187,9 +185,9 @@ class OvershootTrainer:
             base_model, is_same = self._get_base_model()
             if not is_same:
                 with torch.no_grad():
-                    base_output = self.model_forward_(base_model, batch)
+                    base_output = self._model_forward(base_model, batch)
 
-        output = self.model_forward_(self.base_model, batch)
+        output = self._model_forward(self.base_model, batch)
         output["loss"] /= self.config.accumulate_grad_batches 
         output["loss"].backward()
         if self._is_update_batch(batch_id):
@@ -205,9 +203,8 @@ class OvershootTrainer:
     def _two_models_training_step(self, batch: dict[str, torch.Tensor], batch_id: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(self.optimizers) == 2
         with torch.no_grad():
-            output_base = self.model_forward_(self.base_model, batch)  # only to log base loss
-
-        output_overshoot = self.model_forward_(self.overshoot_model, batch)
+            output_base = self._model_forward(self.base_model, batch)  # only to log base loss
+        output_overshoot = self._model_forward(self.overshoot_model, batch)
         output_overshoot["loss"] /= self.config.accumulate_grad_batches 
         output_overshoot["loss"].backward()
 
@@ -233,7 +230,7 @@ class OvershootTrainer:
 
         return output_base["loss"], output_overshoot["loss"], output_base["logits"]
 
-    def training_step(self, batch: dict[str, torch.Tensor], epoch: int, batch_id: int) -> None:
+    def _training_step(self, batch: dict[str, torch.Tensor], epoch: int, batch_id: int) -> None:
         # We compute model distances before model update to have the same behaviour for baseline and overshoot
         if self.args.compute_model_distance:
             model_distance = self._compute_model_distance()
@@ -281,7 +278,7 @@ class OvershootTrainer:
 
         self.train_stats.append(stats)
         if self.current_step % self.config.log_every_n_steps == 0:
-            self.__print_stats(stats)
+            self._print_stats(stats)
             for k, v in stats.items():
                 self.log_writer.add_scalar(k, v, self.current_step)
 
@@ -337,7 +334,7 @@ class OvershootTrainer:
                 correct, total, loss = 0, 0, 0
                 for batch in loader:
                     batch = self._move_batch_to_cuda(batch)
-                    outputs = self.model_forward_(base_model, batch)
+                    outputs = self._model_forward(base_model, batch)
                     _, predicted = outputs["logits"].max(1)
                     loss += outputs["loss"].item() * batch["labels"].size(0)
                     if loader.dataset.is_classification():  # type: ignore
@@ -356,7 +353,7 @@ class OvershootTrainer:
             # Training
             self._set_model_mode(is_training=True)
             for batch_id, batch in enumerate(self.train_dataloader):
-                self.training_step(self._move_batch_to_cuda(batch), epoch, batch_id)
+                self._training_step(self._move_batch_to_cuda(batch), epoch, batch_id)
                 self.current_step += self._is_update_batch(batch_id)
                 if self.current_step >= self.steps:
                     self.validation(epoch)
