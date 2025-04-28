@@ -12,8 +12,10 @@ from train import OvershootTrainer
 from trainer_configs import get_trainer_config
 
 
-def main() -> None:
-
+def main(args: Any) -> float:
+    if args.seed:
+        torch.manual_seed(args.seed)
+        
     # 1) Create log writer
     base_dir = os.path.join("lightning_logs", args.experiment_name, args.job_name)
     os.makedirs(base_dir, exist_ok=True)
@@ -40,8 +42,7 @@ def main() -> None:
     print(f"Model size: {get_model_size(model)}")
 
     # 4) Launch trainer
-    OvershootTrainer(model, dataset, log_writer, args, trainer_config).run()
-    log_writer.close()
+    return OvershootTrainer(model, dataset, log_writer, args, trainer_config).run()
 
 
 if __name__ == "__main__":
@@ -110,6 +111,4 @@ if __name__ == "__main__":
         help="Sequence of key-value pairs to override config. E.g., --config_override lr=0.01",
     )
     args = parser.parse_args()
-    if args.seed:
-        torch.manual_seed(args.seed)
-    main()
+    main(args)

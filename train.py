@@ -153,7 +153,9 @@ class OvershootTrainer:
         self.optimizers[0].move_to_base()
         # !!! For some reason when performing the inference on base_model, training breaks
         # This deep copy is only needed when using GPT with 16-bit precision
-        # TODO: Figure out why this deep copy is needed (maybe inference is not read only?)
+        # Reason:
+        #   a) Forward pass with `train_mode == True` updates batch-norm statistics
+        #   b) AMP casts weights in-place
         base_model = copy.deepcopy(self.base_model)
         self.optimizers[0].move_to_overshoot()
         return base_model, False
@@ -320,7 +322,7 @@ class OvershootTrainer:
         if self.test_stats:
             pd.DataFrame(self.test_stats).to_csv(os.path.join(log_dir, "test_stats.csv"), index=False)
 
-    def validation(self, epoch: int) -> None:
+    def validation(self, epoch: int) -> float:
         self._set_model_mode(is_training=False)
         base_model, _ = self._get_base_model()
         test_loaders: list[Tuple[DataLoader[UnifiedDatasetInterface], list[dict[str, float]], str]] = []
@@ -343,8 +345,9 @@ class OvershootTrainer:
                 accuracy = 100 * correct / total if loader.dataset.is_classification() else None  # type: ignore
                 self.log_stats(name, stats, epoch, loss / len(loader.dataset), accuracy)  # type: ignore
         self.save_stats()
+        return loss / len(loader.dataset) # type: ignore
 
-    def run(self) -> None:
+    def run(self) -> float:
         self.configure_optimizers()
         self.training_start_time = time.time()
         for epoch in range(self.config.epochs):
@@ -356,8 +359,8 @@ class OvershootTrainer:
                 self._training_step(self._move_batch_to_cuda(batch), epoch, batch_id)
                 self.current_step += self._is_update_batch(batch_id)
                 if self.current_step >= self.steps:
-                    self.validation(epoch)
                     print("Max steps reached. Finished training.")
-                    return
+                    return self.validation(epoch)
 
-            self.validation(epoch)
+            loss = self.validation(epoch)
+        return loss
