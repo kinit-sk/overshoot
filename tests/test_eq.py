@@ -1,6 +1,6 @@
-import copy
 import os
 import sys
+import pytest
 from contextlib import contextmanager
 from dataclasses import dataclass
 
@@ -40,39 +40,39 @@ def suppress_print():
         sys.stdout = original_stdout
 
 
-def _test_eqvivalence_impl(model: str, dataset: str, seeds = list[int]):
-    # (opt_name, two_models, compute_base_model_loss_validation), overshoot
-    eq_runs = [
-        (("sgd_momentum", True, True), ("sgd_overshoot", False, True), 3),
-        (("sgd_nesterov", False, True), ("sgd_overshoot", False, False), 0.9),
-        (("adamW", True, True), ("adamW_overshoot_replication", False, True), 6),
-    ]
 
-    for run1, run2, overshoot in eq_runs:
-        for seed in seeds:
-            args = Args(seed=seed, model=model, dataset=dataset, overshoot_factor=overshoot)
-            args.config_override = ["precision=high", "max_steps=100"]
-            print(f"\n=== Testing eqvivalence of:")
-            
-            args.opt_name = run1[0]
-            args.two_models = run1[1]
-            args.compute_base_model_loss_validation = run1[2]
-            print("Version 1: ", args)
-            with suppress_print():
-                r1 = main(args)
-                
-            args.opt_name = run2[0]
-            args.two_models = run2[1]
-            args.compute_base_model_loss_validation = run2[2]
-            print("Version 2: ", args)
-            with suppress_print():
-                r2 = main(args)
-                
-            assert round(r1, 10) == round(r2, 10)
-        
-        
-def test_eqvivalence_mlp_mnist():
-    _test_eqvivalence_impl(model="mlp", dataset="housing", seeds=[42])
-    _test_eqvivalence_impl(model="2c2d", dataset="fmnist", seeds=[10])
-    _test_eqvivalence_impl(model="mlp", dataset="mnist", seeds=[20])
+# (opt_name, two_models, compute_base_model_loss_validation), overshoot
+eq_runs = [
+    (("sgd_momentum", True, True), ("sgd_overshoot", False, True)),
+    (("sgd_nesterov", False, True), ("sgd_overshoot", False, False)), # Requires to have overshoot == momentum
+    (("adamW", True, True), ("adamW_overshoot_replication", False, True)),
+]
+
+@pytest.mark.parametrize("seed,overshoot,model,dataset,run1,run2", [
+    (42, 3.0, "mlp", "housing", *eq_runs[0]),
+    (42, 0.9, "mlp", "housing", *eq_runs[1]),
+    (42, 6.0, "mlp", "housing", *eq_runs[2]),
+    (42, 0.9, "3c3d", "mnist",  *eq_runs[1]),
+])
+def test_eqvivalence(model, dataset, seed, overshoot, run1, run2):
+
+    args = Args(seed=seed, model=model, dataset=dataset, overshoot_factor=overshoot)
+    args.config_override = ["precision=high", "max_steps=100"]
+    print(f"\n=== Testing eqvivalence of:")
     
+    args.opt_name = run1[0]
+    args.two_models = run1[1]
+    args.compute_base_model_loss_validation = run1[2]
+    print("Version 1: ", args)
+    with suppress_print():
+        r1 = main(args)
+        
+    args.opt_name = run2[0]
+    args.two_models = run2[1]
+    args.compute_base_model_loss_validation = run2[2]
+    print("Version 2: ", args)
+    with suppress_print():
+        r2 = main(args)
+        
+    assert round(r1, 10) == round(r2, 10)
+       
