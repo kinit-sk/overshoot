@@ -324,7 +324,10 @@ class OvershootTrainer:
 
     def validation(self, epoch: int) -> float:
         self._set_model_mode(is_training=False)
-        base_model, _ = self._get_base_model()
+        if self.args.compute_base_model_loss_validation:
+            base_model, _ = self._get_base_model()
+        else:
+            base_model = self.base_model
         test_loaders: list[Tuple[DataLoader[UnifiedDatasetInterface], list[dict[str, float]], str]] = []
         if self.val_dataloader:
             test_loaders.append((self.val_dataloader, self.val_stats, "validation"))

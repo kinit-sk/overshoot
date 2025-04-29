@@ -80,6 +80,9 @@ if __name__ == "__main__":
         "--compute_base_model_loss", action=argparse.BooleanOptionalAction, required=False, default=True
     )
     parser.add_argument(
+        "--compute_base_model_loss_validation", action=argparse.BooleanOptionalAction, required=False, default=True
+    )
+    parser.add_argument(
         "--model",
         type=str,
         required=True,
