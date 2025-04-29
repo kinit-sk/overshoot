@@ -42,20 +42,19 @@ def suppress_print():
 
 
 # (opt_name, two_models, compute_base_model_loss_validation), overshoot
-eq_runs = [
+eq_optimizer_setups = [
     (("sgd_momentum", True, True), ("sgd_overshoot", False, True)),
     (("sgd_nesterov", False, True), ("sgd_overshoot", False, False)), # Requires to have overshoot == momentum
     (("adamW", True, True), ("adamW_overshoot_replication", False, True)),
 ]
 
 @pytest.mark.parametrize("seed,overshoot,model,dataset,run1,run2", [
-    (42, 3.0, "mlp", "housing", *eq_runs[0]),
-    (42, 0.9, "mlp", "housing", *eq_runs[1]),
-    (42, 6.0, "mlp", "housing", *eq_runs[2]),
-    (42, 0.9, "3c3d", "mnist",  *eq_runs[1]),
+    (42, 3.0, "mlp", "housing", *eq_optimizer_setups[0]),
+    (42, 0.9, "mlp", "housing", *eq_optimizer_setups[1]),
+    (42, 6.0, "mlp", "fmnist", *eq_optimizer_setups[2]),
+    (42, 0.9, "3c3d", "mnist",  *eq_optimizer_setups[1]),
 ])
 def test_eqvivalence(model, dataset, seed, overshoot, run1, run2):
-
     args = Args(seed=seed, model=model, dataset=dataset, overshoot_factor=overshoot)
     args.config_override = ["precision=high", "max_steps=100"]
     print(f"\n=== Testing eqvivalence of:")
