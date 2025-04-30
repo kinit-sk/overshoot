@@ -160,9 +160,6 @@ def init_model(model_name: str, datatset: UnifiedDatasetInterface, trainer_confi
         if model_name == "gpt_tiny":
             return GPT(GPTTinyConfig(vocab_size=50304)) # type: ignore
         elif model_name == "mlp":
-            # If `mlp_hidden_size` is not set assign default one
-            if not hasattr(trainer_config, "mlp_hidden_size"):
-                trainer_config.mlp_hidden_size = [512, 256]
             inpt_shape = datatset[0]["x"].shape
             return MLP(inpt_shape, n_outputs, datatset.is_classification(), hidden_layers=trainer_config.mlp_hidden_size)
         elif model_name == "2c2d":
