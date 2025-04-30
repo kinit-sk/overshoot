@@ -15,7 +15,8 @@ class DefaultConfig:
     adam_beta2: float = 0.999
     epsilon: float = 1e-08
     sgd_momentum: float = 0.9
-    weight_decay: float = 0.0
+    weight_decay_sgd: float = 0.0 # pytorch default
+    weight_decay_adam: float = 0.01 # pytorch default
     overshoot_delay: int = 50
     optimizer_foreach: Optional[bool] = None
     target_cosine_similarity: float = 0.1
@@ -224,7 +225,7 @@ class ResnetMnistAdamConfig(DefaultConfig):
 class ResnetCifartSgdConfig(DefaultConfig):
     B: int = 256
     lr: float = 0.01
-    weight_decay: float = 5e-4
+    weight_decay_sgd: float = 5e-4
     sgd_momentum: float = 0.99
     epochs: int = 250
     
@@ -232,7 +233,7 @@ class ResnetCifartSgdConfig(DefaultConfig):
 @dataclass
 class ResnetCifartAdamConfig(DefaultConfig):
     B: int = 256
-    weight_decay: float = 5e-4
+    weight_decay_adam: float = 5e-4
     epochs: int = 200
     
 ### TABLE 1: 4nd row config
@@ -254,19 +255,19 @@ class VaeFashionConfig(DefaultConfig):
 class GptMnliSgdConfig(DefaultConfig):
     B: int = 64
     epochs: int = 20
-    weight_decay: float = 5e-4
+    weight_decay_sgd: float = 5e-4
     
 @dataclass
 class GptMnliAdamConfig(DefaultConfig):
     B: int = 64
     epochs: int = 10
-    weight_decay: float = 5e-4
+    weight_decay_adam: float = 5e-4
 
 
 @dataclass
 class GptSstAdamConfig(DefaultConfig):
     epochs: int = 20
-    weight_decay: float = 5e-4
+    weight_decay_adam: float = 5e-4
     
 @dataclass
 class RobertaSstAdamConfig(DefaultConfig):
@@ -287,13 +288,15 @@ class MinilmSstAdamConfig(DefaultConfig):
 @dataclass
 class GptQqpConfig(DefaultConfig):
     epochs: int = 10
-    weight_decay: float = 5e-4
+    weight_decay_sgd: float = 5e-4
+    weight_decay_adam: float = 5e-4
     lr: float = 3e-4
     
 @dataclass
 class BertQqpConfig(DefaultConfig):
     epochs: int = 20
-    weight_decay: float = 5e-4
+    weight_decay_sgd: float = 5e-4
+    weight_decay_adam: float = 5e-4
     lr: float = 3e-4
     
 @dataclass
@@ -306,7 +309,7 @@ class BertImdbConfig(DefaultConfig):
 @dataclass
 class RobertaQqpAdamConfig(DefaultConfig):
     epochs: int = 10
-    weight_decay: float = 5e-4
+    weight_decay_adam: float = 5e-4
     lr: float = 3e-4
 
 
@@ -344,7 +347,7 @@ class LargeBudget__CosineScheduler__mnist_vae__adam__Config(DefaultConfig):
     epochs: int = 50
     B: int = 64
     lr: float = 0.0006073170442405314
-    weight_decay: float = 0
+    weight_decay_adam: float = 0
     adam_beta1: float = 0.9242878251459865
     adam_beta2: float = 0.9488015600766657
     epsilon: float = 1e-08
@@ -356,7 +359,7 @@ class LargeBudget__CosineScheduler__mnist_vae__sgd__Config(DefaultConfig):
     epochs: int = 50
     B: int = 64
     lr: float = 0.0006522527301234561
-    weight_decay: float = 0
+    weight_decay_sgd: float = 0
     sgd_momentum: float = 0.8086103756739638
 
 
@@ -366,7 +369,7 @@ class LargeBudget__CosineScheduler__mnist_vae__nadam__Config(DefaultConfig):
     epochs: int = 50
     B: int = 64
     lr: float = 0.0012872772278229644
-    weight_decay: float = 0
+    weight_decay_adam: float = 0
     adam_beta1: float = 0.9269694894374103
     adam_beta2: float = 0.9666118685688961
     epsilon: float = 1e-07
@@ -378,7 +381,7 @@ class LargeBudget__CosineScheduler__mnist_vae__nesterov__Config(DefaultConfig):
     epochs: int = 50
     B: int = 64
     lr: float = 0.00314891164795686
-    weight_decay: float = 0
+    weight_decay_sgd: float = 0
     sgd_momentum: float = 0.3648778989359307
 
 
@@ -388,7 +391,7 @@ class LargeBudget__CosineScheduler__fmnist_vae__adam__Config(DefaultConfig):
     epochs: int = 100
     B: int = 64
     lr: float = 0.00044145368764944787
-    weight_decay: float = 0
+    weight_decay_adam: float = 0
     adam_beta1: float = 0.9515666733432182
     adam_beta2: float = 0.9573249396037167
     epsilon: float = 1e-08
@@ -400,7 +403,7 @@ class LargeBudget__CosineScheduler__fmnist_vae__sgd__Config(DefaultConfig):
     epochs: int = 100
     B: int = 64
     lr: float = 0.00045674144235604013
-    weight_decay: float = 0
+    weight_decay_sgd: float = 0
     sgd_momentum: float = 0.8933534298877723
 
 
@@ -410,7 +413,7 @@ class LargeBudget__CosineScheduler__fmnist_vae__nadam__Config(DefaultConfig):
     epochs: int = 100
     B: int = 64
     lr: float = 0.00044145368764944787
-    weight_decay: float = 0
+    weight_decay_adam: float = 0
     adam_beta1: float = 0.9515666733432182
     adam_beta2: float = 0.9573249396037167
     epsilon: float = 1e-07
@@ -422,7 +425,7 @@ class LargeBudget__CosineScheduler__fmnist_vae__nesterov__Config(DefaultConfig):
     epochs: int = 100
     B: int = 64
     lr: float = 0.0008295993771492153
-    weight_decay: float = 0
+    weight_decay_sgd: float = 0
     sgd_momentum: float = 0.9792937560684244
 
 
@@ -432,7 +435,7 @@ class LargeBudget__CosineScheduler__fmnist_2c2d__adam__Config(DefaultConfig):
     epochs: int = 100
     B: int = 128
     lr: float = 0.0005506590009122957
-    weight_decay: float = 0
+    weight_decay_adam: float = 0
     adam_beta1: float = 0.9228528401348194
     adam_beta2: float = 0.9313559489851898
     epsilon: float = 1e-08
@@ -444,7 +447,7 @@ class LargeBudget__CosineScheduler__fmnist_2c2d__sgd__Config(DefaultConfig):
     epochs: int = 100
     B: int = 128
     lr: float = 0.0007214950794832237
-    weight_decay: float = 0
+    weight_decay_sgd: float = 0
     sgd_momentum: float = 0.9965771793774238
 
 
@@ -454,7 +457,7 @@ class LargeBudget__CosineScheduler__fmnist_2c2d__nadam__Config(DefaultConfig):
     epochs: int = 100
     B: int = 128
     lr: float = 0.0005575453980775369
-    weight_decay: float = 0
+    weight_decay_adam: float = 0
     adam_beta1: float = 0.9274200018513628
     adam_beta2: float = 0.9018417694085219
     epsilon: float = 1e-07
@@ -466,7 +469,7 @@ class LargeBudget__CosineScheduler__fmnist_2c2d__nesterov__Config(DefaultConfig)
     epochs: int = 100
     B: int = 128
     lr: float = 0.000151673306880762
-    weight_decay: float = 0
+    weight_decay_sgd: float = 0
     sgd_momentum: float = 0.997998657937712
 
 
@@ -476,7 +479,7 @@ class LargeBudget__CosineScheduler__cifar_3c3d__adam__Config(DefaultConfig):
     epochs: int = 100
     B: int = 128
     lr: float = 0.000993502390906368
-    weight_decay: float = 0.002
+    weight_decay_adam: float = 0.002
     adam_beta1: float = 0.6642763568761334
     adam_beta2: float = 0.9462110561755975
     epsilon: float = 1e-08
@@ -488,7 +491,7 @@ class LargeBudget__CosineScheduler__cifar_3c3d__sgd__Config(DefaultConfig):
     epochs: int = 100
     B: int = 128
     lr: float = 0.0014742753159914664
-    weight_decay: float = 0.002
+    weight_decay_sgd: float = 0.002
     sgd_momentum: float = 0.9970795661528186
 
 
@@ -498,7 +501,7 @@ class LargeBudget__CosineScheduler__cifar_3c3d__nadam__Config(DefaultConfig):
     epochs: int = 100
     B: int = 128
     lr: float = 0.0010165510266418728
-    weight_decay: float = 0.002
+    weight_decay_adam: float = 0.002
     adam_beta1: float = 0.7054365920445971
     adam_beta2: float = 0.8553142950540596
     epsilon: float = 1e-07
@@ -510,5 +513,5 @@ class LargeBudget__CosineScheduler__cifar_3c3d__nesterov__Config(DefaultConfig):
     epochs: int = 100
     B: int = 128
     lr: float = 0.0014742753159914664
-    weight_decay: float = 0.002
+    weight_decay_sgd: float = 0.002
     sgd_momentum: float = 0.9970795661528186

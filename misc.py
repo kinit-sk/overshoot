@@ -241,7 +241,7 @@ def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Pa
             betas=(config.adam_beta1, config.adam_beta2),
             eps=config.epsilon,
             momentum_decay=1000000000000000000000000, # Turn of momentum decay
-            weight_decay=config.weight_decay,
+            weight_decay_adam=config.weight_decay_adam,
             decoupled_weight_decay=True,
             foreach=config.optimizer_foreach,
         )
@@ -251,7 +251,7 @@ def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Pa
             lr=lr,
             betas=(config.adam_beta1, config.adam_beta2),
             eps=config.epsilon,
-            weight_decay=config.weight_decay,
+            weight_decay_adam=config.weight_decay_adam,
             overshoot=overshoot_factor,
             overshoot_delay=config.overshoot_delay,
             foreach=config.optimizer_foreach,
@@ -262,7 +262,7 @@ def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Pa
             lr=lr,
             betas=(config.adam_beta1, config.adam_beta2),
             eps=config.epsilon,
-            weight_decay=config.weight_decay,
+            weight_decay_adam=config.weight_decay_adam,
             cosine_target=config.target_cosine_similarity,
             foreach=config.optimizer_foreach,
         )
@@ -272,7 +272,7 @@ def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Pa
             lr=lr,
             betas=(config.adam_beta1, config.adam_beta2),
             eps=config.epsilon,
-            weight_decay=config.weight_decay,
+            weight_decay_adam=config.weight_decay_adam,
             overshoot=overshoot_factor,
             foreach=config.optimizer_foreach,
         )
@@ -283,7 +283,7 @@ def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Pa
             lr=lr,
             betas=(adam_beta1, config.adam_beta2),
             eps=config.epsilon,
-            weight_decay=config.weight_decay,
+            weight_decay_adam=config.weight_decay_adam,
             foreach=config.optimizer_foreach,
         )
     elif "sgd_adaptive" in opt_name:
@@ -291,7 +291,7 @@ def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Pa
             param_groups,
             lr=lr,
             momentum=config.sgd_momentum,
-            weight_decay=config.weight_decay,
+            weight_decay_sgd=config.weight_decay_sgd,
             cosine_target=config.target_cosine_similarity,
             foreach=config.optimizer_foreach,
         )
@@ -300,7 +300,7 @@ def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Pa
             param_groups,
             lr=lr,
             momentum=config.sgd_momentum,
-            weight_decay=config.weight_decay,
+            weight_decay_sgd=config.weight_decay_sgd,
             overshoot=overshoot_factor,
             foreach=config.optimizer_foreach,
         )
@@ -309,7 +309,7 @@ def create_optimizer(opt_name: str, param_groups: Iterator[torch.nn.parameter.Pa
             param_groups,
             lr=lr,
             momentum=0 if opt_name == "sgd" else config.sgd_momentum,
-            weight_decay=config.weight_decay,
+            weight_decay_sgd=config.weight_decay_sgd,
             nesterov="nesterov" in opt_name,
             foreach=config.optimizer_foreach,
         )

@@ -6,8 +6,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter # type: ignore
 
 from misc import (get_model_size, init_dataset, init_model, supported_datasets,
-                  supported_models)
-from misc import optimizers_map
+                  supported_models, optimizers_map)
 from train import OvershootTrainer
 from trainer_configs import get_trainer_config
 
