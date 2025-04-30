@@ -1,18 +1,17 @@
 #!/bin/bash
 set -xe
 
-
 # Setup
-MODEL="mlp"
-DATASET="housing"
+MODEL="vae"
+DATASET="mnist"
 SEED="42"
 # In paper used: 0.001 (however with no learning rate scheduler)
-LRS=(0.002 0.004 0.008 0.016 0.032 0.064)
+LRS=(0.0005 0.001 0.002 0.004 0.008 0.016)
 
 
 # Intermediate variables
 PYTHON_ARGS_BASE="--model ${MODEL} --dataset ${DATASET} --seed ${SEED}"
-EXPERIMENT_BASE_NAME="hyperparameter-finetuning/mlp-ca"
+EXPERIMENT_BASE_NAME="hyperparameter-finetuning/${MODEL}-${DATASET}"
 
 for LR in "${LRS[@]}"; do
     echo "Processing: ${LR}"
@@ -23,4 +22,3 @@ for LR in "${LRS[@]}"; do
     opt_name="adamW"
     python main.py ${PYTHON_ARGS_BASE} --experiment_name "${EXPERIMENT_BASE_NAME}/${opt_name}" --job_name "${opt_name}-lr=${LR}" --opt_name ${opt_name} --config_override lr=${LR} use_lr_scheduler=True
 done
-
