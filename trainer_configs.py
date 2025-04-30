@@ -25,7 +25,7 @@ class DefaultConfig:
     precision: Literal["16-mixed", "default", "high"] = "16-mixed" if torch.cuda.device_count() > 0 else "default"
     use_peft: bool = True
     log_gpu: bool = False
-    mlp_hidden_size: list = field(default_factory=lambda: [128, 64])
+    mlp_hidden_size: list = field(default_factory=lambda: [128, 64]) # type: ignore
     
     def override(self, override: Optional[Sequence[str]] = None) -> Self:
         if override is None:
