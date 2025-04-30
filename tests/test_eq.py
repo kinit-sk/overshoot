@@ -56,7 +56,7 @@ eq_optimizer_setups = [
 ])
 def test_eqvivalence(model, dataset, seed, overshoot, run1, run2):
     args = Args(seed=seed, model=model, dataset=dataset, overshoot_factor=overshoot)
-    args.config_override = ["precision=high", "max_steps=100"]
+    args.config_override = ["precision=high", "max_steps=100", "weight_decay_adam=0"]
     print(f"\n=== Testing eqvivalence of:")
     
     args.opt_name = run1[0]
