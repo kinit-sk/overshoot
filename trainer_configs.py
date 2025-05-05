@@ -193,9 +193,10 @@ class _2c2dFashionSgdConfig(DefaultConfig):
     epochs: int = 50
     
 ### TABLE 1: 2nd row config
+# In paper `epochs=10`
 @dataclass
 class _2c2dFashionAdamConfig(DefaultConfig):
-    epochs: int = 10
+    epochs: int = 50
     
 ### TABLE 1: 3nd row config
 @dataclass

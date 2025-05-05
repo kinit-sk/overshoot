@@ -327,28 +327,28 @@ def create_housing_datatset(val_split: float = 0.2, seed: int = 42) -> DatasetTy
     data = fetch_california_housing()
     X, y = data.data, data.target
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=val_split, random_state=seed)
-    # X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val, test_size=val_split, random_state=42)
+    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=val_split, random_state=seed)
     
     # Normalize the data
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
-    # X_val = scaler.transform(X_val)
+    X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
     # Convert to PyTorch tensors
     X_train_tensor = torch.tensor(X_train, dtype=torch.get_default_dtype())
     y_train_tensor = torch.tensor(y_train, dtype=torch.get_default_dtype()).view(-1, 1)
-    # X_val_tensor = torch.tensor(X_val, dtype=torch.get_default_dtype())
-    # y_val_tensor = torch.tensor(y_val, dtype=torch.get_default_dtype()).view(-1, 1)
+    X_val_tensor = torch.tensor(X_val, dtype=torch.get_default_dtype())
+    y_val_tensor = torch.tensor(y_val, dtype=torch.get_default_dtype()).view(-1, 1)
     X_test_tensor = torch.tensor(X_test, dtype=torch.get_default_dtype())
     y_test_tensor = torch.tensor(y_test, dtype=torch.get_default_dtype()).view(-1, 1)
     
     train_data = list(zip(list(torch.unbind(X_train_tensor, dim=0)), list(torch.unbind(y_train_tensor, dim=0))))
-    # val_data = list(zip(list(torch.unbind(X_val_tensor, dim=0)), list(torch.unbind(y_val_tensor, dim=0))))
+    val_data = list(zip(list(torch.unbind(X_val_tensor, dim=0)), list(torch.unbind(y_val_tensor, dim=0))))
     test_data = list(zip(list(torch.unbind(X_test_tensor, dim=0)), list(torch.unbind(y_test_tensor, dim=0))))
 
     train_dataset = UnifiedDatasetInterface(train_data, 1, False)
-    # val_dataset = UnifiedDatasetInterface(val_data, 1, False)
+    val_dataset = UnifiedDatasetInterface(val_data, 1, False)
     test_dataset = UnifiedDatasetInterface(test_data, 1, False)
     return train_dataset, None, test_dataset
     
