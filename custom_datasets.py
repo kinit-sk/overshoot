@@ -350,7 +350,7 @@ def create_housing_datatset(val_split: float = 0.2, seed: int = 42) -> DatasetTy
     train_dataset = UnifiedDatasetInterface(train_data, 1, False)
     val_dataset = UnifiedDatasetInterface(val_data, 1, False)
     test_dataset = UnifiedDatasetInterface(test_data, 1, False)
-    return train_dataset, None, test_dataset
+    return train_dataset, val_dataset, test_dataset
     
     
 def create_energy_datatset(file: str = ".datasets/energy_efficiency_data.csv") -> DatasetType:
