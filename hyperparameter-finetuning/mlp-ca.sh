@@ -8,7 +8,7 @@ DATASET="housing"
 SEED="1001"
 
 ## In paper used: 0.001 (however with no learning rate scheduler)
-LRS=(0.002 0.004 0.008 0.016 0.032 0.064)
+LRS=(0.001 0.002 0.004 0.008 0.016 0.032)
 ## In paper used: 64
 BATCHES=(32 64 128)
 ## In paper used: 0.9
