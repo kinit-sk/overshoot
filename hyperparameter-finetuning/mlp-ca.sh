@@ -17,7 +17,7 @@ MOMENTUMS=(0.85 0.9 0.95)
 
 # Intermediate variables
 PYTHON_ARGS_BASE="--model ${MODEL} --dataset ${DATASET} --seed ${SEED}"
-EXPERIMENT_BASE_NAME="hyperparameter-finetuning-advance/mlp-ca"
+EXPERIMENT_BASE_NAME="hyperparameter-finetuning-advance/${MODEL}-${DATASET}"
 
 
 for BATCH in "${BATCHES[@]}"; do
@@ -25,11 +25,11 @@ for BATCH in "${BATCHES[@]}"; do
         for MOMENTUM in "${MOMENTUMS[@]}"; do
             opt_name="sgd_momentum"
             job_name="${opt_name}-lr=${LR}-batch=${BATCH}-momentum=${MOMENTUM}"
-            python main.py ${PYTHON_ARGS_BASE} --experiment_name "${EXPERIMENT_BASE_NAME}/${opt_name}" --job_name ${job_name} --opt_name ${opt_name} --config_override use_lr_scheduler=True lr=${LR} batch=${BATCH} sgd_momentum=${MOMENTUM} 
+            python main.py ${PYTHON_ARGS_BASE} --experiment_name "${EXPERIMENT_BASE_NAME}/${opt_name}" --job_name ${job_name} --opt_name ${opt_name} --config_override use_lr_scheduler=True lr=${LR} B=${BATCH} sgd_momentum=${MOMENTUM} 
             
             opt_name="adamW"
             job_name="${opt_name}-lr=${LR}-batch=${BATCH}-momentum=${MOMENTUM}"
-            python main.py ${PYTHON_ARGS_BASE} --experiment_name "${EXPERIMENT_BASE_NAME}/${opt_name}" --job_name ${job_name} --opt_name ${opt_name} --config_override use_lr_scheduler=True lr=${LR} batch=${BATCH} adam_beta1=${MOMENTUM} 
+            python main.py ${PYTHON_ARGS_BASE} --experiment_name "${EXPERIMENT_BASE_NAME}/${opt_name}" --job_name ${job_name} --opt_name ${opt_name} --config_override use_lr_scheduler=True lr=${LR} B=${BATCH} adam_beta1=${MOMENTUM} 
         done
     done
 done
