@@ -85,8 +85,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
     return defaultdict(lambda: DefaultConfig, {
         ("mlp", "boston", "sgd"): BostonConfig,
         ("mlp", "boston", "adam"): BostonConfig,
-        ("mlp", "housing", "sgd"): HousingConfig, ### TABLE 1: 1nd row config
-        ("mlp", "housing", "adam"): HousingConfig, ### TABLE 1: 1nd row config
+        ("mlp", "housing", "sgd"): HousingSgdConfig, ### TABLE 1: 1nd row config
+        ("mlp", "housing", "adam"): HousingAdamConfig, ### TABLE 1: 1nd row config
         ("mlp", "energy", "sgd"): EnergyConfig,
         ("mlp", "energy", "adam"): EnergyConfig,
         ("mlp", "mnist", "sgd"): MlpMnistConfig,
@@ -103,10 +103,10 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
         ("resnet", "mnist", "adam"): ResnetMnistAdamConfig,
         ("resnet", "cifar", "sgd"): ResnetCifartSgdConfig,
         ("resnet", "cifar", "adam"): ResnetCifartAdamConfig,
-        ("vae", "mnist", "sgd"): VaeMnistConfig,
-        ("vae", "mnist", "adam"): VaeMnistConfig,
-        ("vae", "fmnist", "sgd"): VaeFashionConfig,
-        ("vae", "fmnist", "adam"): VaeFashionConfig,
+        ("vae", "mnist", "sgd"): VaeMnistSgdConfig,
+        ("vae", "mnist", "adam"): VaeMnistAdamConfig,
+        ("vae", "fmnist", "sgd"): VaeFashionSgdConfig,
+        ("vae", "fmnist", "adam"): VaeFashionAdamConfig,
         ("gpt_hf", "mnli", "sgd"): GptMnliSgdConfig,
         ("gpt_hf", "mnli", "adam"): GptMnliAdamConfig,
         ("gpt_hf", "sst", "adam"): GptSstAdamConfig,
@@ -140,11 +140,26 @@ class BostonConfig(DefaultConfig):
     mlp_hidden_size = [128, 64]
     
 ### TABLE 1: 1nd row config
-# When using SGD we do not manage to overfit, but that is fine...
 @dataclass
-class HousingConfig(DefaultConfig):
+class HousingSgdConfig(DefaultConfig):
     epochs: int = 200
     mlp_hidden_size = [200, 150]
+    # Base on finetuning, validation loss as metric
+    use_lr_scheduler: bool = True
+    B: int = 32
+    lr: float = 0.008
+    sgd_momentum: float = 0.9
+    
+### TABLE 1: 1nd row config
+@dataclass
+class HousingAdamConfig(DefaultConfig):
+    epochs: int = 200
+    mlp_hidden_size = [200, 150]
+    # Base on finetuning, validation loss as metric
+    use_lr_scheduler: bool = True
+    B: int = 64
+    lr: float = 0.002
+    adam_beta1: float = 0.95
         
 @dataclass
 class EnergyConfig(DefaultConfig):
@@ -191,12 +206,22 @@ class _2c2dMnistAdamConfig(DefaultConfig):
 @dataclass
 class _2c2dFashionSgdConfig(DefaultConfig):
     epochs: int = 50
+    # Base on finetuning, validation accuracy as metric
+    use_lr_scheduler: bool = True
+    B: int = 32
+    lr: float = 0.008
+    sgd_momentum: float = 0.95
     
 ### TABLE 1: 2nd row config
 # In paper `epochs=10`
 @dataclass
 class _2c2dFashionAdamConfig(DefaultConfig):
     epochs: int = 50
+    # Base on finetuning, validation accuracy as metric
+    use_lr_scheduler: bool = True
+    B: int = 64
+    lr: float = 0.001
+    adam_beta1: float = 0.85
     
 ### TABLE 1: 3nd row config
 @dataclass
@@ -240,13 +265,43 @@ class ResnetCifartAdamConfig(DefaultConfig):
     
 ### TABLE 1: 4nd row config
 @dataclass
-class VaeMnistConfig(DefaultConfig):
+class VaeMnistSgdConfig(DefaultConfig):
     epochs: int = 50
+    # Base on finetuning, validation loss as metric
+    use_lr_scheduler: bool = True
+    B: int = 32
+    lr: float = 0.002
+    sgd_momentum: float = 0.85
+    
+### TABLE 1: 4nd row config
+@dataclass
+class VaeMnistAdamConfig(DefaultConfig):
+    epochs: int = 50
+    # Base on finetuning, validation loss as metric
+    use_lr_scheduler: bool = True
+    B: int = 32
+    lr: float = 0.0005
+    adam_beta1: float = 0.85
     
 ### TABLE 1: 5nd row config
 @dataclass
-class VaeFashionConfig(DefaultConfig):
+class VaeFashionSgdConfig(DefaultConfig):
     epochs: int = 100
+    # Base on finetuning, validation loss as metric
+    use_lr_scheduler: bool = True
+    B: int = 32
+    lr: float = 0.002
+    sgd_momentum: float = 0.85
+    
+### TABLE 1: 5nd row config
+@dataclass
+class VaeFashionAdamConfig(DefaultConfig):
+    epochs: int = 100
+    # Base on finetuning, validation loss as metric
+    use_lr_scheduler: bool = True
+    B: int = 64
+    lr: float = 0.001
+    adam_beta1: float = 0.85
     
     
 ################################################################################
