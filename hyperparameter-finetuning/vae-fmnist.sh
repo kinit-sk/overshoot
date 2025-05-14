@@ -23,6 +23,8 @@ EXPERIMENT_BASE_NAME="hyperparameter-finetuning-advance/${MODEL}-${DATASET}"
 for BATCH in "${BATCHES[@]}"; do
     for LR in "${LRS[@]}"; do
         for MOMENTUM in "${MOMENTUMS[@]}"; do
+            echo "Processing: ${LR} ${BATCH} ${MOMENTUM}"
+            
             opt_name="sgd_momentum"
             job_name="${opt_name}-lr=${LR}-batch=${BATCH}-momentum=${MOMENTUM}"
             python main.py ${PYTHON_ARGS_BASE} --experiment_name "${EXPERIMENT_BASE_NAME}/${opt_name}" --job_name ${job_name} --opt_name ${opt_name} --config_override use_lr_scheduler=True lr=${LR} B=${BATCH} sgd_momentum=${MOMENTUM} 
