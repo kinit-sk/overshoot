@@ -191,9 +191,19 @@ class OvershootTrainer:
 
         output = self._model_forward(self.base_model, batch)
         output["loss"] /= self.config.accumulate_grad_batches 
-        output["loss"].backward()
+        
+        if self.scaler:
+            self.scaler.scale(output["loss"]).backward()
+        else:
+            output["loss"].backward()
+            
         if self._is_update_batch(batch_id):
-            optimizer.step()
+            if self.scaler:
+                self.scaler.step(optimizer)
+                self.scaler.update()
+            else:
+                optimizer.step()
+                
             optimizer.zero_grad()
             for scheduler in self.lr_schedulers:
                 scheduler.step()
@@ -298,12 +308,14 @@ class OvershootTrainer:
         )
 
     def configure_optimizers(self) -> None:
-        # self.optimizers, self.lr_schedulers = [], []
+        self.scaler = None
         self.optimizers = []
         self.lr_schedulers: list[torch.optim.lr_scheduler.LRScheduler] = []
         params_lr = [(self.base_model.parameters(), self.config.lr)]
         if self.args.two_models:
             params_lr.append((self.overshoot_model.parameters(), self.config.lr * (self.args.overshoot_factor + 1)))
+        elif self.config.precision == "16-mixed": # TODO: Scaler for two model is not working
+            self.scaler = torch.GradScaler(device="cuda")
 
         for params, lr in params_lr:
             self.optimizers.append(
