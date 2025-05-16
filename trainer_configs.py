@@ -17,6 +17,7 @@ class DefaultConfig:
     sgd_momentum: float = 0.9
     weight_decay_sgd: float = 0.0 # pytorch default
     weight_decay_adam: float = 0.01 # pytorch default
+    grad_clip: Optional[float] = 1.0
     overshoot_delay: int = 50
     optimizer_foreach: Optional[bool] = None
     target_cosine_similarity: float = 0.1

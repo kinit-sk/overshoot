@@ -199,9 +199,14 @@ class OvershootTrainer:
             
         if self._is_update_batch(batch_id):
             if self.scaler:
+                self.scaler.unscale_(optimizer)
+                if self.config.grad_clip:
+                    torch.nn.utils.clip_grad_norm_(self.base_model.parameters(), self.config.grad_clip)
                 self.scaler.step(optimizer)
                 self.scaler.update()
             else:
+                if self.config.grad_clip:
+                    torch.nn.utils.clip_grad_norm_(self.base_model.parameters(), self.config.grad_clip)
                 optimizer.step()
                 
             optimizer.zero_grad()
