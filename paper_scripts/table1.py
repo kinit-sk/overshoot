@@ -22,9 +22,9 @@ optimizers_names_mapping = {
 
 task_name_mapping = {
     "mlp_housing": "MLP-CA",
-    "vae_f-mnist": "VAE-FM",
+    "vae_fmnist": "VAE-FM",
     "vae_mnist": "VAE-M",
-    "2c2d_f-mnist": "2c2d-FM",
+    "2c2d_fmnist": "2c2d-FM",
     "3c3d_cifar10": "3c3d-C10",
     "resnet18_cifar100": "ResNet-C100",
     "gpt_hf_qqp": "GPT-2",
