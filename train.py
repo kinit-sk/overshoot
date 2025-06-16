@@ -227,6 +227,10 @@ class OvershootTrainer:
 
         if self._is_update_batch(batch_id):
 
+            # 0) (Optional) Clip gradients
+            if self.config.grad_clip:
+                torch.nn.utils.clip_grad_norm_(self.base_model.parameters(), self.config.grad_clip)
+
             # 1) Gradients OVERSHOOT -> BASE
             for param1, param2 in zip(self.overshoot_model.parameters(), self.base_model.parameters()):
                 if param1.grad is not None:

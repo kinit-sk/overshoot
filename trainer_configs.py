@@ -53,6 +53,8 @@ class DefaultConfig:
                     setattr(self, key, True)
                 elif value == 'False':
                     setattr(self, key, False)
+            elif value == "None":
+                setattr(self, key, None)
             else:
                 setattr(self, key, override_type(value))
         return self
