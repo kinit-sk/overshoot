@@ -23,7 +23,7 @@ class Args:
     # Dont use this ones
     experiment_name: str = "test"
     job_name: str = "test"
-    compute_model_distance: bool = False
+    compute_model_distance_f: int = 0
     compute_base_model_loss: bool = False
     compute_cosine: bool = False
     from_large_budget: bool = False

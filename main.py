@@ -74,7 +74,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--opt_name", type=str, required=True, help=f"Supported optimizers are: {', '.join(optimizers_map.keys())}"
     )
-    parser.add_argument("--compute_model_distance", action=argparse.BooleanOptionalAction, required=False)
+    parser.add_argument("--compute_model_distance_f", type=int, default=0, help="Compute model distance every n-step")
     parser.add_argument(
         "--compute_base_model_loss", action=argparse.BooleanOptionalAction, required=False, default=True
     )

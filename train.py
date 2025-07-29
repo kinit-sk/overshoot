@@ -48,7 +48,7 @@ class OvershootTrainer:
             self.previous_params, self.previous_params_est = torch.empty(0), torch.empty(0)
             self.last_update, self.last_update_est = torch.empty(0), torch.empty(0)
             self.update_cosine, self.update_cosine_est = [0.0], [0.0]
-        if self.args.compute_model_distance:
+        if self.args.compute_model_distance_f:
             self.past_weights: list[torch.Tensor] = []
 
         # Load Dataloaders
@@ -100,7 +100,7 @@ class OvershootTrainer:
             self.past_weights.pop(0)
 
         decay_factor = self.config.sgd_momentum if "sgd" in self.args.opt_name else self.config.adam_beta1
-        if (self.current_step + 1) % 50 == 0:
+        if self.current_step % self.args.compute_model_distance_f == 0:
             return compute_model_distance(latest_base_weights, self.past_weights, decay_factor)
         else:
             return -1
@@ -253,7 +253,7 @@ class OvershootTrainer:
 
     def _training_step(self, batch: dict[str, torch.Tensor], epoch: int, batch_id: int) -> None:
         # We compute model distances before model update to have the same behaviour for baseline and overshoot
-        if self.args.compute_model_distance:
+        if self.args.compute_model_distance_f and self.current_step:
             model_distance = self._compute_model_distance()
 
         if self.args.compute_cosine:
@@ -294,7 +294,8 @@ class OvershootTrainer:
         for i, scheduler in enumerate(self.lr_schedulers):
             stats[f"lr_{i}"] = scheduler.get_last_lr()[-1]
 
-        if self.args.compute_model_distance:
+        # if self.args.compute_model_distance_f:
+        if 'model_distance' in locals():
             stats["model_distance"] = model_distance
 
         self.train_stats.append(stats)
