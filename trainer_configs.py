@@ -94,6 +94,8 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
         ("mlp", "energy", "adam"): EnergyConfig,
         ("mlp", "mnist", "sgd"): MlpMnistConfig,
         ("mlp", "mnist", "adam"): MlpMnistConfig, # TODO
+        ("mlp", "fmnist", "sgd"): MlpFmnistConfig,
+        ("mlp", "fmnist", "adam"): MlpFmnistConfig, # TODO
         ("mlp", "cifar", "sgd"): MlpCifarSgdConfig,
         ("mlp", "cifar", "adam"): MlpCifarSgdConfig, # TODO
         ("2c2d", "mnist", "sgd"): _2c2dMnistSgdConfig,
@@ -186,8 +188,19 @@ class EnergyConfig2(DefaultConfig):
 
 @dataclass
 class MlpMnistConfig(DefaultConfig):
-    epochs: int = 50
-    mlp_hidden_size = [512, 256]
+    B: int = 64
+    lr: int = 0.01
+    use_lr_scheduler: bool = True
+    epochs: int = 15
+    mlp_hidden_size = [256, 128]
+    
+@dataclass
+class MlpFmnistConfig(DefaultConfig):
+    B: int = 64
+    lr: int = 0.01
+    use_lr_scheduler: bool = True
+    epochs: int = 15
+    mlp_hidden_size = [256, 128]
     
 @dataclass
 class MlpCifarSgdConfig(DefaultConfig):
@@ -198,8 +211,11 @@ class MlpCifarSgdConfig(DefaultConfig):
         
 @dataclass
 class _2c2dMnistSgdConfig(DefaultConfig):
-    lr: float = 0.01
-    epochs: int = 50
+    B: int = 64
+    lr: int = 0.01
+    use_lr_scheduler: bool = True
+    epochs: int = 15
+    mlp_hidden_size = [256, 128]
         
 @dataclass
 class _2c2dMnistAdamConfig(DefaultConfig):

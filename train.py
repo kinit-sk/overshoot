@@ -100,7 +100,7 @@ class OvershootTrainer:
             self.past_weights.pop(0)
 
         decay_factor = self.config.sgd_momentum if "sgd" in self.args.opt_name else self.config.adam_beta1
-        if self.current_step % self.args.compute_model_distance_f == 0:
+        if decay_factor > 0 and self.current_step % self.args.compute_model_distance_f == 0:
             return compute_model_distance(latest_base_weights, self.past_weights, decay_factor)
         else:
             return -1
