@@ -142,13 +142,13 @@ def get_trainer_config(model_name: str, dataset_name: str, opt_name: str, overri
 class BostonConfig(DefaultConfig):
     B: int = 32
     epochs: int = 100
-    mlp_hidden_size = [128, 64]
+    mlp_hidden_size: list = field(default_factory=lambda: [128, 64]) # type: ignore
     
 ### TABLE 1: 1nd row config
 @dataclass
 class HousingSgdConfig(DefaultConfig):
     epochs: int = 200
-    mlp_hidden_size = [200, 150]
+    mlp_hidden_size: list = field(default_factory=lambda: [200, 150]) # type: ignore
     # Base on finetuning, validation loss as metric
     use_lr_scheduler: bool = True
     B: int = 32
@@ -159,7 +159,7 @@ class HousingSgdConfig(DefaultConfig):
 @dataclass
 class HousingAdamConfig(DefaultConfig):
     epochs: int = 200
-    mlp_hidden_size = [200, 150]
+    mlp_hidden_size: list = field(default_factory=lambda: [200, 150]) # type: ignore
     # Base on finetuning, validation loss as metric
     use_lr_scheduler: bool = True
     B: int = 64
@@ -170,7 +170,7 @@ class HousingAdamConfig(DefaultConfig):
 class EnergyConfig(DefaultConfig):
     B: int = 32
     epochs: int = 250
-    mlp_hidden_size = [100, 50]
+    mlp_hidden_size: list = field(default_factory=lambda: [100, 50]) # type: ignore
         
 
 # Using this config to overfit the energy dataset
@@ -179,7 +179,7 @@ class EnergyConfig2(DefaultConfig):
     max_steps: int = 5000
     epochs: int = 999999
     log_every_n_steps: int = 50
-    mlp_hidden_size = [50]
+    mlp_hidden_size: list = field(default_factory=lambda: [50]) # type: ignore
         
         
 ################################################################################
@@ -192,7 +192,7 @@ class MlpMnistConfig(DefaultConfig):
     lr: int = 0.01
     use_lr_scheduler: bool = True
     epochs: int = 15
-    mlp_hidden_size = [256, 128]
+    mlp_hidden_size: list = field(default_factory=lambda: [128, 64]) # type: ignore
     
 @dataclass
 class MlpFmnistConfig(DefaultConfig):
@@ -200,13 +200,13 @@ class MlpFmnistConfig(DefaultConfig):
     lr: int = 0.01
     use_lr_scheduler: bool = True
     epochs: int = 15
-    mlp_hidden_size = [256, 128]
+    mlp_hidden_size: list = field(default_factory=lambda: [256, 128]) # type: ignore
     
 @dataclass
 class MlpCifarSgdConfig(DefaultConfig):
     lr: float = 5e-3
     epochs: int = 5
-    mlp_hidden_size = [512, 256]
+    mlp_hidden_size: list = field(default_factory=lambda: [512, 256]) # type: ignore
     
         
 @dataclass
@@ -215,7 +215,7 @@ class _2c2dMnistSgdConfig(DefaultConfig):
     lr: int = 0.01
     use_lr_scheduler: bool = True
     epochs: int = 15
-    mlp_hidden_size = [256, 128]
+    mlp_hidden_size: list = field(default_factory=lambda: [256, 128]) # type: ignore
         
 @dataclass
 class _2c2dMnistAdamConfig(DefaultConfig):
